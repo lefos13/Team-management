@@ -106,6 +106,7 @@ The production bootstrap script is [deploy/production/deploy.sh](/Users/eevangel
 - runs Prisma generate and `migrate deploy`
 - builds client and server
 - starts or reloads the server with PM2 using [deploy/production/ecosystem.config.cjs](/Users/eevangelinos/Documents/Team management/deploy/production/ecosystem.config.cjs)
+- serves the built React app from the same Fastify process when `client/dist` exists
 - leaves reverse proxy setup to your existing nginx / proxy configuration
 
 Typical production flow:
@@ -118,7 +119,7 @@ Typical production flow:
    bash deploy/production/deploy.sh
    ```
 
-After the script finishes, point your reverse proxy to the PM2-managed app separately. The Fastify server runs from `server/dist/index.js` using the `PORT` defined in `server/.env.production`, and the built frontend assets are available in `client/dist` if you want your proxy or web server to serve them directly.
+After the script finishes, point your reverse proxy to the PM2-managed app separately. The Fastify server runs from `server/dist/index.js` using the `PORT` defined in `server/.env.production`, serves `/api/*` itself, and also serves the built frontend from `client/dist` for all non-API routes.
 
 If you use Gmail, create a Google App Password for `softaware.studios@gmail.com` and place it in `GMAIL_APP_PASSWORD`. The app uses Nodemailer with Gmail transport when `EMAIL_PROVIDER=gmail`.
 

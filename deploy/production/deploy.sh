@@ -83,4 +83,4 @@ export PM2_APP_NAME
 pm2 startOrReload "$APP_DIR/deploy/production/ecosystem.config.cjs"
 pm2 save
 sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null || true
-echo "Deployment completed. PM2 is running the app; configure your reverse proxy separately."
+echo "Deployment completed. PM2 is running the API and built frontend on the same port; configure your reverse proxy separately."
