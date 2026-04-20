@@ -2,7 +2,9 @@
 import type { AuthActionResponseDTO, UserDTO } from "@team-management/shared";
 import {
   loginInputSchema,
+  requestPasswordResetInputSchema,
   registerInputSchema,
+  resetPasswordInputSchema,
   resendVerificationInputSchema,
   verifyEmailInputSchema,
 } from "@team-management/shared";
@@ -18,13 +20,15 @@ import {
   hashOtpCode,
   hashPassword,
   hashSessionToken,
+  passwordResetPurpose,
   sessionCookieName,
   setSessionCookie,
   verifyPassword,
 } from "../lib/auth.js";
 import { badRequest, conflict, forbidden, unauthorized } from "../lib/errors.js";
 import { mapUser } from "../lib/mappers.js";
-import { issueVerificationCode } from "../lib/otp.js";
+import { sendPasswordResetEmail } from "../lib/mail.js";
+import { issueOtpCode, issueVerificationCode } from "../lib/otp.js";
 
 type UnsignCookie = (value: string) => {
   valid: boolean;
@@ -43,6 +47,54 @@ async function replaceExistingSession(cookieValue: string | undefined, unsignCoo
       where: { tokenHash: hashSessionToken(unsigned.value) },
     });
   }
+}
+
+/*
+Centralize OTP lookup and validation so verification and password reset enforce
+the same expiry and attempt handling without duplicating branching in each route.
+*/
+async function getActiveOtpToken(userId: string, purpose: string) {
+  return prisma.emailVerificationToken.findFirst({
+    where: {
+      userId,
+      purpose,
+      consumedAt: null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
+
+async function validateOtpToken(userId: string, purpose: string, otp: string, maxAttempts: number) {
+  const token = await getActiveOtpToken(userId, purpose);
+
+  if (!token) {
+    throw badRequest("No active verification code was found. Request a new code.");
+  }
+
+  if (token.expiresAt.getTime() <= Date.now()) {
+    throw badRequest("Verification code expired. Request a new code.");
+  }
+
+  if (token.attempts >= maxAttempts) {
+    throw forbidden("Too many verification attempts. Request a new code.");
+  }
+
+  if (token.codeHash !== hashOtpCode(otp)) {
+    await prisma.emailVerificationToken.update({
+      where: { id: token.id },
+      data: {
+        attempts: {
+          increment: 1,
+        },
+      },
+    });
+
+    throw badRequest("Invalid verification code.");
+  }
+
+  return token;
 }
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -116,41 +168,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         };
       }
 
-      const token = await prisma.emailVerificationToken.findFirst({
-        where: {
-          userId: user.id,
-          purpose: emailVerificationPurpose,
-          consumedAt: null,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      if (!token) {
-        throw badRequest("No active verification code was found. Request a new code.");
-      }
-
-      if (token.expiresAt.getTime() <= Date.now()) {
-        throw badRequest("Verification code expired. Request a new code.");
-      }
-
-      if (token.attempts >= config.OTP_MAX_ATTEMPTS) {
-        throw forbidden("Too many verification attempts. Request a new code.");
-      }
-
-      if (token.codeHash !== hashOtpCode(otp)) {
-        await prisma.emailVerificationToken.update({
-          where: { id: token.id },
-          data: {
-            attempts: {
-              increment: 1,
-            },
-          },
-        });
-
-        throw badRequest("Invalid verification code.");
-      }
+      const token = await validateOtpToken(user.id, emailVerificationPurpose, otp, config.OTP_MAX_ATTEMPTS);
 
       await prisma.$transaction([
         prisma.user.update({
@@ -214,6 +232,91 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         status: "verification_required",
         email: user.email,
         message: "A new verification code has been sent.",
+      };
+    },
+  );
+
+  app.post(
+    "/auth/request-password-reset",
+    {
+      schema: {
+        body: requestPasswordResetInputSchema,
+      },
+    },
+    async (request): Promise<AuthActionResponseDTO> => {
+      const { email } = requestPasswordResetInputSchema.parse(request.body);
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (user?.emailVerified) {
+        await issueOtpCode({
+          userId: user.id,
+          email: user.email,
+          purpose: passwordResetPurpose,
+          sendCode: sendPasswordResetEmail,
+        });
+      }
+
+      return {
+        status: "password_reset_requested",
+        email,
+        message: "If the account exists and is verified, a password reset code has been sent.",
+      };
+    },
+  );
+
+  app.post(
+    "/auth/reset-password",
+    {
+      schema: {
+        body: resetPasswordInputSchema,
+      },
+    },
+    async (request): Promise<AuthActionResponseDTO> => {
+      const { email, otp, password } = resetPasswordInputSchema.parse(request.body);
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user || !user.emailVerified) {
+        throw badRequest("Invalid password reset request.");
+      }
+
+      const token = await validateOtpToken(user.id, passwordResetPurpose, otp, config.OTP_MAX_ATTEMPTS);
+      const passwordHash = await hashPassword(password);
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordHash,
+          },
+        }),
+        prisma.emailVerificationToken.update({
+          where: { id: token.id },
+          data: {
+            consumedAt: new Date(),
+          },
+        }),
+        prisma.emailVerificationToken.deleteMany({
+          where: {
+            userId: user.id,
+            purpose: passwordResetPurpose,
+            id: { not: token.id },
+          },
+        }),
+        prisma.session.deleteMany({
+          where: {
+            userId: user.id,
+          },
+        }),
+      ]);
+
+      return {
+        status: "password_reset",
+        email: user.email,
+        message: "Password updated. Sign in with your new password.",
       };
     },
   );

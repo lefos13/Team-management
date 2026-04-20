@@ -68,3 +68,20 @@ export async function sendVerificationEmail(email: string, otp: string): Promise
     text: `Your Team Management verification code is ${otp}. It expires in ${config.OTP_EXPIRY_MINUTES} minutes.`,
   });
 }
+
+/*
+Use a reset-specific message so the inbox makes it clear the OTP changes the
+account password, while mail transport behavior stays shared with verification.
+*/
+export async function sendPasswordResetEmail(email: string, otp: string): Promise<void> {
+  const config = getConfig();
+  const mailer = getTransporter();
+
+  await mailer.sendMail({
+    from: config.EMAIL_FROM,
+    to: email,
+    replyTo: config.EMAIL_REPLY_TO,
+    subject: "Reset your Team Management password",
+    text: `Your Team Management password reset code is ${otp}. It expires in ${config.OTP_EXPIRY_MINUTES} minutes.`,
+  });
+}

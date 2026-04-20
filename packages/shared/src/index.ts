@@ -2,7 +2,12 @@ import { z } from "zod";
 
 export const taskStatusValues = ["todo", "in_progress", "blocked", "done"] as const;
 export const projectStatusValues = ["active", "on_hold", "completed"] as const;
-export const authStatusValues = ["verification_required", "verified"] as const;
+export const authStatusValues = [
+  "verification_required",
+  "verified",
+  "password_reset_requested",
+  "password_reset",
+] as const;
 
 export const taskStatusSchema = z.enum(taskStatusValues);
 export const projectStatusSchema = z.enum(projectStatusValues);
@@ -22,6 +27,20 @@ export const verifyEmailInputSchema = z.object({
 
 export const resendVerificationInputSchema = z.object({
   email: z.string().email(),
+});
+
+/*
+Keep reset-password requests in the shared contract so the client and server
+validate the same email, OTP, and replacement-password rules.
+*/
+export const requestPasswordResetInputSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordInputSchema = z.object({
+  email: z.string().email(),
+  otp: z.string().trim().regex(/^\d{6}$/),
+  password: z.string().min(8),
 });
 
 export const projectInputSchema = z.object({
@@ -179,6 +198,8 @@ export type LoginInput = z.infer<typeof loginInputSchema>;
 export type RegisterInput = z.infer<typeof registerInputSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailInputSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationInputSchema>;
+export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetInputSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 export type ProjectInput = z.infer<typeof projectInputSchema>;
 export type MemberInput = z.infer<typeof memberInputSchema>;
 export type TaskInput = z.infer<typeof taskInputSchema>;

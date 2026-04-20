@@ -7,10 +7,12 @@ import { Navigate, BrowserRouter, Route, Routes, useLocation } from "react-route
 import { AppShellLayout } from "./layouts/AppShellLayout";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MembersPage } from "./pages/MembersPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TasksPage } from "./pages/TasksPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { getCurrentUser } from "./hooks/use-auth";
@@ -87,6 +89,22 @@ export function App() {
           element={
             <PublicOnlyRoute>
               <VerifyEmailPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <PublicOnlyRoute>
+              <ResetPasswordPage />
             </PublicOnlyRoute>
           }
         />

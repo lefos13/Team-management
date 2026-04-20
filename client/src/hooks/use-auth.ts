@@ -2,7 +2,9 @@
 import type {
   AuthActionResponseDTO,
   LoginInput,
+  RequestPasswordResetInput,
   RegisterInput,
+  ResetPasswordInput,
   ResendVerificationInput,
   UserDTO,
   VerifyEmailInput,
@@ -56,6 +58,28 @@ export function useResendVerification() {
   return useMutation({
     mutationFn: async (payload: ResendVerificationInput) => {
       const response = await api.post<AuthActionResponseDTO>("/auth/resend-verification", payload);
+      return response.data;
+    },
+  });
+}
+
+/*
+Keep password-reset mutations beside the rest of auth so public account-recovery
+screens use the same API envelope and error handling as login and verification.
+*/
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: async (payload: RequestPasswordResetInput) => {
+      const response = await api.post<AuthActionResponseDTO>("/auth/request-password-reset", payload);
+      return response.data;
+    },
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: async (payload: ResetPasswordInput) => {
+      const response = await api.post<AuthActionResponseDTO>("/auth/reset-password", payload);
       return response.data;
     },
   });

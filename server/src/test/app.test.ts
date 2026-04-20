@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
+import { passwordResetPurpose } from "../lib/auth.js";
 
 describe("team management API", () => {
   let app: Awaited<ReturnType<typeof createApp>>;
@@ -42,6 +43,14 @@ describe("team management API", () => {
     const response = await request(app.server).post("/api/auth/login").send({ email, password });
     expect(response.headers["set-cookie"]?.[0]).toBeTruthy();
     return response;
+  }
+
+  async function requestPasswordReset(email: string) {
+    return request(app.server).post("/api/auth/request-password-reset").send({ email });
+  }
+
+  async function resetPassword(email: string, otp = "123456", password = "updated-password") {
+    return request(app.server).post("/api/auth/reset-password").send({ email, otp, password });
   }
 
   it("registers, verifies, and signs in a user", async () => {
@@ -87,6 +96,116 @@ describe("team management API", () => {
 
     const validVerifyResponse = await verify("verify@example.com");
     expect(validVerifyResponse.status).toBe(200);
+  });
+
+  /*
+  Exercise the reset OTP lifecycle end to end so neutral reset requests, attempt
+  limits, expiry handling, password replacement, and session invalidation stay aligned.
+  */
+  it("supports password reset with a verified account", async () => {
+    await register("reset@example.com", "password123");
+    await verify("reset@example.com");
+
+    const initialLogin = await login("reset@example.com", "password123");
+    const initialCookie = initialLogin.headers["set-cookie"]?.[0] as string;
+
+    const requestResponse = await requestPasswordReset("reset@example.com");
+    expect(requestResponse.status).toBe(200);
+    expect(requestResponse.body.status).toBe("password_reset_requested");
+
+    const resetToken = await prisma.emailVerificationToken.findFirst({
+      where: {
+        email: "reset@example.com",
+        purpose: passwordResetPurpose,
+        consumedAt: null,
+      },
+    });
+
+    expect(resetToken).toBeTruthy();
+
+    const resetResponse = await resetPassword("reset@example.com");
+    expect(resetResponse.status).toBe(200);
+    expect(resetResponse.body.status).toBe("password_reset");
+
+    const staleSessionResponse = await request(app.server).get("/api/auth/me").set("Cookie", initialCookie);
+    expect(staleSessionResponse.status).toBe(401);
+
+    const oldPasswordLogin = await request(app.server).post("/api/auth/login").send({
+      email: "reset@example.com",
+      password: "password123",
+    });
+    expect(oldPasswordLogin.status).toBe(401);
+
+    const newPasswordLogin = await login("reset@example.com", "updated-password");
+    expect(newPasswordLogin.status).toBe(200);
+  });
+
+  it("keeps password reset requests generic for unknown or unverified emails", async () => {
+    await register("pending@example.com", "password123");
+
+    const unknownResponse = await requestPasswordReset("missing@example.com");
+    expect(unknownResponse.status).toBe(200);
+    expect(unknownResponse.body.message).toContain("If the account exists and is verified");
+
+    const unverifiedResponse = await requestPasswordReset("pending@example.com");
+    expect(unverifiedResponse.status).toBe(200);
+    expect(unverifiedResponse.body.status).toBe("password_reset_requested");
+
+    const pendingToken = await prisma.emailVerificationToken.findFirst({
+      where: {
+        email: "pending@example.com",
+        purpose: passwordResetPurpose,
+      },
+    });
+    expect(pendingToken).toBeNull();
+  });
+
+  it("rejects invalid, expired, and exhausted password reset codes", async () => {
+    await register("retry@example.com", "password123");
+    await verify("retry@example.com");
+    await requestPasswordReset("retry@example.com");
+
+    const invalidResetResponse = await resetPassword("retry@example.com", "111111");
+    expect(invalidResetResponse.status).toBe(400);
+
+    const invalidToken = await prisma.emailVerificationToken.findFirstOrThrow({
+      where: {
+        email: "retry@example.com",
+        purpose: passwordResetPurpose,
+        consumedAt: null,
+      },
+    });
+    expect(invalidToken.attempts).toBe(1);
+
+    await prisma.emailVerificationToken.update({
+      where: { id: invalidToken.id },
+      data: {
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    const expiredResetResponse = await resetPassword("retry@example.com");
+    expect(expiredResetResponse.status).toBe(400);
+
+    await requestPasswordReset("retry@example.com");
+
+    const exhaustedToken = await prisma.emailVerificationToken.findFirstOrThrow({
+      where: {
+        email: "retry@example.com",
+        purpose: passwordResetPurpose,
+        consumedAt: null,
+      },
+    });
+
+    await prisma.emailVerificationToken.update({
+      where: { id: exhaustedToken.id },
+      data: {
+        attempts: 5,
+      },
+    });
+
+    const exhaustedResetResponse = await resetPassword("retry@example.com");
+    expect(exhaustedResetResponse.status).toBe(403);
   });
 
   it("keeps tenant data isolated between accounts", async () => {

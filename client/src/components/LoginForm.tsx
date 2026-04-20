@@ -1,8 +1,9 @@
 /* Keep the login form separate from routing so the email/password auth step can stay reusable and testable. */
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Alert, Button, Paper, PasswordInput, Stack, TextInput } from "@mantine/core";
+import { Alert, Anchor, Button, Paper, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import { z } from "zod";
 
 const loginFormSchema = z.object({
@@ -51,6 +52,9 @@ export function LoginForm({ loading, errorMessage, onSubmit }: LoginFormProps) {
           <Button type="submit" loading={loading} radius="xl" size="md">
             Sign in
           </Button>
+          <Anchor component={Link} to="/forgot-password" size="sm" ta="center">
+            Forgot password?
+          </Anchor>
         </Stack>
       </form>
     </Paper>

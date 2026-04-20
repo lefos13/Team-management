@@ -1,6 +1,7 @@
 /* Verify the login form surfaces validation and forwards the submitted credentials to the auth layer. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { LoginForm } from "../components/LoginForm";
@@ -11,7 +12,9 @@ describe("LoginForm", () => {
 
     render(
       <MantineProvider>
-        <LoginForm loading={false} errorMessage={null} onSubmit={handleSubmit} />
+        <MemoryRouter>
+          <LoginForm loading={false} errorMessage={null} onSubmit={handleSubmit} />
+        </MemoryRouter>
       </MantineProvider>,
     );
 
@@ -30,5 +33,7 @@ describe("LoginForm", () => {
         password: "change-me",
       });
     });
+
+    expect(screen.getByRole("link", { name: /forgot password/i })).toHaveAttribute("href", "/forgot-password");
   });
 });

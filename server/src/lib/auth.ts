@@ -8,6 +8,7 @@ import type { AppConfig } from "../config.js";
 
 export const sessionCookieName = "team_management_session";
 export const emailVerificationPurpose = "email_verification";
+export const passwordResetPurpose = "password_reset";
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30;
 
 export async function hashPassword(password: string): Promise<string> {

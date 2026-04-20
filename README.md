@@ -12,6 +12,7 @@ A strict TypeScript full-stack workspace for cloud-hosted team tracking, with a 
 
 - Multi-account registration with `email + password`
 - Email verification through 6-digit OTP sent over SMTP
+- Forgot-password recovery through 6-digit OTP sent over email
 - Cookie-based authenticated sessions
 - Per-account isolation for projects, members, tasks, dashboard, and calendar data
 - Team members remain manager-owned records only; they do not sign in
@@ -133,3 +134,10 @@ If you use Gmail, create a Google App Password for `softaware.studios@gmail.com`
 
 - Server tests start an isolated PostgreSQL instance under `/tmp/team-management-pg-test` and run Prisma migrations against it.
 - OTP tests use a fixed override code only in the test environment so registration and verification flows can be asserted deterministically.
+- The same OTP pipeline is reused for password reset, with purpose-based token separation inside the existing auth table.
+
+## Auth Recovery Flow
+
+- `POST /api/auth/request-password-reset`: accepts `{ email }` and always returns a neutral response so the reset request does not reveal whether an account exists.
+- `POST /api/auth/reset-password`: accepts `{ email, otp, password }`, validates the reset OTP, updates the stored password, and invalidates existing sessions.
+- Password reset is available only for verified accounts; unverified and unknown emails still receive the same neutral request response.
