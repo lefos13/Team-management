@@ -20,6 +20,11 @@ import { taskRoutes } from "./routes/tasks.js";
 
 export async function createApp() {
   const config = getConfig();
+  const appBasePathname = new URL(config.APP_BASE_URL).pathname;
+  const basePath = appBasePathname === "/" ? "/" : appBasePathname.replace(/\/+$/, "");
+  const routeWithBase = (path: string) => (basePath === "/" ? path : `${basePath}${path}`);
+  const apiPrefix = routeWithBase("/api");
+  const staticPrefix = basePath === "/" ? "/" : `${basePath}/`;
   const clientDistPath = resolve(process.cwd(), "client/dist");
   const hasClientBuild = existsSync(clientDistPath);
   const app = Fastify({
@@ -39,12 +44,12 @@ export async function createApp() {
   });
   await app.register(authPlugin);
 
-  app.get("/api/health", async () => ({ ok: true }));
-  await app.register(authRoutes, { prefix: "/api" });
-  await app.register(projectRoutes, { prefix: "/api" });
-  await app.register(memberRoutes, { prefix: "/api" });
-  await app.register(taskRoutes, { prefix: "/api" });
-  await app.register(dashboardRoutes, { prefix: "/api" });
+  app.get(routeWithBase("/api/health"), async () => ({ ok: true }));
+  await app.register(authRoutes, { prefix: apiPrefix });
+  await app.register(projectRoutes, { prefix: apiPrefix });
+  await app.register(memberRoutes, { prefix: apiPrefix });
+  await app.register(taskRoutes, { prefix: apiPrefix });
+  await app.register(dashboardRoutes, { prefix: apiPrefix });
 
   /*
   Register the built SPA only when the client bundle exists so local API development
@@ -53,17 +58,23 @@ export async function createApp() {
   if (hasClientBuild) {
     await app.register(fastifyStatic, {
       root: clientDistPath,
-      prefix: "/",
+      prefix: staticPrefix,
       wildcard: false,
       index: false,
     });
 
-    app.get("/", async (_request, reply) => {
+    app.get(basePath, async (_request, reply) => {
       await reply.sendFile("index.html");
     });
 
-    app.get("/*", async (request, reply) => {
-      if (request.url.startsWith("/api")) {
+    if (basePath !== "/") {
+      app.get(`${basePath}/`, async (_request, reply) => {
+        await reply.sendFile("index.html");
+      });
+    }
+
+    app.get(routeWithBase("/*"), async (request, reply) => {
+      if (request.url.startsWith(apiPrefix)) {
         return reply.callNotFound();
       }
 

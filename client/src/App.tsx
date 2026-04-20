@@ -15,6 +15,8 @@ import { TasksPage } from "./pages/TasksPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { getCurrentUser } from "./hooks/use-auth";
 
+const routerBase = import.meta.env.BASE_URL === "/" ? "/" : import.meta.env.BASE_URL.replace(/\/$/, "");
+
 function FullScreenLoader() {
   return (
     <Center mih="100vh">
@@ -62,7 +64,7 @@ function PublicOnlyRoute({ children }: { children: ReactElement }) {
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={routerBase}>
       <Routes>
         <Route
           path="/login"

@@ -9,3 +9,4 @@ server/.env
 server/prisma/dev.db
 server/prisma/dev.db-journal
 client/test-results
+server/.env.production

@@ -76,6 +76,12 @@ Required production variables:
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM`
 
+If you host the app under a subpath (for example `https://softaware-tools.gr/team-management/`), set:
+
+- `APP_BASE_URL` to the full subpath URL (for example `https://softaware-tools.gr/team-management/`)
+
+The production build and Fastify routes use `APP_BASE_URL` to serve frontend assets and API endpoints from the same base path.
+
 For Gmail with Nodemailer:
 
 - `EMAIL_PROVIDER=gmail`
