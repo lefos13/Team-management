@@ -34,6 +34,46 @@ if [[ "$EMAIL_PROVIDER" == "smtp" ]]; then
   fi
 fi
 
+: <<'COMMENT'
+/*
+On small hosts the client bundle can be terminated by the kernel while Vite is
+optimizing thousands of modules. This provisions swap only when RAM is low and
+no useful swap already exists, so the deploy can finish without requiring a
+larger droplet or a separate build machine.
+*/
+COMMENT
+ensure_build_swap() {
+  if [[ "${DEPLOY_SKIP_SWAP_SETUP:-0}" == "1" ]]; then
+    return
+  fi
+
+  local mem_total_kb
+  local swap_total_kb
+  local swap_target_mb=2048
+  local swap_file="/swapfile"
+
+  mem_total_kb="$(awk '/MemTotal/ { print $2 }' /proc/meminfo)"
+  swap_total_kb="$(awk '/SwapTotal/ { print $2 }' /proc/meminfo)"
+
+  if (( mem_total_kb > 1572864 )) || (( swap_total_kb >= 1048576 )); then
+    return
+  fi
+
+  if [[ ! -f "$swap_file" ]]; then
+    sudo fallocate -l "${swap_target_mb}M" "$swap_file" || sudo dd if=/dev/zero of="$swap_file" bs=1M count="$swap_target_mb" status=progress
+    sudo chmod 600 "$swap_file"
+    sudo mkswap "$swap_file"
+  fi
+
+  if ! sudo swapon --show=NAME --noheadings | grep -Fxq "$swap_file"; then
+    sudo swapon "$swap_file"
+  fi
+
+  if ! grep -qE '^[^#]*\s+/swapfile\s+' /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+  fi
+}
+
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates gnupg postgresql postgresql-contrib build-essential
 
@@ -55,6 +95,7 @@ fi
 
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
+ensure_build_swap
 
 if [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]]; then
   sudo -u postgres psql postgres <<SQL
@@ -75,7 +116,17 @@ cd "$APP_DIR"
 npm install
 npx prisma generate --schema server/prisma/schema.prisma
 npx prisma migrate deploy --schema server/prisma/schema.prisma
-npm run build
+
+: <<'COMMENT'
+/*
+The client build is the only part that spikes memory on constrained servers, so
+the deploy keeps the server and shared builds unchanged and limits the Node heap
+only for the frontend bundle step.
+*/
+COMMENT
+npm run build --workspace @team-management/shared
+npm run build --workspace server
+NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}" npm run build --workspace client
 
 export APP_DIR
 export ENV_FILE
