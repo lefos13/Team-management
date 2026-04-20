@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/server/.env.production}"
+PM2_APP_NAME="${PM2_APP_NAME:-team-management}"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  cp "$PROJECT_ROOT/server/.env.production.example" "$ENV_FILE"
+  echo "Created $ENV_FILE. Fill in the production values and rerun the deploy script."
+  exit 1
+fi
+
+set -a
+source "$ENV_FILE"
+set +a
+
+if [[ -z "${DATABASE_URL:-}" || -z "${APP_BASE_URL:-}" || -z "${CLIENT_ORIGIN:-}" || -z "${SESSION_SECRET:-}" || -z "${EMAIL_PROVIDER:-}" ]]; then
+  echo "DATABASE_URL, APP_BASE_URL, CLIENT_ORIGIN, SESSION_SECRET, and EMAIL_PROVIDER must be set in $ENV_FILE."
+  exit 1
+fi
+
+if [[ "$EMAIL_PROVIDER" == "gmail" ]]; then
+  if [[ -z "${GMAIL_USER:-}" || -z "${GMAIL_APP_PASSWORD:-}" || -z "${EMAIL_FROM:-}" || -z "${EMAIL_REPLY_TO:-}" ]]; then
+    echo "GMAIL_USER, GMAIL_APP_PASSWORD, EMAIL_FROM, and EMAIL_REPLY_TO must be set when EMAIL_PROVIDER=gmail."
+    exit 1
+  fi
+fi
+
+if [[ "$EMAIL_PROVIDER" == "smtp" ]]; then
+  if [[ -z "${SMTP_HOST:-}" || -z "${SMTP_USER:-}" || -z "${SMTP_PASS:-}" || -z "${EMAIL_FROM:-}" ]]; then
+    echo "SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM must be set when EMAIL_PROVIDER=smtp."
+    exit 1
+  fi
+fi
+
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates gnupg postgresql postgresql-contrib build-essential
+
+if ! command -v node >/dev/null 2>&1; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+fi
+
+APP_DIR="$PROJECT_ROOT"
+DB_HOST="$(node -e "console.log(new URL(process.argv[1]).hostname)" "$DATABASE_URL")"
+DB_PORT="$(node -e "console.log(new URL(process.argv[1]).port || '5432')" "$DATABASE_URL")"
+DB_NAME="$(node -e "console.log(new URL(process.argv[1]).pathname.replace(/^\//, ''))" "$DATABASE_URL")"
+DB_USER="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).username || 'postgres'))" "$DATABASE_URL")"
+DB_PASSWORD="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).password || ''))" "$DATABASE_URL")"
+
+if ! command -v pm2 >/dev/null 2>&1; then
+  sudo npm install -g pm2
+fi
+
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+
+if [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]]; then
+  sudo -u postgres psql postgres <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
+    CREATE ROLE "$DB_USER" LOGIN PASSWORD '$DB_PASSWORD';
+  ELSE
+    ALTER ROLE "$DB_USER" WITH LOGIN PASSWORD '$DB_PASSWORD';
+  END IF;
+END
+\$\$;
+SQL
+  sudo -u postgres psql postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+fi
+
+cd "$APP_DIR"
+npm install
+npx prisma generate --schema server/prisma/schema.prisma
+npx prisma migrate deploy --schema server/prisma/schema.prisma
+npm run build
+
+export APP_DIR
+export ENV_FILE
+export PM2_APP_NAME
+pm2 startOrReload "$APP_DIR/deploy/production/ecosystem.config.cjs"
+pm2 save
+sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null || true
+echo "Deployment completed. PM2 is running the app; configure your reverse proxy separately."

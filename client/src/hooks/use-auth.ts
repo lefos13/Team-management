@@ -1,0 +1,75 @@
+/* Keep auth mutations and session cache updates in one hook so registration and login stay in sync with routing. */
+import type {
+  AuthActionResponseDTO,
+  LoginInput,
+  RegisterInput,
+  ResendVerificationInput,
+  UserDTO,
+  VerifyEmailInput,
+} from "@team-management/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { api } from "../lib/api";
+
+export async function getCurrentUser(): Promise<UserDTO | null> {
+  try {
+    const response = await api.get<UserDTO>("/auth/me");
+    return response.data;
+  } catch {
+    return null;
+  }
+}
+
+export function useLogin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: LoginInput) => {
+      const response = await api.post<UserDTO>("/auth/login", payload);
+      return response.data;
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(["session"], user);
+    },
+  });
+}
+
+export function useRegister() {
+  return useMutation({
+    mutationFn: async (payload: RegisterInput) => {
+      const response = await api.post<AuthActionResponseDTO>("/auth/register", payload);
+      return response.data;
+    },
+  });
+}
+
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: async (payload: VerifyEmailInput) => {
+      const response = await api.post<AuthActionResponseDTO>("/auth/verify-email", payload);
+      return response.data;
+    },
+  });
+}
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: async (payload: ResendVerificationInput) => {
+      const response = await api.post<AuthActionResponseDTO>("/auth/resend-verification", payload);
+      return response.data;
+    },
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await api.post("/auth/logout");
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(["session"], null);
+    },
+  });
+}

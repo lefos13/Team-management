@@ -1,0 +1,94 @@
+:root {
+  color: #132238;
+  background:
+    radial-gradient(circle at top left, rgba(22, 169, 139, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(11, 114, 133, 0.2), transparent 28%),
+    linear-gradient(180deg, #f4f8fb 0%, #ecf3f1 100%);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: transparent;
+  font-family: "Manrope", Inter, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.login-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(22, 169, 139, 0.25), transparent 30%),
+    radial-gradient(circle at 90% 15%, rgba(11, 114, 133, 0.18), transparent 28%),
+    linear-gradient(135deg, #f3f7fb 0%, #eff6f2 52%, #f8faf7 100%);
+}
+
+.hero-title {
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 1.05;
+  max-width: 12ch;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  color: #0b7285;
+  font-weight: 700;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.shell-header {
+  backdrop-filter: blur(16px);
+  background: rgba(244, 248, 251, 0.84);
+  border-bottom: 1px solid rgba(19, 34, 56, 0.08);
+}
+
+.shell-navbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(235, 245, 242, 0.92) 100%);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(19, 34, 56, 0.08);
+}
+
+.shell-navlink {
+  border-radius: 18px;
+}
+
+.content-card,
+.stat-card,
+.overdue-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(12px);
+}
+
+.stat-card-alert {
+  background: linear-gradient(135deg, rgba(255, 244, 229, 0.95) 0%, rgba(255, 250, 241, 0.9) 100%);
+}
+
+.project-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(22, 169, 139, 0.12);
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.05rem;
+}
+
+.fc .fc-button {
+  border-radius: 999px;
+  border: 0;
+  background: #0b7285;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: #095c6b;
+}

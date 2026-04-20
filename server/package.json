@@ -1,0 +1,39 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "build": "tsup src/index.ts --format esm --out-dir dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "tsx scripts/run-tests.ts",
+    "db:migrate": "prisma migrate deploy",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.0.1",
+    "@prisma/client": "^6.6.0",
+    "@team-management/shared": "*",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
+    "fastify-type-provider-zod": "^4.0.2",
+    "nodemailer": "^6.10.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/supertest": "^6.0.3",
+    "@types/nodemailer": "^6.4.17",
+    "@types/node": "^22.14.1",
+    "prisma": "^6.6.0",
+    "supertest": "^7.1.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.3",
+    "vitest": "^3.1.1"
+  }
+}

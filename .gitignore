@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.DS_Store
+.env
+.env.local
+client/.env
+server/.env
+server/prisma/dev.db
+server/prisma/dev.db-journal
+client/test-results

@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String                   @id @default(cuid())
+  email               String                   @unique
+  passwordHash        String
+  emailVerified       Boolean                  @default(false)
+  emailVerifiedAt     DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  sessions            Session[]
+  verificationTokens  EmailVerificationToken[]
+  projects            Project[]
+  teamMembers         TeamMember[]
+  tasks               Task[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  email      String
+  purpose    String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([email, purpose])
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  status         String          @default("active")
+  color          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
+  tasks          Task[]
+
+  @@index([userId])
+}
+
+model TeamMember {
+  id             String          @id @default(cuid())
+  name           String
+  role           String
+  email          String
+  notes          String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
+  tasks          Task[]
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+model ProjectMember {
+  projectId    String
+  teamMemberId String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, teamMemberId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      String     @default("todo")
+  deadline    DateTime
+  startDate   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  userId      String
+  projectId   String
+  assigneeId  String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    TeamMember @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+
+  @@index([deadline])
+  @@index([userId])
+  @@index([projectId])
+  @@index([assigneeId])
+}

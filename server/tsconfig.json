@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "outDir": "dist"
+  },
+  "include": [
+    "src",
+    "prisma",
+    "vitest.config.ts"
+  ]
+}
