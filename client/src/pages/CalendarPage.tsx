@@ -7,6 +7,16 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { useCalendarEvents } from "../hooks/use-app-data";
 
+const calendarEventColorMap = {
+  todo: "#868E96",
+  in_progress: "#228BE6",
+  blocked: "#E03131",
+} as const;
+
+function isActiveCalendarStatus(status: string): status is keyof typeof calendarEventColorMap {
+  return status in calendarEventColorMap;
+}
+
 export function CalendarPage() {
   const navigate = useNavigate();
   const calendarQuery = useCalendarEvents();
@@ -21,7 +31,7 @@ export function CalendarPage() {
     <Stack gap="xl">
       <PageHeader
         title="Calendar"
-        description="Visualize task deadlines and open the linked task directly for updates."
+        description="Visualize active task deadlines and open the linked task directly for updates."
       />
       <Paper radius="xl" p="lg" withBorder>
         <FullCalendar
@@ -33,13 +43,25 @@ export function CalendarPage() {
             center: "title",
             right: "dayGridMonth,timeGridWeek",
           }}
-          events={events.map((event) => ({
-            id: event.id,
-            title: event.title,
-            start: event.start ?? event.date,
-            end: event.end ?? event.date,
-            color: event.overdue ? "#D9480F" : "#0B7285",
-          }))}
+          events={
+            /*
+            Keep the calendar limited to actionable statuses and mirror each
+            status with a stable color so scheduling reflects current progress.
+            */
+            events.flatMap((event) => {
+              if (!isActiveCalendarStatus(event.status)) {
+                return [];
+              }
+
+              return [{
+                id: event.id,
+                title: event.title,
+                start: event.start ?? event.date,
+                end: event.end ?? event.date,
+                color: calendarEventColorMap[event.status],
+              }];
+            })
+          }
           eventClick={(info) => {
             navigate(`/tasks?taskId=${info.event.id}`);
           }}

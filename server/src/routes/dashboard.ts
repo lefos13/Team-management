@@ -88,8 +88,15 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       const user = requireCurrentUser(request);
       const query = calendarFiltersSchema.parse(request.query);
       const tasks = await prisma.task.findMany({
+        /*
+        Restrict calendar output to active work so completed tasks disappear
+        from every calendar view without relying on client-side filtering.
+        */
         where: {
           userId: user.id,
+          status: {
+            not: "done",
+          },
           ...((query.from || query.to)
             ? {
                 deadline: {
