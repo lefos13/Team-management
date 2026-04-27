@@ -261,7 +261,7 @@ body {
 }
 
 .paginated-table-panel {
-  height: 780px;
+  height: fit-content;
   overflow: hidden;
 }
 
