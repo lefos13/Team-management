@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Card, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Loader, Pagination, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
@@ -15,6 +15,7 @@ import {
   useUpdateProject,
 } from "../hooks/use-app-data";
 import { getErrorMessage } from "../lib/api";
+import { usePagination } from "../hooks/use-pagination";
 
 export function ProjectsPage() {
   const [opened, setOpened] = useState(false);
@@ -38,12 +39,13 @@ export function ProjectsPage() {
     };
   }, [editingProjectId, projectDetailQuery.data?.memberIds, projectsQuery.data]);
 
+  const projects = projectsQuery.data ?? [];
+  const members = membersQuery.data ?? [];
+  const { page, setPage, totalPages, paginatedItems: paginatedProjects } = usePagination(projects, 6);
+
   if (projectsQuery.isLoading || membersQuery.isLoading) {
     return <Loader />;
   }
-
-  const projects = projectsQuery.data ?? [];
-  const members = membersQuery.data ?? [];
 
   return (
     <Stack gap="xl">
@@ -63,8 +65,8 @@ export function ProjectsPage() {
         }
       />
 
-      <SimpleGrid cols={{ base: 1, md: 2 }}>
-        {projects.map((project) => {
+      <SimpleGrid cols={{ base: 1, md: 2 }} className="paginated-card-grid">
+        {paginatedProjects.map((project) => {
           const memberNames = members
             .filter((member) => member.projectIds.includes(project.id))
             .map((member) => member.name)
@@ -123,6 +125,9 @@ export function ProjectsPage() {
           );
         })}
       </SimpleGrid>
+      <Group className="page-pagination-slot" justify="center">
+        {totalPages > 1 ? <Pagination total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
 
       <ProjectFormModal
         members={members}

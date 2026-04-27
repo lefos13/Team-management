@@ -1,15 +1,46 @@
-/* Keep the dashboard focused on workload signals the leader needs first: totals, overdue work, and near-term deadlines. */
-import { Button, Card, Grid, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput } from "@mantine/core";
+/* Mirror the social-preview dashboard in the real app while keeping each data
+panel paginated so long account histories do not stretch or hide neighboring tiles. */
+import {
+  Badge,
+  Card,
+  Grid,
+  Group,
+  Loader,
+  Pagination,
+  Paper,
+  Progress,
+  RingProgress,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  ThemeIcon,
+} from "@mantine/core";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import dayjs from "dayjs";
+import {
+  IconChartBar,
+  IconChecklist,
+  IconClock,
+  IconFolder,
+  IconUsers,
+} from "@tabler/icons-react";
+import { taskStatusValues, type ProjectSummaryDTO, type TaskDTO } from "@team-management/shared";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { PageHeader } from "../components/PageHeader";
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
-import { useCalendarEvents, useDashboard } from "../hooks/use-app-data";
-import { formatDateTime } from "../lib/dates";
+import { useCalendarEvents, useDashboard, useMembers, useProjects, useTasks } from "../hooks/use-app-data";
+import { usePagination } from "../hooks/use-pagination";
+import { formatDate, formatDateTime } from "../lib/dates";
+
+const statusLabels: Record<TaskDTO["status"], string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  blocked: "Blocked",
+  done: "Done",
+};
 
 function completionRangeForPreset(preset: "today" | "three-days" | "week") {
   const now = dayjs();
@@ -21,175 +52,247 @@ function completionRangeForPreset(preset: "today" | "three-days" | "week") {
   };
 }
 
-function completionRangeForDay(value: string) {
-  const selected = dayjs(value);
+function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskDTO[] }) {
+  const { page, setPage, totalPages, paginatedItems } = usePagination(tasks, 4);
 
-  return {
-    completedFrom: selected.startOf("day").toDate().toISOString(),
-    completedTo: selected.endOf("day").toDate().toISOString(),
-  };
+  return (
+    <Paper className="dashboard-kanban-column" radius="md" p="sm">
+      <Stack h="100%" gap="sm">
+        <Group justify="space-between">
+          <Text fw={800} size="sm">
+            {statusLabels[status]}
+          </Text>
+          <Badge size="sm" variant="light">
+            {tasks.length}
+          </Badge>
+        </Group>
+        <Stack gap="xs" className="dashboard-task-list">
+          {paginatedItems.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              No tasks
+            </Text>
+          ) : (
+            paginatedItems.map((task) => (
+              <Paper key={task.id} className="dashboard-task-card" radius="md" p="sm">
+                <Stack gap={5}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <Text fw={700} size="sm" lineClamp={1}>
+                      {task.title}
+                    </Text>
+                    {task.isDefect ? <DefectBadge /> : null}
+                  </Group>
+                  <Text size="xs" c="dimmed" lineClamp={1}>
+                    {task.assigneeName}
+                  </Text>
+                  <Text size="xs" c={task.status === "blocked" ? "red" : "dimmed"}>
+                    {formatDate(task.deadline)}
+                  </Text>
+                </Stack>
+              </Paper>
+            ))
+          )}
+        </Stack>
+        <Group className="fixed-pagination-slot" justify="center">
+          {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+        </Group>
+      </Stack>
+    </Paper>
+  );
+}
+
+function PaginatedTaskStack({ tasks, empty }: { tasks: TaskDTO[]; empty: string }) {
+  const { page, setPage, totalPages, paginatedItems } = usePagination(tasks, 4);
+
+  return (
+    <Stack gap="sm" className="fixed-pagination-panel">
+      <Stack gap="sm" className="fixed-pagination-content">
+        {paginatedItems.length === 0 ? (
+          <Text c="dimmed">{empty}</Text>
+        ) : (
+          paginatedItems.map((task) => (
+            <Paper key={task.id} className="compact-list-row" radius="md" p="sm">
+              <Group justify="space-between" align="start" wrap="nowrap">
+                <Stack gap={3}>
+                  <Text fw={800} size="sm" lineClamp={1}>
+                    {task.title}
+                  </Text>
+                  <Text size="xs" c="dimmed" lineClamp={1}>
+                    {task.assigneeName} - {task.projectName}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {formatDateTime(task.deadline)}
+                  </Text>
+                </Stack>
+                <TaskStatusBadge status={task.status} />
+              </Group>
+            </Paper>
+          ))
+        )}
+      </Stack>
+      <Group className="fixed-pagination-slot" justify="center">
+        {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
+    </Stack>
+  );
+}
+
+function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
+  const { page, setPage, totalPages, paginatedItems } = usePagination(projects, 4);
+
+  return (
+    <Stack gap="sm" className="fixed-pagination-panel">
+      <div className="fixed-pagination-content">
+      <Table verticalSpacing="sm">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Project</Table.Th>
+            <Table.Th>Progress</Table.Th>
+            <Table.Th>Work</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {paginatedItems.map((project) => {
+            const progress = project.taskCount === 0 ? 0 : project.status === "completed" ? 100 : project.status === "on_hold" ? 42 : 68;
+
+            return (
+              <Table.Tr key={project.id}>
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    <span className="project-swatch" style={{ background: project.color ?? "#16A98B" }} />
+                    <Text fw={700} size="sm" lineClamp={1}>
+                      {project.name}
+                    </Text>
+                  </Group>
+                </Table.Td>
+                <Table.Td>
+                  <Progress value={progress} radius="xl" color="teal" />
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm" c="dimmed">
+                    {project.taskCount} tasks
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            );
+          })}
+        </Table.Tbody>
+      </Table>
+      </div>
+      <Group className="fixed-pagination-slot" justify="center">
+        {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
+    </Stack>
+  );
 }
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const [completionFilters, setCompletionFilters] = useState(() => completionRangeForPreset("week"));
-  const [selectedCompletionDay, setSelectedCompletionDay] = useState("");
+  const [completionFilters] = useState(() => completionRangeForPreset("week"));
   const dashboardQuery = useDashboard(completionFilters);
   const calendarQuery = useCalendarEvents();
+  const tasksQuery = useTasks({});
+  const projectsQuery = useProjects();
+  const membersQuery = useMembers();
 
-  if (dashboardQuery.isLoading || calendarQuery.isLoading) {
+  if (
+    dashboardQuery.isLoading ||
+    calendarQuery.isLoading ||
+    tasksQuery.isLoading ||
+    projectsQuery.isLoading ||
+    membersQuery.isLoading
+  ) {
     return <Loader />;
   }
 
   const dashboard = dashboardQuery.data;
-  const events = calendarQuery.data;
+  const events = calendarQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
+  const projects = projectsQuery.data ?? [];
 
-  if (!dashboard || !events) {
+  if (!dashboard) {
     return null;
   }
 
-  return (
-    <Stack gap="xl">
-      <PageHeader
-        title="Dashboard"
-        description="A fast manager overview of team capacity, deadlines, and status distribution."
-      />
+  const completedCount = tasks.filter((task) => task.status === "done").length;
+  const progress = tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100);
 
-      <SimpleGrid cols={{ base: 1, md: 4 }}>
-        <Card className="stat-card" padding="lg" radius="xl">
-          <Text c="dimmed">Projects</Text>
-          <Text fz={34} fw={800}>{dashboard.stats.projectCount}</Text>
-        </Card>
-        <Card className="stat-card" padding="lg" radius="xl">
-          <Text c="dimmed">Active members</Text>
-          <Text fz={34} fw={800}>{dashboard.stats.memberCount}</Text>
-        </Card>
-        <Card className="stat-card" padding="lg" radius="xl">
-          <Text c="dimmed">Tasks</Text>
-          <Text fz={34} fw={800}>{dashboard.stats.taskCount}</Text>
-        </Card>
-        <Card className="stat-card stat-card-alert" padding="lg" radius="xl">
-          <Text c="dimmed">Overdue</Text>
-          <Text fz={34} fw={800}>{dashboard.stats.overdueCount}</Text>
-        </Card>
+  return (
+    <Stack gap="lg">
+      <Group justify="space-between" align="end">
+        <Stack gap={4}>
+          <Text className="eyebrow">Operations workspace</Text>
+          <Text fw={900} fz={30}>
+            Dashboard
+          </Text>
+        </Stack>
+        <Badge color="teal" variant="filled">
+          Live overview
+        </Badge>
+      </Group>
+
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }}>
+        {[
+          { label: "Active Projects", value: dashboard.stats.projectCount, icon: IconChartBar, color: "teal" },
+          { label: "Tasks in Progress", value: tasks.filter((task) => task.status === "in_progress").length, icon: IconChecklist, color: "red" },
+          { label: "Upcoming Deadlines", value: dashboard.upcomingTasks.length, icon: IconClock, color: "orange" },
+          { label: "Team Members", value: dashboard.stats.memberCount, icon: IconUsers, color: "blue" },
+        ].map((stat) => (
+          <Card key={stat.label} className="dashboard-stat-card" radius="md" padding="lg" withBorder>
+            <Group gap="md" wrap="nowrap">
+              <ThemeIcon size={58} radius="md" color={stat.color} variant="filled">
+                <stat.icon size={28} />
+              </ThemeIcon>
+              <Stack gap={1}>
+                <Text c="dimmed" size="sm">
+                  {stat.label}
+                </Text>
+                <Text fw={900} fz={30}>
+                  {stat.value}
+                </Text>
+              </Stack>
+            </Group>
+          </Card>
+        ))}
       </SimpleGrid>
 
       <Grid gutter="lg">
-        <Grid.Col span={{ base: 12, xl: 7 }}>
-          <Paper radius="xl" p="lg" withBorder>
+        <Grid.Col span={{ base: 12, xl: 8 }}>
+          <Paper className="dashboard-panel dashboard-overview-panel" radius="md" p="lg" withBorder>
             <Group justify="space-between" mb="md">
-              <Text fw={700} fz="lg">Upcoming deadlines</Text>
-              <Text size="sm" c="dimmed">Next 7 days</Text>
+              <Stack gap={2}>
+                <Text fw={900} fz="lg">
+                  Tasks Overview
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Paginated by status so every column stays stable.
+                </Text>
+              </Stack>
+              <ThemeIcon color="teal" variant="light">
+                <IconFolder size={18} />
+              </ThemeIcon>
             </Group>
-            <Table verticalSpacing="md">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Task</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Due</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {dashboard.upcomingTasks.map((task) => (
-                  <Table.Tr key={task.id}>
-                    <Table.Td>
-                      <Stack gap={2}>
-                        <Text fw={600}>{task.title}</Text>
-                        <Text size="sm" c="dimmed">{task.assigneeName} · {task.projectName}</Text>
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td><TaskStatusBadge status={task.status} /></Table.Td>
-                    <Table.Td>{formatDateTime(task.deadline)}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, xl: 5 }}>
-          <Paper radius="xl" p="lg" withBorder>
-            <Text fw={700} fz="lg" mb="md">Status distribution</Text>
-            <Stack gap="md">
-              {dashboard.tasksByStatus.map((entry) => (
-                <Group key={entry.status} justify="space-between">
-                  <TaskStatusBadge status={entry.status} />
-                  <Text fw={700}>{entry.count}</Text>
-                </Group>
+            <SimpleGrid cols={{ base: 1, md: 2, xl: 4 }} spacing="sm">
+              {taskStatusValues.map((status) => (
+                <TaskColumn key={status} status={status} tasks={tasks.filter((task) => task.status === status)} />
               ))}
-            </Stack>
+            </SimpleGrid>
           </Paper>
         </Grid.Col>
-      </Grid>
-
-      <Paper radius="xl" p="lg" withBorder>
-        <Group justify="space-between" align="end" mb="md">
-          <Stack gap={4}>
-            <Text fw={700} fz="lg">Recently completed</Text>
-            <Text size="sm" c="dimmed">
-              {formatDateTime(dashboard.recentCompletions.from)} to {formatDateTime(dashboard.recentCompletions.to)}
-            </Text>
-          </Stack>
-          <Group gap="xs">
-            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("today"))}>
-              Today
-            </Button>
-            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("three-days"))}>
-              Past 3 days
-            </Button>
-            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("week"))}>
-              Past week
-            </Button>
-            <TextInput
-              type="date"
-              size="xs"
-              value={selectedCompletionDay}
-              onChange={(event) => {
-                const value = event.currentTarget.value;
-                setSelectedCompletionDay(value);
-                if (value) {
-                  setCompletionFilters(completionRangeForDay(value));
-                }
-              }}
-            />
-          </Group>
-        </Group>
-        <SimpleGrid cols={{ base: 1, lg: 2 }}>
-          <Card className="stat-card" padding="lg" radius="xl">
-            <Text c="dimmed">Completed in range</Text>
-            <Text fz={34} fw={800}>{dashboard.recentCompletions.count}</Text>
-          </Card>
-          <Stack gap="sm">
-            {dashboard.recentCompletions.tasks.length === 0 ? (
-              <Text c="dimmed">No completed tasks in this range.</Text>
-            ) : (
-              dashboard.recentCompletions.tasks.map((task) => (
-                <Card key={task.id} radius="lg" withBorder>
-                  <Group justify="space-between" align="start">
-                    <Stack gap={4}>
-                      <Text fw={700}>{task.title}</Text>
-                      <Text size="sm" c="dimmed">{task.assigneeName} · {task.projectName}</Text>
-                      <Text size="sm">Done {formatDateTime(task.completedAt)}</Text>
-                    </Stack>
-                    <Group gap="xs">
-                      {task.isDefect ? <DefectBadge /> : null}
-                      <TaskStatusBadge status={task.status} />
-                    </Group>
-                  </Group>
-                </Card>
-              ))
-            )}
-          </Stack>
-        </SimpleGrid>
-      </Paper>
-
-      <Grid gutter="lg">
-        <Grid.Col span={{ base: 12, xl: 7 }}>
-          <Paper radius="xl" p="lg" withBorder>
-            <Text fw={700} fz="lg" mb="md">Calendar preview</Text>
+        <Grid.Col span={{ base: 12, xl: 4 }}>
+          <Paper className="dashboard-panel dashboard-overview-panel" radius="md" p="lg" withBorder>
+            <Group justify="space-between" mb="md">
+              <Text fw={900} fz="lg">
+                Calendar
+              </Text>
+              <Text size="sm" c="dimmed">
+                {dayjs().format("MMM YYYY")}
+              </Text>
+            </Group>
             <FullCalendar
               plugins={[dayGridPlugin]}
               initialView="dayGridMonth"
-              height={480}
+              height={360}
+              dayMaxEventRows={2}
               events={events.map((event) => ({
                 id: event.id,
                 title: event.title,
@@ -203,27 +306,90 @@ export function DashboardPage() {
             />
           </Paper>
         </Grid.Col>
+      </Grid>
+
+      <Grid gutter="lg">
+        <Grid.Col span={{ base: 12, xl: 4 }}>
+          <Paper className="dashboard-panel dashboard-summary-panel" radius="md" p="lg" withBorder>
+            <Text fw={900} fz="lg" mb="md">
+              Project Progress
+            </Text>
+            <Group align="center">
+              <RingProgress
+                size={128}
+                thickness={12}
+                sections={[{ value: progress, color: "teal" }]}
+                label={
+                  <Text ta="center" fw={900}>
+                    {progress}%
+                  </Text>
+                }
+              />
+              <Stack gap="xs" flex={1}>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Completed
+                  </Text>
+                  <Text size="sm" fw={800}>
+                    {completedCount}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Open
+                  </Text>
+                  <Text size="sm" fw={800}>
+                    {tasks.length - completedCount}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Overdue
+                  </Text>
+                  <Text size="sm" fw={800}>
+                    {dashboard.stats.overdueCount}
+                  </Text>
+                </Group>
+              </Stack>
+            </Group>
+          </Paper>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, xl: 4 }}>
+          <Paper className="dashboard-panel dashboard-summary-panel" radius="md" p="lg" withBorder>
+            <Text fw={900} fz="lg" mb="md">
+              Upcoming Deadlines
+            </Text>
+            <PaginatedTaskStack tasks={dashboard.upcomingTasks} empty="No upcoming deadlines." />
+          </Paper>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, xl: 4 }}>
+          <Paper className="dashboard-panel dashboard-summary-panel" radius="md" p="lg" withBorder>
+            <Text fw={900} fz="lg" mb="md">
+              Overdue Attention
+            </Text>
+            <PaginatedTaskStack tasks={dashboard.overdueTasks} empty="No overdue tasks right now." />
+          </Paper>
+        </Grid.Col>
+      </Grid>
+
+      <Grid gutter="lg">
+        <Grid.Col span={{ base: 12, xl: 7 }}>
+          <Paper className="dashboard-panel dashboard-bottom-panel" radius="md" p="lg" withBorder>
+            <Text fw={900} fz="lg" mb="md">
+              Recent Projects
+            </Text>
+            <RecentProjectsTable projects={projects} />
+          </Paper>
+        </Grid.Col>
         <Grid.Col span={{ base: 12, xl: 5 }}>
-          <Paper radius="xl" p="lg" withBorder>
-            <Text fw={700} fz="lg" mb="md">Overdue attention list</Text>
-            <Stack gap="md">
-              {dashboard.overdueTasks.length === 0 ? (
-                <Text c="dimmed">No overdue tasks right now.</Text>
-              ) : (
-                dashboard.overdueTasks.map((task) => (
-                  <Card key={task.id} radius="lg" className="overdue-card">
-                    <Stack gap={4}>
-                      <Group justify="space-between">
-                        <Text fw={700}>{task.title}</Text>
-                        <TaskStatusBadge status={task.status} />
-                      </Group>
-                      <Text size="sm" c="dimmed">{task.assigneeName} · {task.projectName}</Text>
-                      <Text size="sm">{formatDateTime(task.deadline)}</Text>
-                    </Stack>
-                  </Card>
-                ))
-              )}
-            </Stack>
+          <Paper className="dashboard-panel dashboard-bottom-panel" radius="md" p="lg" withBorder>
+            <Group justify="space-between" mb="md">
+              <Text fw={900} fz="lg">
+                Recently Completed
+              </Text>
+              <Badge variant="light">{dashboard.recentCompletions.count}</Badge>
+            </Group>
+            <PaginatedTaskStack tasks={dashboard.recentCompletions.tasks} empty="No completed tasks in this range." />
           </Paper>
         </Grid.Col>
       </Grid>

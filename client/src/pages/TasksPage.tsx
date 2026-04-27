@@ -1,8 +1,29 @@
 /* Keep task management filterable and editable from one screen because the leader is the only status owner. */
-import { ActionIcon, Button, Grid, Group, Loader, Modal, Paper, Select, Stack, Table, Text } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  FileInput,
+  Grid,
+  Group,
+  Loader,
+  Modal,
+  Pagination,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDownload, IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
-import { taskStatusValues, type TaskDTO, type TaskExportFilters, type TaskFilters } from "@team-management/shared";
+import { IconDownload, IconEdit, IconFileSpreadsheet, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import {
+  taskStatusValues,
+  type TaskDTO,
+  type TaskExportFilters,
+  type TaskFilters,
+  type TaskImportResultDTO,
+} from "@team-management/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -10,9 +31,11 @@ import { PageHeader } from "../components/PageHeader";
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
 import {
+  downloadTaskImportTemplate,
   exportTasks,
   useCreateTask,
   useDeleteTask,
+  useImportTasks,
   useMembers,
   useProjects,
   useTasks,
@@ -21,6 +44,7 @@ import {
 } from "../hooks/use-app-data";
 import { getErrorMessage } from "../lib/api";
 import { formatDateTime } from "../lib/dates";
+import { usePagination } from "../hooks/use-pagination";
 
 export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +52,11 @@ export function TasksPage() {
   const [exportFilters, setExportFilters] = useState<TaskExportFilters>({});
   const [exportOpened, setExportOpened] = useState(false);
   const [exportPending, setExportPending] = useState(false);
+  const [importOpened, setImportOpened] = useState(false);
+  const [importProjectId, setImportProjectId] = useState<string | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [templatePending, setTemplatePending] = useState<"blank" | "sample" | null>(null);
+  const [importResult, setImportResult] = useState<TaskImportResultDTO | null>(null);
   const [opened, setOpened] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
@@ -38,6 +67,7 @@ export function TasksPage() {
   const updateTask = useUpdateTask();
   const updateTaskStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
+  const importTasks = useImportTasks();
 
   const selectedTask = useMemo(
     () => tasksQuery.data?.find((task) => task.id === editingTaskId) ?? null,
@@ -59,13 +89,14 @@ export function TasksPage() {
     }
   }, [searchParams, setSearchParams, tasksQuery.data]);
 
-  if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading) {
-    return <Loader />;
-  }
-
   const projects = projectsQuery.data ?? [];
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
+  const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(tasks, 10);
+
+  if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading) {
+    return <Loader />;
+  }
 
   async function handleExport() {
     setExportPending(true);
@@ -89,6 +120,65 @@ export function TasksPage() {
     }
   }
 
+  async function handleTemplateDownload(variant: "blank" | "sample") {
+    if (!importProjectId) {
+      notifications.show({
+        color: "red",
+        title: "Project required",
+        message: "Choose a project before downloading an import template.",
+      });
+      return;
+    }
+
+    setTemplatePending(variant);
+    try {
+      const blob = await downloadTaskImportTemplate(importProjectId, variant);
+      const project = projects.find((item) => item.id === importProjectId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `task-import-${variant}-${project?.name ?? "project"}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to download template",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setTemplatePending(null);
+    }
+  }
+
+  async function handleImport() {
+    if (!importProjectId || !importFile) {
+      notifications.show({
+        color: "red",
+        title: "Import is not ready",
+        message: "Choose a project and upload one .xlsx file before importing.",
+      });
+      return;
+    }
+
+    try {
+      const result = await importTasks.mutateAsync({ projectId: importProjectId, file: importFile });
+      setImportResult(result);
+      setImportFile(null);
+      notifications.show({
+        color: "teal",
+        title: "Import complete",
+        message: `${result.inserted} tasks imported. ${result.skipped} duplicates skipped.`,
+      });
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to import tasks",
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
   return (
     <Stack gap="xl">
       <PageHeader
@@ -96,6 +186,18 @@ export function TasksPage() {
         description="Assign work, filter the workload, and adjust statuses without leaving the manager workspace."
         action={
           <Group gap="sm">
+            <Button
+              variant="light"
+              leftSection={<IconUpload size={16} />}
+              onClick={() => {
+                setImportProjectId(filters.projectId ?? projects[0]?.id ?? null);
+                setImportFile(null);
+                setImportResult(null);
+                setImportOpened(true);
+              }}
+            >
+              Import
+            </Button>
             <Button
               variant="light"
               leftSection={<IconDownload size={16} />}
@@ -168,7 +270,7 @@ export function TasksPage() {
         </Grid>
       </Paper>
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="paginated-table-panel">
         <Table verticalSpacing="md">
           <Table.Thead>
             <Table.Tr>
@@ -182,7 +284,7 @@ export function TasksPage() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {tasks.map((task) => (
+            {paginatedTasks.map((task) => (
               <Table.Tr key={task.id}>
                 <Table.Td>
                   <Stack gap={2}>
@@ -263,6 +365,9 @@ export function TasksPage() {
           </Table.Tbody>
         </Table>
       </Paper>
+      <Group className="page-pagination-slot" justify="center">
+        {totalPages > 1 ? <Pagination total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
 
       <TaskFormModal
         projects={projects}
@@ -336,6 +441,68 @@ export function TasksPage() {
             <Button variant="subtle" onClick={() => setExportOpened(false)}>Cancel</Button>
             <Button leftSection={<IconDownload size={16} />} loading={exportPending} onClick={handleExport}>
               Export Excel
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={importOpened} onClose={() => setImportOpened(false)} title="Import tasks" centered size="lg" radius="lg">
+        <Stack>
+          <Select
+            label="Project"
+            description="Tasks are imported into this project only."
+            value={importProjectId}
+            data={projects.map((project) => ({ value: project.id, label: project.name }))}
+            onChange={(value) => {
+              setImportProjectId(value);
+              setImportResult(null);
+            }}
+          />
+          <Group gap="sm">
+            <Button
+              variant="light"
+              leftSection={<IconFileSpreadsheet size={16} />}
+              loading={templatePending === "blank"}
+              onClick={() => void handleTemplateDownload("blank")}
+            >
+              Blank template
+            </Button>
+            <Button
+              variant="light"
+              leftSection={<IconFileSpreadsheet size={16} />}
+              loading={templatePending === "sample"}
+              onClick={() => void handleTemplateDownload("sample")}
+            >
+              Sample template
+            </Button>
+          </Group>
+          <FileInput
+            label="Excel file"
+            placeholder="Upload .xlsx task import"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            value={importFile}
+            onChange={(file) => {
+              setImportFile(file);
+              setImportResult(null);
+            }}
+          />
+          {importResult ? (
+            <Alert color="teal" variant="light" title="Import summary">
+              <Stack gap={4}>
+                <Text size="sm">{importResult.inserted} tasks imported.</Text>
+                <Text size="sm">{importResult.skipped} duplicate rows skipped.</Text>
+                {importResult.skippedRows.slice(0, 4).map((row) => (
+                  <Text key={row.row} size="xs" c="dimmed">
+                    Row {row.row}: {row.reason}
+                  </Text>
+                ))}
+              </Stack>
+            </Alert>
+          ) : null}
+          <Group justify="end">
+            <Button variant="subtle" onClick={() => setImportOpened(false)}>Close</Button>
+            <Button leftSection={<IconUpload size={16} />} loading={importTasks.isPending} onClick={handleImport}>
+              Import Excel
             </Button>
           </Group>
         </Stack>

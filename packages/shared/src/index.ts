@@ -97,6 +97,27 @@ export const taskExportFiltersSchema = taskFiltersSchema.pick({
   isDefect: true,
 });
 
+export const taskImportTemplateVariantSchema = z.enum(["blank", "sample"]).default("blank");
+
+export const taskImportTemplateQuerySchema = z.object({
+  variant: taskImportTemplateVariantSchema,
+});
+
+export const taskImportRowResultSchema = z.object({
+  row: z.number().int().positive(),
+  title: z.string().optional(),
+  memberEmail: z.string().optional(),
+  reason: z.string(),
+});
+
+export const taskImportResultSchema = z.object({
+  inserted: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  rejected: z.number().int().nonnegative(),
+  skippedRows: z.array(taskImportRowResultSchema),
+  rejectedRows: z.array(taskImportRowResultSchema),
+});
+
 export const dashboardFiltersSchema = z.object({
   completedFrom: z.string().datetime().optional(),
   completedTo: z.string().datetime().optional(),
@@ -228,6 +249,9 @@ export type MemberInput = z.infer<typeof memberInputSchema>;
 export type TaskInput = z.infer<typeof taskInputSchema>;
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
 export type TaskExportFilters = z.infer<typeof taskExportFiltersSchema>;
+export type TaskImportTemplateVariant = z.infer<typeof taskImportTemplateVariantSchema>;
+export type TaskImportResultDTO = z.infer<typeof taskImportResultSchema>;
+export type TaskImportRowResultDTO = z.infer<typeof taskImportRowResultSchema>;
 export type DashboardFilters = z.infer<typeof dashboardFiltersSchema>;
 export type CalendarFilters = z.infer<typeof calendarFiltersSchema>;
 export type UserDTO = z.infer<typeof userSchema>;

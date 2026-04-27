@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx scripts/dev.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "build": "tsup src/index.ts --format esm --out-dir dist",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -16,6 +17,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.0.1",
+    "@fastify/multipart": "^10.0.0",
     "@fastify/static": "^9.1.2",
     "@prisma/client": "^6.6.0",
     "@team-management/shared": "*",

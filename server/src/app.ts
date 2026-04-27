@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
@@ -41,6 +42,12 @@ export async function createApp() {
   await app.register(cors, {
     origin: config.CLIENT_ORIGIN,
     credentials: true,
+  });
+  await app.register(multipart, {
+    limits: {
+      files: 1,
+      fileSize: 5 * 1024 * 1024,
+    },
   });
   await app.register(authPlugin);
 

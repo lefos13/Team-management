@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: Team Management Import API
+  version: 1.0.0
+paths:
+  /api/projects/{projectId}/tasks/import-template:
+    get:
+      summary: Download a task import template for a project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: variant
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [blank, sample]
+            default: blank
+      responses:
+        "200":
+          description: Excel import template.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /api/projects/{projectId}/tasks/import:
+    post:
+      summary: Import tasks into a selected project from an Excel workbook.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: A .xlsx workbook no larger than 5 MB.
+      responses:
+        "200":
+          description: Import summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskImportResult"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+components:
+  responses:
+    ApiError:
+      description: Standard API error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    TaskImportResult:
+      type: object
+      required: [inserted, skipped, rejected, skippedRows, rejectedRows]
+      properties:
+        inserted:
+          type: integer
+          minimum: 0
+        skipped:
+          type: integer
+          minimum: 0
+        rejected:
+          type: integer
+          minimum: 0
+        skippedRows:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskImportRowResult"
+        rejectedRows:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskImportRowResult"
+    TaskImportRowResult:
+      type: object
+      required: [row, reason]
+      properties:
+        row:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        memberEmail:
+          type: string
+        reason:
+          type: string
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              nullable: true

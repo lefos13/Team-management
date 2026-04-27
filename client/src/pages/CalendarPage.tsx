@@ -38,6 +38,7 @@ export function CalendarPage() {
           plugins={[dayGridPlugin, timeGridPlugin]}
           initialView="dayGridMonth"
           height={720}
+          dayMaxEventRows={3}
           headerToolbar={{
             left: "prev,next today",
             center: "title",

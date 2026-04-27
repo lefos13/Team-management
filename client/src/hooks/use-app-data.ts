@@ -9,6 +9,8 @@ import type {
   TaskDTO,
   TaskExportFilters,
   TaskFilters,
+  TaskImportResultDTO,
+  TaskImportTemplateVariant,
   TaskInput,
   TeamMemberDTO,
 } from "@team-management/shared";
@@ -73,6 +75,34 @@ export async function exportTasks(filters: TaskExportFilters) {
     responseType: "blob",
   });
   return response.data;
+}
+
+export async function downloadTaskImportTemplate(projectId: string, variant: TaskImportTemplateVariant) {
+  const response = await api.get<Blob>(`/projects/${projectId}/tasks/import-template`, {
+    params: { variant },
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export function useImportTasks() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectId, file }: { projectId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post<TaskImportResultDTO>(`/projects/${projectId}/tasks/import`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    },
+    onSuccess: async () => {
+      await invalidateCoreQueries(queryClient);
+    },
+  });
 }
 
 export function useCalendarEvents() {

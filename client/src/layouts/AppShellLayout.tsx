@@ -32,12 +32,13 @@ export function AppShellLayout() {
     retry: false,
   });
   const logoutMutation = useLogout();
+  const currentNavigation = navigation.find((item) => item.path === location.pathname) ?? navigation[0];
 
   return (
     <AppShell
-      header={{ height: 84 }}
-      navbar={{ width: 290, breakpoint: "sm", collapsed: { mobile: !opened } }}
-      padding="lg"
+      header={{ height: 72 }}
+      navbar={{ width: 270, breakpoint: "sm", collapsed: { mobile: !opened } }}
+      padding="xl"
       className="app-shell"
     >
       <AppShell.Header className="shell-header">
@@ -45,8 +46,8 @@ export function AppShellLayout() {
           <Group gap="md">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" />
             <Stack gap={0}>
-              <Text className="eyebrow">Cloud Team Workspace</Text>
-              <Title order={3}>Team Management</Title>
+              <Text className="eyebrow">Team workspace</Text>
+              <Title order={3}>{currentNavigation.label}</Title>
             </Stack>
           </Group>
           <Group gap="sm">
@@ -75,18 +76,38 @@ export function AppShellLayout() {
         </Group>
       </AppShell.Header>
       <AppShell.Navbar className="shell-navbar" p="md">
-        <Stack gap="xs">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.path}
-              active={location.pathname === item.path}
-              label={item.label}
-              leftSection={<item.icon size={18} />}
-              onClick={() => navigate(item.path)}
-              variant="light"
-              className="shell-navlink"
-            />
-          ))}
+        <Stack gap="lg" h="100%" justify="space-between">
+          <Stack gap="lg">
+            <Stack gap={2} px="sm">
+              <Text fw={900} size="lg" c="white">
+                Team Management
+              </Text>
+              <Text size="xs" c="blue.1">
+                Operations workspace
+              </Text>
+            </Stack>
+            <Stack gap="xs">
+              {navigation.map((item) => (
+                <NavLink
+                  key={item.path}
+                  active={location.pathname === item.path}
+                  label={item.label}
+                  leftSection={<item.icon size={18} />}
+                  onClick={() => navigate(item.path)}
+                  variant="filled"
+                  className="shell-navlink"
+                />
+              ))}
+            </Stack>
+          </Stack>
+          <Stack className="shell-upgrade" gap="xs">
+            <Text fw={800} c="teal.3">
+              Project focus
+            </Text>
+            <Text size="sm" c="blue.1">
+              Review progress, deadlines, and team ownership before work becomes urgent.
+            </Text>
+          </Stack>
         </Stack>
       </AppShell.Navbar>
       <AppShell.Main>

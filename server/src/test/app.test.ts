@@ -55,6 +55,26 @@ describe("team management API", () => {
     return request(app.server).post("/api/auth/reset-password").send({ email, otp, password });
   }
 
+  async function buildTaskImportWorkbook(rows: Array<Record<string, unknown>>) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Tasks");
+    worksheet.addRow(["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"]);
+
+    for (const row of rows) {
+      worksheet.addRow([
+        row.title,
+        row.memberEmail,
+        row.deadline,
+        row.description ?? "",
+        row.status ?? "",
+        row.defect ?? "",
+        row.startDate ?? "",
+      ]);
+    }
+
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
   it("registers, verifies, and signs in a user", async () => {
     const registerResponse = await register("owner@example.com", "password123");
 
@@ -399,6 +419,140 @@ describe("team management API", () => {
     const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
     expect(nonDefectTasks.status).toBe(200);
     expect(nonDefectTasks.body).toHaveLength(0);
+  });
+
+  /*
+  Exercise the Excel task import flow through the HTTP boundary so file checks,
+  project-member validation, duplicate skipping, and date-only normalization stay aligned.
+  */
+  it("downloads task import templates and imports valid Excel tasks while skipping duplicates", async () => {
+    await register("import@example.com", "password123");
+    await verify("import@example.com");
+    const loginResponse = await login("import@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Import project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [],
+      });
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Import Owner",
+        role: "Lead",
+        email: "owner@import.test",
+        notes: "",
+        active: true,
+        projectIds: [project.body.id],
+      });
+
+    expect(member.status).toBe(200);
+
+    const templateResponse = await request(app.server)
+      .get(`/api/projects/${project.body.id}/tasks/import-template?variant=blank`)
+      .set("Cookie", cookie);
+
+    expect(templateResponse.status).toBe(200);
+    expect(templateResponse.headers["content-type"]).toContain("spreadsheetml.sheet");
+
+    const deadline = new Date(2026, 0, 15);
+    const startDate = new Date(2026, 0, 14);
+    const workbook = await buildTaskImportWorkbook([
+      {
+        title: "Imported planning task",
+        memberEmail: "owner@import.test",
+        deadline,
+        description: "Created from Excel",
+        status: "To Do",
+        defect: "no",
+        startDate,
+      },
+    ]);
+
+    const importResponse = await request(app.server)
+      .post(`/api/projects/${project.body.id}/tasks/import`)
+      .set("Cookie", cookie)
+      .attach("file", workbook, {
+        filename: "tasks.xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+    expect(importResponse.status).toBe(200);
+    expect(importResponse.body.inserted).toBe(1);
+    expect(importResponse.body.skipped).toBe(0);
+
+    const importedTask = await prisma.task.findFirstOrThrow({
+      where: {
+        userId: loginResponse.body.id,
+        title: "Imported planning task",
+      },
+    });
+
+    expect(importedTask.startDate?.getHours()).toBe(9);
+    expect(importedTask.deadline.getHours()).toBe(17);
+
+    const duplicateResponse = await request(app.server)
+      .post(`/api/projects/${project.body.id}/tasks/import`)
+      .set("Cookie", cookie)
+      .attach("file", workbook, {
+        filename: "tasks.xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+    expect(duplicateResponse.status).toBe(200);
+    expect(duplicateResponse.body.inserted).toBe(0);
+    expect(duplicateResponse.body.skipped).toBe(1);
+  });
+
+  it("rejects task imports with members outside the selected project before inserting rows", async () => {
+    await register("bad-import@example.com", "password123");
+    await verify("bad-import@example.com");
+    const loginResponse = await login("bad-import@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Strict import project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [],
+      });
+
+    const workbook = await buildTaskImportWorkbook([
+      {
+        title: "Should not import",
+        memberEmail: "missing@import.test",
+        deadline: new Date(2026, 0, 15),
+      },
+    ]);
+
+    const importResponse = await request(app.server)
+      .post(`/api/projects/${project.body.id}/tasks/import`)
+      .set("Cookie", cookie)
+      .attach("file", workbook, {
+        filename: "tasks.xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+    expect(importResponse.status).toBe(400);
+    expect(importResponse.body.error.code).toBe("BAD_REQUEST");
+
+    const insertedCount = await prisma.task.count({
+      where: {
+        userId: loginResponse.body.id,
+      },
+    });
+    expect(insertedCount).toBe(0);
   });
 
   it("backfills existing done task completion dates in the migration", () => {

@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Card, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Loader, Pagination, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArchive, IconEdit, IconPlus } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
@@ -13,6 +13,7 @@ import {
   useUpdateMember,
 } from "../hooks/use-app-data";
 import { getErrorMessage } from "../lib/api";
+import { usePagination } from "../hooks/use-pagination";
 
 export function MembersPage() {
   const [opened, setOpened] = useState(false);
@@ -28,12 +29,13 @@ export function MembersPage() {
     [editingMemberId, membersQuery.data],
   );
 
+  const projects = projectsQuery.data ?? [];
+  const members = membersQuery.data ?? [];
+  const { page, setPage, totalPages, paginatedItems: paginatedMembers } = usePagination(members, 6);
+
   if (projectsQuery.isLoading || membersQuery.isLoading) {
     return <Loader />;
   }
-
-  const projects = projectsQuery.data ?? [];
-  const members = membersQuery.data ?? [];
 
   return (
     <Stack gap="xl">
@@ -53,8 +55,8 @@ export function MembersPage() {
         }
       />
 
-      <SimpleGrid cols={{ base: 1, md: 2 }}>
-        {members.map((member) => (
+      <SimpleGrid cols={{ base: 1, md: 2 }} className="paginated-card-grid">
+        {paginatedMembers.map((member) => (
           <Card key={member.id} radius="xl" withBorder className="content-card">
             <Stack gap="md">
               <Group justify="space-between" align="start">
@@ -110,6 +112,9 @@ export function MembersPage() {
           </Card>
         ))}
       </SimpleGrid>
+      <Group className="page-pagination-slot" justify="center">
+        {totalPages > 1 ? <Pagination total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
 
       <MemberFormModal
         projects={projects}
