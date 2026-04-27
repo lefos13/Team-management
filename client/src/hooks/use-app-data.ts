@@ -1,11 +1,13 @@
 import type {
   CalendarEventDTO,
   DashboardDTO,
+  DashboardFilters,
   MemberInput,
   ProjectDetailDTO,
   ProjectInput,
   ProjectSummaryDTO,
   TaskDTO,
+  TaskExportFilters,
   TaskFilters,
   TaskInput,
   TeamMemberDTO,
@@ -14,11 +16,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/api";
 
-export function useDashboard() {
+export function useDashboard(filters: DashboardFilters = {}) {
   return useQuery({
-    queryKey: ["dashboard"],
+    queryKey: ["dashboard", filters],
     queryFn: async () => {
-      const response = await api.get<DashboardDTO>("/dashboard");
+      const response = await api.get<DashboardDTO>("/dashboard", { params: filters });
       return response.data;
     },
   });
@@ -63,6 +65,14 @@ export function useTasks(filters: TaskFilters) {
       return response.data;
     },
   });
+}
+
+export async function exportTasks(filters: TaskExportFilters) {
+  const response = await api.get<Blob>("/tasks/export", {
+    params: filters,
+    responseType: "blob",
+  });
+  return response.data;
 }
 
 export function useCalendarEvents() {

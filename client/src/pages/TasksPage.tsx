@@ -1,15 +1,16 @@
 /* Keep task management filterable and editable from one screen because the leader is the only status owner. */
-import { ActionIcon, Button, Grid, Group, Loader, Paper, Select, Stack, Table, Text } from "@mantine/core";
+import { ActionIcon, Button, Grid, Group, Loader, Modal, Paper, Select, Stack, Table, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
-import { taskStatusValues, type TaskDTO, type TaskFilters } from "@team-management/shared";
+import { IconDownload, IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
+import { taskStatusValues, type TaskDTO, type TaskExportFilters, type TaskFilters } from "@team-management/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
-import { TaskStatusBadge } from "../components/StatusBadge";
+import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
 import {
+  exportTasks,
   useCreateTask,
   useDeleteTask,
   useMembers,
@@ -24,6 +25,9 @@ import { formatDateTime } from "../lib/dates";
 export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<TaskFilters>({});
+  const [exportFilters, setExportFilters] = useState<TaskExportFilters>({});
+  const [exportOpened, setExportOpened] = useState(false);
+  const [exportPending, setExportPending] = useState(false);
   const [opened, setOpened] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
@@ -63,27 +67,66 @@ export function TasksPage() {
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
 
+  async function handleExport() {
+    setExportPending(true);
+    try {
+      const blob = await exportTasks(exportFilters);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tasks-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportOpened(false);
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to export tasks",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setExportPending(false);
+    }
+  }
+
   return (
     <Stack gap="xl">
       <PageHeader
         title="Tasks"
         description="Assign work, filter the workload, and adjust statuses without leaving the manager workspace."
         action={
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => {
-              setEditingTaskId(null);
-              setOpened(true);
-            }}
-          >
-            New task
-          </Button>
+          <Group gap="sm">
+            <Button
+              variant="light"
+              leftSection={<IconDownload size={16} />}
+              onClick={() => {
+                setExportFilters({
+                  projectId: filters.projectId,
+                  assigneeId: filters.assigneeId,
+                  status: filters.status,
+                  isDefect: filters.isDefect,
+                });
+                setExportOpened(true);
+              }}
+            >
+              Export
+            </Button>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => {
+                setEditingTaskId(null);
+                setOpened(true);
+              }}
+            >
+              New task
+            </Button>
+          </Group>
         }
       />
 
       <Paper radius="xl" p="lg" withBorder>
         <Grid>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          <Grid.Col span={{ base: 12, md: 3 }}>
             <Select
               label="Project"
               clearable
@@ -92,7 +135,7 @@ export function TasksPage() {
               onChange={(value) => setFilters((current) => ({ ...current, projectId: value ?? undefined }))}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          <Grid.Col span={{ base: 12, md: 3 }}>
             <Select
               label="Assignee"
               clearable
@@ -101,13 +144,25 @@ export function TasksPage() {
               onChange={(value) => setFilters((current) => ({ ...current, assigneeId: value ?? undefined }))}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          <Grid.Col span={{ base: 12, md: 3 }}>
             <Select
               label="Status"
               clearable
               value={filters.status ?? null}
               data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
               onChange={(value) => setFilters((current) => ({ ...current, status: (value as TaskFilters["status"]) ?? undefined }))}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 3 }}>
+            <Select
+              label="Defect"
+              clearable
+              value={filters.isDefect === undefined ? null : String(filters.isDefect)}
+              data={[
+                { value: "true", label: "Defects only" },
+                { value: "false", label: "Non-defects only" },
+              ]}
+              onChange={(value) => setFilters((current) => ({ ...current, isDefect: value === null ? undefined : value === "true" }))}
             />
           </Grid.Col>
         </Grid>
@@ -119,10 +174,11 @@ export function TasksPage() {
             <Table.Tr>
               <Table.Th>Task</Table.Th>
               <Table.Th>Project</Table.Th>
-              <Table.Th>Assignee</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Deadline</Table.Th>
-              <Table.Th />
+                <Table.Th>Assignee</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Info</Table.Th>
+                <Table.Th>Deadline</Table.Th>
+                <Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -161,6 +217,14 @@ export function TasksPage() {
                       }}
                     />
                   </Group>
+                </Table.Td>
+                <Table.Td>
+                  <Stack gap={6}>
+                    {task.isDefect ? <DefectBadge /> : <Text size="sm" c="dimmed">Standard</Text>}
+                    {task.completedAt ? (
+                      <Text size="xs" c="dimmed">Done {formatDateTime(task.completedAt)}</Text>
+                    ) : null}
+                  </Stack>
                 </Table.Td>
                 <Table.Td>{formatDateTime(task.deadline)}</Table.Td>
                 <Table.Td>
@@ -224,6 +288,58 @@ export function TasksPage() {
           }
         }}
       />
+
+      <Modal opened={exportOpened} onClose={() => setExportOpened(false)} title="Export tasks" centered size="lg" radius="lg">
+        <Stack>
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Project"
+                clearable
+                value={exportFilters.projectId ?? null}
+                data={projects.map((project) => ({ value: project.id, label: project.name }))}
+                onChange={(value) => setExportFilters((current) => ({ ...current, projectId: value ?? undefined }))}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Member"
+                clearable
+                value={exportFilters.assigneeId ?? null}
+                data={members.map((member) => ({ value: member.id, label: member.name }))}
+                onChange={(value) => setExportFilters((current) => ({ ...current, assigneeId: value ?? undefined }))}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Status"
+                clearable
+                value={exportFilters.status ?? null}
+                data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+                onChange={(value) => setExportFilters((current) => ({ ...current, status: (value as TaskExportFilters["status"]) ?? undefined }))}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Defect"
+                clearable
+                value={exportFilters.isDefect === undefined ? null : String(exportFilters.isDefect)}
+                data={[
+                  { value: "true", label: "Defects only" },
+                  { value: "false", label: "Non-defects only" },
+                ]}
+                onChange={(value) => setExportFilters((current) => ({ ...current, isDefect: value === null ? undefined : value === "true" }))}
+              />
+            </Grid.Col>
+          </Grid>
+          <Group justify="end">
+            <Button variant="subtle" onClick={() => setExportOpened(false)}>Cancel</Button>
+            <Button leftSection={<IconDownload size={16} />} loading={exportPending} onClick={handleExport}>
+              Export Excel
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

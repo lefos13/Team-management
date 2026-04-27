@@ -64,9 +64,12 @@ export function mapProjectDetail(
 export function mapMember(
   member: TeamMember & {
     projectMembers: Array<{ projectId: string }>;
-    tasks: Array<{ id: string }>;
+    tasks: Array<{ status: string }>;
   },
 ): TeamMemberDTO {
+  const openTaskCount = member.tasks.filter((task) => task.status !== "done").length;
+  const completedTaskCount = member.tasks.filter((task) => task.status === "done").length;
+
   return {
     id: member.id,
     name: member.name,
@@ -75,7 +78,8 @@ export function mapMember(
     notes: member.notes,
     active: member.active,
     projectIds: member.projectMembers.map((project) => project.projectId),
-    openTaskCount: member.tasks.length,
+    openTaskCount,
+    completedTaskCount,
     createdAt: toIsoString(member.createdAt),
     updatedAt: toIsoString(member.updatedAt),
   };
@@ -92,8 +96,10 @@ export function mapTask(
     title: task.title,
     description: task.description,
     status: task.status as TaskDTO["status"],
+    isDefect: task.isDefect,
     deadline: toIsoString(task.deadline),
     startDate: task.startDate ? toIsoString(task.startDate) : null,
+    completedAt: task.completedAt ? toIsoString(task.completedAt) : null,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
     projectName: task.project.name,

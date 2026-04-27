@@ -1,6 +1,8 @@
 /* Exercise registration, verification, and account isolation so the cloud multi-tenant contract is enforced end to end. */
 import "dotenv/config";
 
+import ExcelJS from "exceljs";
+import { readFileSync } from "node:fs";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -283,6 +285,131 @@ describe("team management API", () => {
     expect(betaDashboard.status).toBe(200);
     expect(betaDashboard.body.stats.projectCount).toBe(0);
     expect(betaDashboard.body.stats.taskCount).toBe(0);
+  });
+
+  /*
+  Exercise completion tracking, defect filtering, and export generation together
+  because these features all depend on the same task status and metadata fields.
+  */
+  it("tracks completion dates, member completed counts, dashboard ranges, and filtered exports", async () => {
+    await register("tasks@example.com", "password123");
+    await verify("tasks@example.com");
+    const loginResponse = await login("tasks@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "John Tester",
+        role: "QA",
+        email: "john@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Project A",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    const task = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Fix login bug",
+        description: "Regression on sign in",
+        status: "todo",
+        isDefect: true,
+        deadline: new Date(Date.now() + 86_400_000).toISOString(),
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(task.status).toBe(200);
+    expect(task.body.isDefect).toBe(true);
+    expect(task.body.completedAt).toBeNull();
+
+    const doneTask = await request(app.server)
+      .patch(`/api/tasks/${task.body.id}/status`)
+      .set("Cookie", cookie)
+      .send({ status: "done" });
+
+    expect(doneTask.status).toBe(200);
+    expect(doneTask.body.completedAt).toBeTruthy();
+
+    const members = await request(app.server).get("/api/members").set("Cookie", cookie);
+    expect(members.status).toBe(200);
+    expect(members.body[0].openTaskCount).toBe(0);
+    expect(members.body[0].completedTaskCount).toBe(1);
+
+    const range = new URLSearchParams({
+      completedFrom: new Date(Date.now() - 60_000).toISOString(),
+      completedTo: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const dashboard = await request(app.server).get(`/api/dashboard?${range.toString()}`).set("Cookie", cookie);
+
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.recentCompletions.count).toBe(1);
+    expect(dashboard.body.recentCompletions.tasks[0].title).toBe("Fix login bug");
+
+    const reopenedTask = await request(app.server)
+      .patch(`/api/tasks/${task.body.id}/status`)
+      .set("Cookie", cookie)
+      .send({ status: "todo" });
+
+    expect(reopenedTask.status).toBe(200);
+    expect(reopenedTask.body.completedAt).toBeNull();
+
+    const exportQuery = new URLSearchParams({
+      projectId: project.body.id,
+      assigneeId: member.body.id,
+      status: "todo",
+      isDefect: "true",
+    });
+    const exportResponse = await request(app.server)
+      .get(`/api/tasks/export?${exportQuery.toString()}`)
+      .set("Cookie", cookie)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.headers["content-type"]).toContain("spreadsheetml.sheet");
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResponse.body);
+    const worksheet = workbook.getWorksheet("Tasks");
+
+    expect(worksheet).toBeTruthy();
+    expect(worksheet?.getCell("A7").value).toBe("Fix login bug");
+    expect(worksheet?.getCell("E7").value).toBe("Yes");
+
+    const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
+    expect(nonDefectTasks.status).toBe(200);
+    expect(nonDefectTasks.body).toHaveLength(0);
+  });
+
+  it("backfills existing done task completion dates in the migration", () => {
+    const migration = readFileSync(
+      new URL("../../prisma/migrations/20260427120000_task_completion_defects/migration.sql", import.meta.url),
+      "utf8",
+    );
+
+    expect(migration).toContain("ADD COLUMN \"completedAt\"");
+    expect(migration).toContain("UPDATE \"Task\" SET \"completedAt\" = \"updatedAt\" WHERE \"status\" = 'done'");
+    expect(migration).toContain("Task_completion_metadata_trigger");
   });
 
   it("rejects unauthenticated access", async () => {

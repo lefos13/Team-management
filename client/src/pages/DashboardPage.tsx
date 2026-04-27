@@ -1,17 +1,40 @@
 /* Keep the dashboard focused on workload signals the leader needs first: totals, overdue work, and near-term deadlines. */
-import { Card, Grid, Group, Loader, Paper, SimpleGrid, Stack, Table, Text } from "@mantine/core";
+import { Button, Card, Grid, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput } from "@mantine/core";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import dayjs from "dayjs";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
-import { TaskStatusBadge } from "../components/StatusBadge";
+import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { useCalendarEvents, useDashboard } from "../hooks/use-app-data";
 import { formatDateTime } from "../lib/dates";
 
+function completionRangeForPreset(preset: "today" | "three-days" | "week") {
+  const now = dayjs();
+  const start = preset === "today" ? now.startOf("day") : now.subtract(preset === "three-days" ? 3 : 7, "day");
+
+  return {
+    completedFrom: start.toDate().toISOString(),
+    completedTo: now.toDate().toISOString(),
+  };
+}
+
+function completionRangeForDay(value: string) {
+  const selected = dayjs(value);
+
+  return {
+    completedFrom: selected.startOf("day").toDate().toISOString(),
+    completedTo: selected.endOf("day").toDate().toISOString(),
+  };
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
-  const dashboardQuery = useDashboard();
+  const [completionFilters, setCompletionFilters] = useState(() => completionRangeForPreset("week"));
+  const [selectedCompletionDay, setSelectedCompletionDay] = useState("");
+  const dashboardQuery = useDashboard(completionFilters);
   const calendarQuery = useCalendarEvents();
 
   if (dashboardQuery.isLoading || calendarQuery.isLoading) {
@@ -97,6 +120,67 @@ export function DashboardPage() {
           </Paper>
         </Grid.Col>
       </Grid>
+
+      <Paper radius="xl" p="lg" withBorder>
+        <Group justify="space-between" align="end" mb="md">
+          <Stack gap={4}>
+            <Text fw={700} fz="lg">Recently completed</Text>
+            <Text size="sm" c="dimmed">
+              {formatDateTime(dashboard.recentCompletions.from)} to {formatDateTime(dashboard.recentCompletions.to)}
+            </Text>
+          </Stack>
+          <Group gap="xs">
+            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("today"))}>
+              Today
+            </Button>
+            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("three-days"))}>
+              Past 3 days
+            </Button>
+            <Button size="xs" variant="light" onClick={() => setCompletionFilters(completionRangeForPreset("week"))}>
+              Past week
+            </Button>
+            <TextInput
+              type="date"
+              size="xs"
+              value={selectedCompletionDay}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                setSelectedCompletionDay(value);
+                if (value) {
+                  setCompletionFilters(completionRangeForDay(value));
+                }
+              }}
+            />
+          </Group>
+        </Group>
+        <SimpleGrid cols={{ base: 1, lg: 2 }}>
+          <Card className="stat-card" padding="lg" radius="xl">
+            <Text c="dimmed">Completed in range</Text>
+            <Text fz={34} fw={800}>{dashboard.recentCompletions.count}</Text>
+          </Card>
+          <Stack gap="sm">
+            {dashboard.recentCompletions.tasks.length === 0 ? (
+              <Text c="dimmed">No completed tasks in this range.</Text>
+            ) : (
+              dashboard.recentCompletions.tasks.map((task) => (
+                <Card key={task.id} radius="lg" withBorder>
+                  <Group justify="space-between" align="start">
+                    <Stack gap={4}>
+                      <Text fw={700}>{task.title}</Text>
+                      <Text size="sm" c="dimmed">{task.assigneeName} · {task.projectName}</Text>
+                      <Text size="sm">Done {formatDateTime(task.completedAt)}</Text>
+                    </Stack>
+                    <Group gap="xs">
+                      {task.isDefect ? <DefectBadge /> : null}
+                      <TaskStatusBadge status={task.status} />
+                    </Group>
+                  </Group>
+                </Card>
+              ))
+            )}
+          </Stack>
+        </SimpleGrid>
+      </Paper>
 
       <Grid gutter="lg">
         <Grid.Col span={{ base: 12, xl: 7 }}>

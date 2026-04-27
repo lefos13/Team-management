@@ -1,6 +1,13 @@
 /* Enforce that tasks belong to valid project-member pairs so the calendar and workload views stay coherent. */
 import type { TaskDTO } from "@team-management/shared";
-import { taskFiltersSchema, taskInputSchema, taskStatusSchema } from "@team-management/shared";
+import {
+  taskExportFiltersSchema,
+  taskFiltersSchema,
+  taskInputSchema,
+  taskStatusSchema,
+} from "@team-management/shared";
+import type { Prisma } from "@prisma/client";
+import ExcelJS from "exceljs";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 
@@ -16,6 +23,32 @@ const taskIdParamsSchema = z.object({
 const taskStatusUpdateSchema = z.object({
   status: taskStatusSchema,
 });
+
+const taskExportHeaders = [
+  "Title",
+  "Project",
+  "Member",
+  "Current stage",
+  "Defect",
+  "Start date",
+  "Deadline",
+  "Completed date",
+  "Created at",
+  "Updated at",
+  "Description",
+] as const;
+
+type ExportTask = Prisma.TaskGetPayload<{
+  include: {
+    project: { select: { name: true } };
+    assignee: { select: { name: true } };
+  };
+}>;
+
+/*
+Keep the export format centralized beside the task query so API fields, workbook
+columns, and the project instruction about template maintenance stay aligned.
+*/
 
 function normalizeOptionalText(value?: string): string | null {
   return value && value.trim() !== "" ? value.trim() : null;
@@ -63,6 +96,7 @@ function buildTaskWhere(filters: z.infer<typeof taskFiltersSchema>) {
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
     ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
     ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.isDefect === undefined ? {} : { isDefect: filters.isDefect }),
     ...((filters.dueFrom || filters.dueTo)
       ? {
           deadline: {
@@ -72,6 +106,89 @@ function buildTaskWhere(filters: z.infer<typeof taskFiltersSchema>) {
         }
       : {}),
   };
+}
+
+function buildCompletedAtUpdate(nextStatus: string, currentStatus?: string, currentCompletedAt?: Date | null) {
+  if (nextStatus === "done") {
+    return currentStatus === "done" && currentCompletedAt ? currentCompletedAt : new Date();
+  }
+
+  return null;
+}
+
+function formatWorkbookDate(value: Date | null): string {
+  return value ? value.toISOString() : "";
+}
+
+async function buildTasksWorkbook(tasks: ExportTask[]) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Team Management";
+  workbook.created = new Date();
+  const worksheet = workbook.addWorksheet("Tasks", {
+    views: [{ state: "frozen", ySplit: 6 }],
+  });
+
+  worksheet.mergeCells("A1:K1");
+  worksheet.getCell("A1").value = "Task Current Stage Export";
+  worksheet.getCell("A1").font = { size: 18, bold: true, color: { argb: "FFFFFFFF" } };
+  worksheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F766E" } };
+  worksheet.getCell("A1").alignment = { vertical: "middle" };
+  worksheet.getRow(1).height = 28;
+
+  worksheet.addRow([]);
+  worksheet.addRow(["Generated at", new Date().toISOString(), "Total tasks", tasks.length]);
+  worksheet.addRow(["Done tasks", tasks.filter((task) => task.status === "done").length, "Defects", tasks.filter((task) => task.isDefect).length]);
+  worksheet.addRow([]);
+  worksheet.addRow([...taskExportHeaders]);
+
+  const headerRow = worksheet.getRow(6);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111827" } };
+  headerRow.alignment = { vertical: "middle" };
+
+  for (const task of tasks) {
+    worksheet.addRow([
+      task.title,
+      task.project.name,
+      task.assignee.name,
+      task.status.replace("_", " "),
+      task.isDefect ? "Yes" : "No",
+      formatWorkbookDate(task.startDate),
+      formatWorkbookDate(task.deadline),
+      formatWorkbookDate(task.completedAt),
+      formatWorkbookDate(task.createdAt),
+      formatWorkbookDate(task.updatedAt),
+      task.description ?? "",
+    ]);
+  }
+
+  worksheet.columns = [
+    { width: 34 },
+    { width: 24 },
+    { width: 24 },
+    { width: 16 },
+    { width: 10 },
+    { width: 24 },
+    { width: 24 },
+    { width: 24 },
+    { width: 24 },
+    { width: 24 },
+    { width: 50 },
+  ];
+
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFE5E7EB" } },
+        left: { style: "thin", color: { argb: "FFE5E7EB" } },
+        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+        right: { style: "thin", color: { argb: "FFE5E7EB" } },
+      };
+      cell.alignment = { vertical: "top", wrapText: rowNumber > 6 };
+    });
+  });
+
+  return workbook.xlsx.writeBuffer();
 }
 
 export const taskRoutes: FastifyPluginAsync = async (fastify) => {
@@ -108,6 +225,41 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  app.get(
+    "/tasks/export",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        querystring: taskExportFiltersSchema,
+      },
+    },
+    async (request, reply) => {
+      const user = requireCurrentUser(request);
+      const query = taskExportFiltersSchema.parse(request.query);
+      const tasks = await prisma.task.findMany({
+        where: {
+          userId: user.id,
+          ...buildTaskWhere(query),
+        },
+        include: {
+          project: {
+            select: { name: true },
+          },
+          assignee: {
+            select: { name: true },
+          },
+        },
+        orderBy: [{ project: { name: "asc" } }, { assignee: { name: "asc" } }, { status: "asc" }, { deadline: "asc" }],
+      });
+      const buffer = await buildTasksWorkbook(tasks);
+
+      return reply
+        .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        .header("Content-Disposition", `attachment; filename="tasks-export-${new Date().toISOString().slice(0, 10)}.xlsx"`)
+        .send(Buffer.from(buffer));
+    },
+  );
+
   app.post(
     "/tasks",
     {
@@ -127,8 +279,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           title: body.title,
           description: normalizeOptionalText(body.description),
           status: body.status,
+          isDefect: body.isDefect,
           deadline: new Date(body.deadline),
           startDate: normalizeOptionalDate(body.startDate),
+          completedAt: buildCompletedAtUpdate(body.status),
           projectId: body.projectId,
           assigneeId: body.assigneeId,
         },
@@ -175,8 +329,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           title: body.title,
           description: normalizeOptionalText(body.description),
           status: body.status,
+          isDefect: body.isDefect,
           deadline: new Date(body.deadline),
           startDate: normalizeOptionalDate(body.startDate),
+          completedAt: buildCompletedAtUpdate(body.status, existingTask.status, existingTask.completedAt),
           projectId: body.projectId,
           assigneeId: body.assigneeId,
         },
@@ -217,7 +373,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
 
       const updatedTask = await prisma.task.update({
         where: { id: params.id },
-        data: { status: body.status },
+        data: {
+          status: body.status,
+          completedAt: buildCompletedAtUpdate(body.status, task.status, task.completedAt),
+        },
         include: {
           project: {
             select: { name: true },

@@ -2,7 +2,7 @@
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
 import { taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Modal, Select, Stack, Textarea, TextInput } from "@mantine/core";
+import { Button, Checkbox, Modal, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { Controller, useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -14,6 +14,7 @@ const taskFormSchema = z
     title: z.string().trim().min(1, "Title is required."),
     description: z.string().optional(),
     status: z.enum(taskStatusValues),
+    isDefect: z.boolean(),
     deadline: z.string().min(1, "Deadline is required."),
     startDate: z.string().optional(),
     projectId: z.string().min(1, "Project is required."),
@@ -56,6 +57,7 @@ export function TaskFormModal({
       title: "",
       description: "",
       status: "todo",
+      isDefect: false,
       deadline: "",
       startDate: "",
       projectId: "",
@@ -68,6 +70,7 @@ export function TaskFormModal({
       title: task?.title ?? "",
       description: task?.description ?? "",
       status: task?.status ?? "todo",
+      isDefect: task?.isDefect ?? false,
       deadline: toDateTimeLocalValue(task?.deadline ?? null),
       startDate: toDateTimeLocalValue(task?.startDate ?? null),
       projectId: task?.projectId ?? "",
@@ -88,6 +91,7 @@ export function TaskFormModal({
             title: values.title,
             description: values.description ?? "",
             status: values.status,
+            isDefect: values.isDefect,
             deadline: toIsoFromLocal(values.deadline),
             startDate: values.startDate ? toIsoFromLocal(values.startDate) : "",
             projectId: values.projectId,
@@ -112,6 +116,17 @@ export function TaskFormModal({
                 data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
                 value={field.value}
                 onChange={(value) => field.onChange(value ?? "todo")}
+              />
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="isDefect"
+            render={({ field }) => (
+              <Checkbox
+                label="Mark as defect"
+                checked={field.value}
+                onChange={(event) => field.onChange(event.currentTarget.checked)}
               />
             )}
           />

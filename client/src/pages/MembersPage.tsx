@@ -94,7 +94,9 @@ export function MembersPage() {
               </Group>
               <Group justify="space-between">
                 <Text size="sm">{member.active ? "Active" : "Archived"}</Text>
-                <Text size="sm" c="dimmed">{member.openTaskCount} open tasks</Text>
+                <Text size="sm" c="dimmed">
+                  {member.openTaskCount} open · {member.completedTaskCount} completed
+                </Text>
               </Group>
               <Text size="sm">
                 Projects:{" "}

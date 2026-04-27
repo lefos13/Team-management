@@ -11,6 +11,7 @@ The production deploy script is the source of truth for how the application is a
 - Preserve existing user data and avoid destructive database operations in production paths.
 - If a change affects API contracts, build output, environment variables, or startup order, update the deploy process in the same change set.
 - Verify that local development changes can still be deployed through the production script without corrupting the existing database or user data.
+- If task data structure or export fields change, update the Excel export template in the same change set.
 
 ## Deployment safety
 

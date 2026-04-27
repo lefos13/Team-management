@@ -65,6 +65,7 @@ export const taskInputSchema = z
     title: z.string().trim().min(1).max(160),
     description: z.string().trim().max(4000).optional().or(z.literal("")),
     status: taskStatusSchema,
+    isDefect: z.boolean().default(false),
     deadline: z.string().datetime(),
     startDate: z.string().datetime().optional().nullable().or(z.literal("")),
     projectId: z.string().min(1),
@@ -84,8 +85,21 @@ export const taskFiltersSchema = z.object({
   projectId: z.string().min(1).optional(),
   assigneeId: z.string().min(1).optional(),
   status: taskStatusSchema.optional(),
+  isDefect: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional(),
   dueFrom: z.string().datetime().optional(),
   dueTo: z.string().datetime().optional(),
+});
+
+export const taskExportFiltersSchema = taskFiltersSchema.pick({
+  projectId: true,
+  assigneeId: true,
+  status: true,
+  isDefect: true,
+});
+
+export const dashboardFiltersSchema = z.object({
+  completedFrom: z.string().datetime().optional(),
+  completedTo: z.string().datetime().optional(),
 });
 
 export const calendarFiltersSchema = z.object({
@@ -142,6 +156,7 @@ export const memberSchema = z.object({
   active: z.boolean(),
   projectIds: z.array(z.string()),
   openTaskCount: z.number().int().nonnegative(),
+  completedTaskCount: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -151,8 +166,10 @@ export const taskSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   status: taskStatusSchema,
+  isDefect: z.boolean(),
   deadline: z.string().datetime(),
   startDate: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
   projectId: z.string(),
   assigneeId: z.string(),
   projectName: z.string(),
@@ -187,6 +204,12 @@ export const dashboardSchema = z.object({
       count: z.number().int().nonnegative(),
     }),
   ),
+  recentCompletions: z.object({
+    from: z.string().datetime(),
+    to: z.string().datetime(),
+    count: z.number().int().nonnegative(),
+    tasks: z.array(taskSchema),
+  }),
   overdueTasks: z.array(taskSchema),
   upcomingTasks: z.array(taskSchema),
 });
@@ -204,6 +227,8 @@ export type ProjectInput = z.infer<typeof projectInputSchema>;
 export type MemberInput = z.infer<typeof memberInputSchema>;
 export type TaskInput = z.infer<typeof taskInputSchema>;
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
+export type TaskExportFilters = z.infer<typeof taskExportFiltersSchema>;
+export type DashboardFilters = z.infer<typeof dashboardFiltersSchema>;
 export type CalendarFilters = z.infer<typeof calendarFiltersSchema>;
 export type UserDTO = z.infer<typeof userSchema>;
 export type AuthActionResponseDTO = z.infer<typeof authActionResponseSchema>;

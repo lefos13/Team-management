@@ -97,8 +97,10 @@ model Task {
   title       String
   description String?
   status      String     @default("todo")
+  isDefect    Boolean    @default(false)
   deadline    DateTime
   startDate   DateTime?
+  completedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   userId      String
@@ -109,6 +111,7 @@ model Task {
   assignee    TeamMember @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
 
   @@index([deadline])
+  @@index([completedAt])
   @@index([userId])
   @@index([projectId])
   @@index([assigneeId])
