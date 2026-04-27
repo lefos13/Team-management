@@ -16,9 +16,10 @@ type RegisterFormProps = {
   loading: boolean;
   errorMessage: string | null;
   onSubmit: (values: RegisterFormValues) => void;
+  framed?: boolean;
 };
 
-export function RegisterForm({ loading, errorMessage, onSubmit }: RegisterFormProps) {
+export function RegisterForm({ loading, errorMessage, onSubmit, framed = true }: RegisterFormProps) {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
     defaultValues: {
@@ -27,32 +28,38 @@ export function RegisterForm({ loading, errorMessage, onSubmit }: RegisterFormPr
     },
   });
 
-  return (
-    <Paper radius="xl" p="xl" shadow="md" withBorder>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <Stack>
-          {errorMessage ? (
-            <Alert color="red" icon={<IconAlertCircle size={16} />} variant="light">
-              {errorMessage}
-            </Alert>
-          ) : null}
-          <TextInput
-            label="Email"
-            placeholder="you@example.com"
-            {...form.register("email")}
-            error={form.formState.errors.email?.message}
-          />
-          <PasswordInput
-            label="Password"
-            placeholder="Create a password"
-            {...form.register("password")}
-            error={form.formState.errors.password?.message}
-          />
-          <Button type="submit" loading={loading} radius="xl" size="md">
-            Create account
-          </Button>
-        </Stack>
-      </form>
+  const content = (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <Stack>
+        {errorMessage ? (
+          <Alert color="red" icon={<IconAlertCircle size={16} />} variant="light">
+            {errorMessage}
+          </Alert>
+        ) : null}
+        <TextInput
+          label="Email"
+          placeholder="you@example.com"
+          {...form.register("email")}
+          error={form.formState.errors.email?.message}
+        />
+        <PasswordInput
+          label="Password"
+          placeholder="Create a password"
+          {...form.register("password")}
+          error={form.formState.errors.password?.message}
+        />
+        <Button type="submit" loading={loading} radius="md" size="md">
+          Create account
+        </Button>
+      </Stack>
+    </form>
+  );
+
+  return framed ? (
+    <Paper radius="md" p="xl" shadow="md" withBorder>
+      {content}
     </Paper>
+  ) : (
+    content
   );
 }

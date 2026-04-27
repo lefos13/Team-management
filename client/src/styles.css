@@ -1,9 +1,6 @@
 :root {
   color: #132238;
-  background:
-    radial-gradient(circle at top left, rgba(22, 169, 139, 0.18), transparent 26%),
-    radial-gradient(circle at top right, rgba(11, 114, 133, 0.2), transparent 28%),
-    linear-gradient(180deg, #f4f8fb 0%, #ecf3f1 100%);
+  background: linear-gradient(180deg, #f5f8fb 0%, #eef5f1 48%, #f9fbf7 100%);
 }
 
 body {
@@ -18,12 +15,12 @@ body {
   min-height: 100vh;
 }
 
-.login-page {
+.login-page,
+.landing-page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% 10%, rgba(22, 169, 139, 0.25), transparent 30%),
-    radial-gradient(circle at 90% 15%, rgba(11, 114, 133, 0.18), transparent 28%),
-    linear-gradient(135deg, #f3f7fb 0%, #eff6f2 52%, #f8faf7 100%);
+    linear-gradient(118deg, rgba(255, 255, 255, 0.94) 0%, rgba(236, 247, 244, 0.88) 48%, rgba(247, 250, 246, 0.98) 100%),
+    linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
 }
 
 .hero-title {
@@ -34,10 +31,83 @@ body {
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   font-size: 0.78rem;
   color: #0b7285;
   font-weight: 700;
+}
+
+.landing-nav {
+  min-height: 44px;
+}
+
+.landing-hero {
+  align-items: center;
+  min-height: calc(100vh - 140px);
+  padding: 48px 0 28px;
+}
+
+.landing-title {
+  max-width: 11ch;
+  font-size: clamp(2.6rem, 6vw, 5.8rem);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.feature-card {
+  min-height: 118px;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(19, 34, 56, 0.09);
+  box-shadow: 0 16px 44px rgba(19, 34, 56, 0.07);
+}
+
+.product-preview {
+  position: relative;
+}
+
+.product-preview::before {
+  content: "";
+  position: absolute;
+  inset: 22px -18px -18px 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(22, 169, 139, 0.18), rgba(255, 167, 38, 0.14));
+  transform: rotate(2deg);
+}
+
+.preview-shell {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(19, 34, 56, 0.1);
+  box-shadow: 0 28px 72px rgba(19, 34, 56, 0.15);
+}
+
+.metric-tile,
+.preview-panel,
+.task-row,
+.calendar-card {
+  background: #f7faf9;
+  border: 1px solid rgba(19, 34, 56, 0.08);
+}
+
+.task-row {
+  min-height: 45px;
+}
+
+.calendar-dot {
+  aspect-ratio: 1;
+  min-width: 0;
+  border-radius: 6px;
+  background: #e3ece9;
+}
+
+.calendar-dot:nth-child(2n) {
+  background: #d3eee8;
+}
+
+.calendar-dot-hot {
+  background: #ffdfb0;
+  box-shadow: inset 0 0 0 1px rgba(245, 124, 0, 0.18);
 }
 
 .app-shell {
@@ -91,4 +161,24 @@ body {
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
   background: #095c6b;
+}
+
+@media (max-width: 48em) {
+  .landing-nav {
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .landing-hero {
+    min-height: auto;
+    padding-top: 36px;
+  }
+
+  .landing-title {
+    max-width: 10ch;
+  }
+
+  .product-preview::before {
+    inset: 16px 0 -12px 10px;
+  }
 }

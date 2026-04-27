@@ -1,9 +1,9 @@
-/* Keep registration focused on account creation and defer verification to the dedicated OTP step. */
-import { Anchor, Container, Grid, Stack, Text, Title } from "@mantine/core";
+/* Reuse the product landing page for registration so account creation opens from the same public preview. */
 import { notifications } from "@mantine/notifications";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import { RegisterForm, type RegisterFormValues } from "../components/RegisterForm";
+import { AuthLandingPage } from "./AuthLandingPage";
+import type { RegisterFormValues } from "../components/RegisterForm";
 import { useRegister } from "../hooks/use-auth";
 import { getErrorMessage } from "../lib/api";
 
@@ -30,38 +30,14 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="login-page">
-      <Container size="lg">
-        <Grid align="center" gutter="xl" mih="100vh">
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Stack gap="lg">
-              <Text className="eyebrow">Verified account setup</Text>
-              <Title order={1} className="hero-title">
-                Create a private workspace for your team operations.
-              </Title>
-              <Text size="lg" c="dimmed">
-                Each account owns a separate workspace. Your projects, members, tasks, and deadlines stay isolated from
-                every other account on the server.
-              </Text>
-            </Stack>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 5 }} offset={{ md: 1 }}>
-            <Stack gap="md">
-              <RegisterForm
-                loading={registerMutation.isPending}
-                errorMessage={registerMutation.isError ? getErrorMessage(registerMutation.error) : null}
-                onSubmit={handleSubmit}
-              />
-              <Text ta="center" c="dimmed">
-                Already registered?{" "}
-                <Anchor component={Link} to="/login">
-                  Sign in
-                </Anchor>
-              </Text>
-            </Stack>
-          </Grid.Col>
-        </Grid>
-      </Container>
-    </div>
+    <AuthLandingPage
+      mode="register"
+      loginLoading={false}
+      loginErrorMessage={null}
+      registerLoading={registerMutation.isPending}
+      registerErrorMessage={registerMutation.isError ? getErrorMessage(registerMutation.error) : null}
+      onLoginSubmit={() => undefined}
+      onRegisterSubmit={handleSubmit}
+    />
   );
 }

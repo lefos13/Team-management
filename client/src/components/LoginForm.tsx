@@ -17,9 +17,10 @@ type LoginFormProps = {
   loading: boolean;
   errorMessage: string | null;
   onSubmit: (values: LoginFormValues) => void;
+  framed?: boolean;
 };
 
-export function LoginForm({ loading, errorMessage, onSubmit }: LoginFormProps) {
+export function LoginForm({ loading, errorMessage, onSubmit, framed = true }: LoginFormProps) {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
@@ -28,35 +29,43 @@ export function LoginForm({ loading, errorMessage, onSubmit }: LoginFormProps) {
     },
   });
 
-  return (
-    <Paper radius="xl" p="xl" shadow="md" withBorder>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <Stack>
-          {errorMessage ? (
-            <Alert color="red" icon={<IconAlertCircle size={16} />} variant="light">
-              {errorMessage}
-            </Alert>
-          ) : null}
-          <TextInput
-            label="Email"
-            placeholder="you@example.com"
-            {...form.register("email")}
-            error={form.formState.errors.email?.message}
-          />
-          <PasswordInput
-            label="Password"
-            placeholder="Enter your password"
-            {...form.register("password")}
-            error={form.formState.errors.password?.message}
-          />
-          <Button type="submit" loading={loading} radius="xl" size="md">
-            Sign in
-          </Button>
+  const content = (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <Stack>
+        {errorMessage ? (
+          <Alert color="red" icon={<IconAlertCircle size={16} />} variant="light">
+            {errorMessage}
+          </Alert>
+        ) : null}
+        <TextInput
+          label="Email"
+          placeholder="you@example.com"
+          {...form.register("email")}
+          error={form.formState.errors.email?.message}
+        />
+        <PasswordInput
+          label="Password"
+          placeholder="Enter your password"
+          {...form.register("password")}
+          error={form.formState.errors.password?.message}
+        />
+        <Button type="submit" loading={loading} radius="md" size="md">
+          Sign in
+        </Button>
+        {framed ? (
           <Anchor component={Link} to="/forgot-password" size="sm" ta="center">
             Forgot password?
           </Anchor>
-        </Stack>
-      </form>
+        ) : null}
+      </Stack>
+    </form>
+  );
+
+  return framed ? (
+    <Paper radius="md" p="xl" shadow="md" withBorder>
+      {content}
     </Paper>
+  ) : (
+    content
   );
 }
