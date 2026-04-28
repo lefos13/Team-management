@@ -33,7 +33,7 @@ const projectTaskImportParamsSchema = z.object({
 const taskExportHeaders = [
   "Title",
   "Project",
-  "Member",
+  "Members",
   "Current stage",
   "Defect",
   "Start date",
@@ -44,7 +44,8 @@ const taskExportHeaders = [
   "Description",
 ] as const;
 
-const taskImportHeaders = ["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
+const taskImportHeaders = ["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
+const legacyTaskImportHeaders = ["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
 const allowedMimeTypes = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/octet-stream",
@@ -73,14 +74,20 @@ type ParsedImportTask = {
   isDefect: boolean;
   startDate: Date | null;
   deadline: Date;
-  assigneeId: string;
-  memberEmail: string;
+  assigneeIds: string[];
+  memberEmails: string[];
 };
 
 type ExportTask = Prisma.TaskGetPayload<{
   include: {
     project: { select: { name: true } };
     assignee: { select: { name: true } };
+    taskAssignees: {
+      select: {
+        teamMemberId: true;
+        teamMember: { select: { name: true; email: true } };
+      };
+    };
   };
 }>;
 
@@ -117,18 +124,33 @@ function hasXlsxSignature(buffer: Buffer): boolean {
   return buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
 }
 
-async function ensureAssignable(userId: string, projectId: string, assigneeId: string): Promise<void> {
-  const [project, member, membership] = await Promise.all([
+/*
+Normalize the new multi-assignee payload while still accepting the legacy
+single-assignee field used by older clients and existing tests.
+*/
+function normalizeAssigneeIds(input: { assigneeId?: string; assigneeIds?: string[] }): string[] {
+  const source = input.assigneeIds && input.assigneeIds.length > 0 ? input.assigneeIds : input.assigneeId ? [input.assigneeId] : [];
+  return Array.from(new Set(source));
+}
+
+async function ensureAssignable(userId: string, projectId: string, assigneeIds: string[]): Promise<void> {
+  const uniqueAssigneeIds = Array.from(new Set(assigneeIds));
+
+  if (uniqueAssigneeIds.length === 0) {
+    throw badRequest("At least one assignee is required.");
+  }
+
+  const [project, members, membershipCount] = await Promise.all([
     prisma.project.findFirst({
       where: { id: projectId, userId },
     }),
-    prisma.teamMember.findFirst({
-      where: { id: assigneeId, userId },
+    prisma.teamMember.findMany({
+      where: { id: { in: uniqueAssigneeIds }, userId },
     }),
-    prisma.projectMember.findFirst({
+    prisma.projectMember.count({
       where: {
         projectId,
-        teamMemberId: assigneeId,
+        teamMemberId: { in: uniqueAssigneeIds },
       },
     }),
   ]);
@@ -137,23 +159,23 @@ async function ensureAssignable(userId: string, projectId: string, assigneeId: s
     throw notFound("Project");
   }
 
-  if (!member) {
+  if (members.length !== uniqueAssigneeIds.length) {
     throw notFound("Member");
   }
 
-  if (!member.active) {
+  if (members.some((member) => !member.active)) {
     throw badRequest("Tasks can only be assigned to active team members.");
   }
 
-  if (!membership) {
-    throw badRequest("The selected team member is not assigned to that project.");
+  if (membershipCount !== uniqueAssigneeIds.length) {
+    throw badRequest("Every selected team member must be assigned to that project.");
   }
 }
 
 function buildTaskWhere(filters: z.infer<typeof taskFiltersSchema>) {
   return {
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
-    ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    ...(filters.assigneeId ? { taskAssignees: { some: { teamMemberId: filters.assigneeId } } } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.isDefect === undefined ? {} : { isDefect: filters.isDefect }),
     ...((filters.dueFrom || filters.dueTo)
@@ -251,8 +273,36 @@ function parseImportDefect(value: unknown): boolean | null {
   return null;
 }
 
-function duplicateKey(projectId: string, title: string, assigneeId: string, deadline: Date): string {
-  return `${projectId}|${title.trim().toLowerCase()}|${assigneeId}|${deadline.getTime()}`;
+function duplicateKey(projectId: string, title: string, assigneeIds: string[], deadline: Date): string {
+  return `${projectId}|${title.trim().toLowerCase()}|${[...assigneeIds].sort().join(",")}|${deadline.getTime()}`;
+}
+
+function formatAssigneeNames(task: ExportTask): string {
+  const names = [...task.taskAssignees]
+    .sort((left, right) => {
+      if (left.teamMemberId === task.assigneeId) {
+        return -1;
+      }
+
+      if (right.teamMemberId === task.assigneeId) {
+        return 1;
+      }
+
+      return left.teamMember.name.localeCompare(right.teamMember.name);
+    })
+    .map((assignment) => assignment.teamMember.name);
+  return (names.length > 0 ? names : [task.assignee.name]).join(", ");
+}
+
+/*
+Import files keep the member column in one cell, so split common spreadsheet
+separators and normalize emails before project-member validation.
+*/
+function parseMemberEmailsCell(value: unknown): string[] {
+  return normalizeImportText(value)
+    .split(/[;,]/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 async function validateTaskImportFile(request: FastifyRequest): Promise<void> {
@@ -316,7 +366,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
     worksheet.addRow([
       task.title,
       task.project.name,
-      task.assignee.name,
+      formatAssigneeNames(task),
       task.status.replace("_", " "),
       task.isDefect ? "Yes" : "No",
       formatWorkbookDate(task.startDate),
@@ -408,12 +458,13 @@ async function buildTaskImportTemplateWorkbook(
   instructions.addRows([
     ["Team Management Task Import"],
     ["Project", project.name],
-    ["Required columns", "Title, Member Email, Deadline"],
+    ["Required columns", "Title, Member Emails, Deadline"],
     ["Optional columns", "Description, Status, Defect, Start Date"],
     ["Statuses", "todo, in_progress, blocked, done"],
     ["Defect values", "yes/no, true/false, or blank"],
     ["Date-only rule", "Start Date uses 09:00; Deadline uses 17:00."],
-    ["Duplicate rule", "Existing tasks with the same title, member, and deadline are skipped."],
+    ["Multiple members", "Separate member emails with commas or semicolons."],
+    ["Duplicate rule", "Existing tasks with the same title, member set, and deadline are skipped."],
   ]);
   instructions.getColumn(1).width = 24;
   instructions.getColumn(2).width = 78;
@@ -438,13 +489,14 @@ async function buildTaskImportTemplateWorkbook(
 
   if (variant === "sample" && project.assignableMembers[0]) {
     const sampleMember = project.assignableMembers[0];
+    const secondSampleMember = project.assignableMembers[1];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(17, 0, 0, 0);
 
     tasks.addRow([
       "Review project plan",
-      sampleMember.email,
+      secondSampleMember ? `${sampleMember.email}, ${secondSampleMember.email}` : sampleMember.email,
       tomorrow,
       "Confirm scope, owner, and next actions.",
       "todo",
@@ -495,8 +547,10 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
   }
 
   const headers = taskImportHeaders.map((_, index) => normalizeHeader(worksheet.getCell(1, index + 1).value));
+  const hasCurrentHeaders = headers.every((header, index) => header === taskImportHeaders[index]);
+  const hasLegacyHeaders = headers.every((header, index) => header === legacyTaskImportHeaders[index]);
 
-  if (headers.some((header, index) => header !== taskImportHeaders[index])) {
+  if (!hasCurrentHeaders && !hasLegacyHeaders) {
     throw badRequest("Import workbook headers do not match the required template.", {
       expectedHeaders: taskImportHeaders,
       receivedHeaders: headers,
@@ -511,14 +565,14 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
   for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     const title = normalizeImportText(row.getCell(1).value);
-    const memberEmail = normalizeImportText(row.getCell(2).value).toLowerCase();
+    const memberEmails = parseMemberEmailsCell(row.getCell(2).value);
     const deadline = parseImportDate(row.getCell(3).value, 17);
     const description = normalizeImportText(row.getCell(4).value);
     const status = parseImportStatus(row.getCell(5).value);
     const isDefect = parseImportDefect(row.getCell(6).value);
     const startDate = parseImportDate(row.getCell(7).value, 9);
 
-    if (!title && !memberEmail && !deadline && !description && !normalizeImportText(row.getCell(5).value)) {
+    if (!title && memberEmails.length === 0 && !deadline && !description && !normalizeImportText(row.getCell(5).value)) {
       continue;
     }
 
@@ -528,18 +582,20 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       rowErrors.push("Title is required.");
     }
 
-    if (!memberEmail) {
-      rowErrors.push("Member Email is required.");
+    if (memberEmails.length === 0) {
+      rowErrors.push("Member Emails is required.");
     }
 
     if (!deadline) {
       rowErrors.push("Deadline is required and must be a valid date.");
     }
 
-    const member = memberEmail ? membersByEmail.get(memberEmail) : undefined;
+    const uniqueMemberEmails = Array.from(new Set(memberEmails));
+    const members = uniqueMemberEmails.map((email) => membersByEmail.get(email));
+    const hasMissingMember = uniqueMemberEmails.some((_, index) => !members[index]);
 
-    if (memberEmail && !member) {
-      rowErrors.push("Member Email must belong to an active member assigned to the selected project.");
+    if (hasMissingMember) {
+      rowErrors.push("Member Emails must belong to active members assigned to the selected project.");
     }
 
     if (!status) {
@@ -554,11 +610,11 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       rowErrors.push("Start Date must be before Deadline.");
     }
 
-    if (rowErrors.length > 0 || !member || !deadline || !status || isDefect === null) {
+    if (rowErrors.length > 0 || members.some((member) => !member) || !deadline || !status || isDefect === null) {
       rejectedRows.push({
         row: rowNumber,
         title: title || undefined,
-        memberEmail: memberEmail || undefined,
+        memberEmail: uniqueMemberEmails.join(", ") || undefined,
         reason: rowErrors.join(" "),
       });
       continue;
@@ -572,8 +628,8 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       isDefect,
       startDate,
       deadline,
-      assigneeId: member.id,
-      memberEmail,
+      assigneeIds: members.map((member) => member!.id),
+      memberEmails: uniqueMemberEmails,
     });
   }
 
@@ -612,6 +668,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           assignee: {
             select: { name: true },
           },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true, email: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
       });
@@ -643,8 +706,15 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           assignee: {
             select: { name: true },
           },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true, email: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
-        orderBy: [{ project: { name: "asc" } }, { assignee: { name: "asc" } }, { status: "asc" }, { deadline: "asc" }],
+        orderBy: [{ project: { name: "asc" } }, { status: "asc" }, { deadline: "asc" }],
       });
       const buffer = await buildTasksWorkbook(tasks);
 
@@ -704,23 +774,35 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           title: true,
           assigneeId: true,
           deadline: true,
+          taskAssignees: {
+            select: { teamMemberId: true },
+          },
         },
       });
       const seenKeys = new Set(
-        existingTasks.map((task) => duplicateKey(params.projectId, task.title, task.assigneeId, task.deadline)),
+        existingTasks.map((task) =>
+          duplicateKey(
+            params.projectId,
+            task.title,
+            task.taskAssignees.length > 0
+              ? task.taskAssignees.map((assignment) => assignment.teamMemberId)
+              : [task.assigneeId],
+            task.deadline,
+          ),
+        ),
       );
       const skippedRows: TaskImportResultDTO["skippedRows"] = [];
       const createRows: ParsedImportTask[] = [];
 
       for (const row of parsedRows) {
-        const key = duplicateKey(params.projectId, row.title, row.assigneeId, row.deadline);
+        const key = duplicateKey(params.projectId, row.title, row.assigneeIds, row.deadline);
 
         if (seenKeys.has(key)) {
           skippedRows.push({
             row: row.row,
             title: row.title,
-            memberEmail: row.memberEmail,
-            reason: "A task with the same title, member, and deadline already exists in this project.",
+            memberEmail: row.memberEmails.join(", "),
+            reason: "A task with the same title, member set, and deadline already exists in this project.",
           });
           continue;
         }
@@ -743,7 +825,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
                 startDate: row.startDate,
                 completedAt: buildCompletedAtUpdate(row.status),
                 projectId: params.projectId,
-                assigneeId: row.assigneeId,
+                assigneeId: row.assigneeIds[0],
+                taskAssignees: {
+                  createMany: {
+                    data: row.assigneeIds.map((teamMemberId) => ({ teamMemberId })),
+                    skipDuplicates: true,
+                  },
+                },
               },
             }),
           ),
@@ -771,7 +859,8 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO> => {
       const user = requireCurrentUser(request);
       const body = taskInputSchema.parse(request.body);
-      await ensureAssignable(user.id, body.projectId, body.assigneeId);
+      const assigneeIds = normalizeAssigneeIds(body);
+      await ensureAssignable(user.id, body.projectId, assigneeIds);
 
       const task = await prisma.task.create({
         data: {
@@ -784,7 +873,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           startDate: normalizeOptionalDate(body.startDate),
           completedAt: buildCompletedAtUpdate(body.status),
           projectId: body.projectId,
-          assigneeId: body.assigneeId,
+          assigneeId: assigneeIds[0],
+          taskAssignees: {
+            createMany: {
+              data: assigneeIds.map((teamMemberId) => ({ teamMemberId })),
+              skipDuplicates: true,
+            },
+          },
         },
         include: {
           project: {
@@ -792,6 +887,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true, email: true } },
+            },
+            orderBy: { createdAt: "asc" },
           },
         },
       });
@@ -813,6 +915,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
       const body = taskInputSchema.parse(request.body);
+      const assigneeIds = normalizeAssigneeIds(body);
       const existingTask = await prisma.task.findFirst({
         where: { id: params.id, userId: user.id },
       });
@@ -821,30 +924,48 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         throw notFound("Task");
       }
 
-      await ensureAssignable(user.id, body.projectId, body.assigneeId);
+      await ensureAssignable(user.id, body.projectId, assigneeIds);
 
-      const task = await prisma.task.update({
-        where: { id: params.id },
-        data: {
-          title: body.title,
-          description: normalizeOptionalText(body.description),
-          status: body.status,
-          isDefect: body.isDefect,
-          deadline: new Date(body.deadline),
-          startDate: normalizeOptionalDate(body.startDate),
-          completedAt: buildCompletedAtUpdate(body.status, existingTask.status, existingTask.completedAt),
-          projectId: body.projectId,
-          assigneeId: body.assigneeId,
-        },
-        include: {
-          project: {
-            select: { name: true },
+      const [, task] = await prisma.$transaction([
+        prisma.taskAssignee.deleteMany({
+          where: { taskId: params.id },
+        }),
+        prisma.task.update({
+          where: { id: params.id },
+          data: {
+            title: body.title,
+            description: normalizeOptionalText(body.description),
+            status: body.status,
+            isDefect: body.isDefect,
+            deadline: new Date(body.deadline),
+            startDate: normalizeOptionalDate(body.startDate),
+            completedAt: buildCompletedAtUpdate(body.status, existingTask.status, existingTask.completedAt),
+            projectId: body.projectId,
+            assigneeId: assigneeIds[0],
+            taskAssignees: {
+              createMany: {
+                data: assigneeIds.map((teamMemberId) => ({ teamMemberId })),
+                skipDuplicates: true,
+              },
+            },
           },
-          assignee: {
-            select: { name: true },
+          include: {
+            project: {
+              select: { name: true },
+            },
+            assignee: {
+              select: { name: true },
+            },
+            taskAssignees: {
+              select: {
+                teamMemberId: true,
+                teamMember: { select: { name: true, email: true } },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
-        },
-      });
+        }),
+      ]);
 
       return mapTask(task);
     },
@@ -883,6 +1004,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true, email: true } },
+            },
+            orderBy: { createdAt: "asc" },
           },
         },
       });

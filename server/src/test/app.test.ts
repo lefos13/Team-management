@@ -58,7 +58,7 @@ describe("team management API", () => {
   async function buildTaskImportWorkbook(rows: Array<Record<string, unknown>>) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Tasks");
-    worksheet.addRow(["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"]);
+    worksheet.addRow(["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"]);
 
     for (const row of rows) {
       worksheet.addRow([
@@ -328,6 +328,17 @@ describe("team management API", () => {
         active: true,
         projectIds: [],
       });
+    const secondMember = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Mia Reviewer",
+        role: "Developer",
+        email: "mia@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
 
     const project = await request(app.server)
       .post("/api/projects")
@@ -337,7 +348,7 @@ describe("team management API", () => {
         description: "",
         status: "active",
         color: "#16A98B",
-        memberIds: [member.body.id],
+        memberIds: [member.body.id, secondMember.body.id],
       });
 
     const task = await request(app.server)
@@ -352,11 +363,15 @@ describe("team management API", () => {
         startDate: "",
         projectId: project.body.id,
         assigneeId: member.body.id,
+        assigneeIds: [member.body.id, secondMember.body.id],
       });
 
     expect(task.status).toBe(200);
     expect(task.body.isDefect).toBe(true);
     expect(task.body.completedAt).toBeNull();
+    expect(task.body.assigneeId).toBe(member.body.id);
+    expect(task.body.assigneeIds).toEqual([member.body.id, secondMember.body.id]);
+    expect(task.body.assigneeNames).toEqual(["John Tester", "Mia Reviewer"]);
 
     const doneTask = await request(app.server)
       .patch(`/api/tasks/${task.body.id}/status`)
@@ -368,8 +383,12 @@ describe("team management API", () => {
 
     const members = await request(app.server).get("/api/members").set("Cookie", cookie);
     expect(members.status).toBe(200);
-    expect(members.body[0].openTaskCount).toBe(0);
-    expect(members.body[0].completedTaskCount).toBe(1);
+    expect(members.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: member.body.id, openTaskCount: 0, completedTaskCount: 1 }),
+        expect.objectContaining({ id: secondMember.body.id, openTaskCount: 0, completedTaskCount: 1 }),
+      ]),
+    );
 
     const range = new URLSearchParams({
       completedFrom: new Date(Date.now() - 60_000).toISOString(),
@@ -380,6 +399,7 @@ describe("team management API", () => {
     expect(dashboard.status).toBe(200);
     expect(dashboard.body.recentCompletions.count).toBe(1);
     expect(dashboard.body.recentCompletions.tasks[0].title).toBe("Fix login bug");
+    expect(dashboard.body.recentCompletions.tasks[0].assigneeNames).toEqual(["John Tester", "Mia Reviewer"]);
 
     const reopenedTask = await request(app.server)
       .patch(`/api/tasks/${task.body.id}/status`)
@@ -391,7 +411,7 @@ describe("team management API", () => {
 
     const exportQuery = new URLSearchParams({
       projectId: project.body.id,
-      assigneeId: member.body.id,
+      assigneeId: secondMember.body.id,
       status: "todo",
       isDefect: "true",
     });
@@ -414,6 +434,7 @@ describe("team management API", () => {
 
     expect(worksheet).toBeTruthy();
     expect(worksheet?.getCell("A7").value).toBe("Fix login bug");
+    expect(worksheet?.getCell("C7").value).toBe("John Tester, Mia Reviewer");
     expect(worksheet?.getCell("E7").value).toBe("Yes");
 
     const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
@@ -452,8 +473,20 @@ describe("team management API", () => {
         active: true,
         projectIds: [project.body.id],
       });
+    const secondMember = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Import Reviewer",
+        role: "Reviewer",
+        email: "reviewer@import.test",
+        notes: "",
+        active: true,
+        projectIds: [project.body.id],
+      });
 
     expect(member.status).toBe(200);
+    expect(secondMember.status).toBe(200);
 
     const templateResponse = await request(app.server)
       .get(`/api/projects/${project.body.id}/tasks/import-template?variant=blank`)
@@ -467,7 +500,7 @@ describe("team management API", () => {
     const workbook = await buildTaskImportWorkbook([
       {
         title: "Imported planning task",
-        memberEmail: "owner@import.test",
+        memberEmail: "owner@import.test; reviewer@import.test",
         deadline,
         description: "Created from Excel",
         status: "To Do",
@@ -493,10 +526,20 @@ describe("team management API", () => {
         userId: loginResponse.body.id,
         title: "Imported planning task",
       },
+      include: {
+        taskAssignees: {
+          select: { teamMemberId: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
     });
 
     expect(importedTask.startDate?.getHours()).toBe(9);
     expect(importedTask.deadline.getHours()).toBe(17);
+    expect(importedTask.assigneeId).toBe(member.body.id);
+    expect(importedTask.taskAssignees.map((assignment) => assignment.teamMemberId)).toEqual(
+      expect.arrayContaining([member.body.id, secondMember.body.id]),
+    );
 
     const duplicateResponse = await request(app.server)
       .post(`/api/projects/${project.body.id}/tasks/import`)
@@ -564,6 +607,17 @@ describe("team management API", () => {
     expect(migration).toContain("ADD COLUMN \"completedAt\"");
     expect(migration).toContain("UPDATE \"Task\" SET \"completedAt\" = \"updatedAt\" WHERE \"status\" = 'done'");
     expect(migration).toContain("Task_completion_metadata_trigger");
+  });
+
+  it("backfills task assignees in the multi-assignee migration", () => {
+    const migration = readFileSync(
+      new URL("../../prisma/migrations/20260428120000_task_multi_assignees/migration.sql", import.meta.url),
+      "utf8",
+    );
+
+    expect(migration).toContain("CREATE TABLE \"TaskAssignee\"");
+    expect(migration).toContain("SELECT \"id\", \"assigneeId\"");
+    expect(migration).toContain("Task_primary_assignee_sync_trigger");
   });
 
   it("rejects unauthenticated access", async () => {

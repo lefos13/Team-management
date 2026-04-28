@@ -293,7 +293,7 @@ export function TasksPage() {
                   </Stack>
                 </Table.Td>
                 <Table.Td>{task.projectName}</Table.Td>
-                <Table.Td>{task.assigneeName}</Table.Td>
+                <Table.Td>{task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}</Table.Td>
                 <Table.Td>
                   <Group gap="sm">
                     <TaskStatusBadge status={task.status} />

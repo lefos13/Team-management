@@ -69,9 +69,18 @@ export const taskInputSchema = z
     deadline: z.string().datetime(),
     startDate: z.string().datetime().optional().nullable().or(z.literal("")),
     projectId: z.string().min(1),
-    assigneeId: z.string().min(1),
+    assigneeId: z.string().min(1).optional(),
+    assigneeIds: z.array(z.string().min(1)).default([]),
   })
   .superRefine((value, ctx) => {
+    if (value.assigneeIds.length === 0 && !value.assigneeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one assignee is required.",
+        path: ["assigneeIds"],
+      });
+    }
+
     if (value.startDate && value.startDate !== "" && new Date(value.startDate) > new Date(value.deadline)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -193,8 +202,10 @@ export const taskSchema = z.object({
   completedAt: z.string().datetime().nullable(),
   projectId: z.string(),
   assigneeId: z.string(),
+  assigneeIds: z.array(z.string()),
   projectName: z.string(),
   assigneeName: z.string(),
+  assigneeNames: z.array(z.string()),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -208,6 +219,7 @@ export const calendarEventSchema = z.object({
   taskId: z.string(),
   projectId: z.string(),
   assigneeId: z.string(),
+  assigneeIds: z.array(z.string()),
   status: taskStatusSchema,
   overdue: z.boolean(),
 });

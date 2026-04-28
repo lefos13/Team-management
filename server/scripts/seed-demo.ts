@@ -152,12 +152,20 @@ async function main() {
       const deadline = daysFromNow(index - 3 + projectIndex * 2, 10 + (index % 7));
       const completedAt = status === "done" ? daysFromNow(-index, 15) : null;
       const assignee = createdMembers[memberIndexes[index % memberIndexes.length]];
+      const secondaryAssignee = createdMembers[memberIndexes[(index + 1) % memberIndexes.length]];
+      const assigneeIds = index % 3 === 0 ? [assignee.id, secondaryAssignee.id] : [assignee.id];
 
       await prisma.task.create({
         data: {
           userId: user.id,
           projectId: project.id,
           assigneeId: assignee.id,
+          taskAssignees: {
+            createMany: {
+              data: assigneeIds.map((teamMemberId) => ({ teamMemberId })),
+              skipDuplicates: true,
+            },
+          },
           title: `${taskTitles[taskIndex % taskTitles.length]} - ${project.name}`,
           description: `Demo task for ${project.name}. Use it to inspect dashboard cards, tables, calendar entries, and imports.`,
           status,

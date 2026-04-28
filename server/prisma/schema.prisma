@@ -8,18 +8,18 @@ datasource db {
 }
 
 model User {
-  id                  String                   @id @default(cuid())
-  email               String                   @unique
-  passwordHash        String
-  emailVerified       Boolean                  @default(false)
-  emailVerifiedAt     DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  sessions            Session[]
-  verificationTokens  EmailVerificationToken[]
-  projects            Project[]
-  teamMembers         TeamMember[]
-  tasks               Task[]
+  id                 String                   @id @default(cuid())
+  email              String                   @unique
+  passwordHash       String
+  emailVerified      Boolean                  @default(false)
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  sessions           Session[]
+  verificationTokens EmailVerificationToken[]
+  projects           Project[]
+  teamMembers        TeamMember[]
+  tasks              Task[]
 }
 
 model Session {
@@ -78,6 +78,7 @@ model TeamMember {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   projectMembers ProjectMember[]
   tasks          Task[]
+  taskAssignees  TaskAssignee[]
 
   @@unique([userId, email])
   @@index([userId])
@@ -92,23 +93,35 @@ model ProjectMember {
   @@id([projectId, teamMemberId])
 }
 
+model TaskAssignee {
+  taskId       String
+  teamMemberId String
+  createdAt    DateTime   @default(now())
+  task         Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, teamMemberId])
+  @@index([teamMemberId])
+}
+
 model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      String     @default("todo")
-  isDefect    Boolean    @default(false)
-  deadline    DateTime
-  startDate   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  userId      String
-  projectId   String
-  assigneeId  String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee    TeamMember @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  status        String         @default("todo")
+  isDefect      Boolean        @default(false)
+  deadline      DateTime
+  startDate     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userId        String
+  projectId     String
+  assigneeId    String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee      TeamMember     @relation(fields: [assigneeId], references: [id], onDelete: Restrict)
+  taskAssignees TaskAssignee[]
 
   @@index([deadline])
   @@index([completedAt])

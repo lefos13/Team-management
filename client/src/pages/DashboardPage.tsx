@@ -82,7 +82,7 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
                     {task.isDefect ? <DefectBadge /> : null}
                   </Group>
                   <Text size="xs" c="dimmed" lineClamp={1}>
-                    {task.assigneeName}
+                    {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}
                   </Text>
                   <Text size="xs" c={task.status === "blocked" ? "red" : "dimmed"}>
                     {formatDate(task.deadline)}
@@ -117,7 +117,7 @@ function PaginatedTaskStack({ tasks, empty }: { tasks: TaskDTO[]; empty: string 
                     {task.title}
                   </Text>
                   <Text size="xs" c="dimmed" lineClamp={1}>
-                    {task.assigneeName} - {task.projectName}
+                    {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName} - {task.projectName}
                   </Text>
                   <Text size="xs" c="dimmed">
                     {formatDateTime(task.deadline)}

@@ -115,7 +115,6 @@ fi
 cd "$APP_DIR"
 npm install
 npx prisma generate --schema server/prisma/schema.prisma
-npx prisma migrate deploy --schema server/prisma/schema.prisma
 
 : <<'COMMENT'
 /*
@@ -127,6 +126,7 @@ COMMENT
 npm run build --workspace @team-management/shared
 npm run build --workspace server
 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}" npm run build --workspace client
+npx prisma migrate deploy --schema server/prisma/schema.prisma
 
 export APP_DIR
 export ENV_FILE

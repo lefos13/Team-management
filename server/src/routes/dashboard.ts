@@ -56,6 +56,13 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         include: {
           project: { select: { name: true } },
           assignee: { select: { name: true } },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: { deadline: "asc" },
         take: 6,
@@ -72,6 +79,13 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         include: {
           project: { select: { name: true } },
           assignee: { select: { name: true } },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: { deadline: "asc" },
         take: 8,
@@ -98,6 +112,13 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         include: {
           project: { select: { name: true } },
           assignee: { select: { name: true } },
+          taskAssignees: {
+            select: {
+              teamMemberId: true,
+              teamMember: { select: { name: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: { completedAt: "desc" },
         take: 6,
@@ -163,6 +184,10 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         include: {
           project: {
             select: { name: true },
+          },
+          taskAssignees: {
+            select: { teamMemberId: true },
+            orderBy: { createdAt: "asc" },
           },
         },
         orderBy: { deadline: "asc" },

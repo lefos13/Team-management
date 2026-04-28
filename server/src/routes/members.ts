@@ -47,8 +47,12 @@ export const memberRoutes: FastifyPluginAsync = async (fastify) => {
         projectMembers: {
           select: { projectId: true },
         },
-        tasks: {
-          select: { status: true },
+        taskAssignees: {
+          select: {
+            task: {
+              select: { status: true },
+            },
+          },
         },
       },
       orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -88,8 +92,12 @@ export const memberRoutes: FastifyPluginAsync = async (fastify) => {
           projectMembers: {
             select: { projectId: true },
           },
-          tasks: {
-            select: { status: true },
+          taskAssignees: {
+            select: {
+              task: {
+                select: { status: true },
+              },
+            },
           },
         },
       });
@@ -143,8 +151,12 @@ export const memberRoutes: FastifyPluginAsync = async (fastify) => {
             projectMembers: {
               select: { projectId: true },
             },
-            tasks: {
-              select: { status: true },
+            taskAssignees: {
+              select: {
+                task: {
+                  select: { status: true },
+                },
+              },
             },
           },
         }),
@@ -180,8 +192,12 @@ export const memberRoutes: FastifyPluginAsync = async (fastify) => {
           projectMembers: {
             select: { projectId: true },
           },
-          tasks: {
-            select: { status: true },
+          taskAssignees: {
+            select: {
+              task: {
+                select: { status: true },
+              },
+            },
           },
         },
       });

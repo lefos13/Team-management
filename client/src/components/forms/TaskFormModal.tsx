@@ -1,8 +1,11 @@
-/* Convert the richer task form into the API payload shape so scheduling stays valid and reusable. */
+/*
+Convert the task form into the API payload shape, including the compatibility
+primary assignee and the complete multi-assignee member set.
+*/
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
 import { taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Checkbox, Modal, Select, Stack, Textarea, TextInput } from "@mantine/core";
+import { Button, Checkbox, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { Controller, useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -18,7 +21,7 @@ const taskFormSchema = z
     deadline: z.string().min(1, "Deadline is required."),
     startDate: z.string().optional(),
     projectId: z.string().min(1, "Project is required."),
-    assigneeId: z.string().min(1, "Assignee is required."),
+    assigneeIds: z.array(z.string()).min(1, "At least one assignee is required."),
   })
   .superRefine((value, ctx) => {
     if (value.startDate && new Date(value.startDate) > new Date(value.deadline)) {
@@ -61,7 +64,7 @@ export function TaskFormModal({
       deadline: "",
       startDate: "",
       projectId: "",
-      assigneeId: "",
+      assigneeIds: [],
     },
   });
 
@@ -74,14 +77,24 @@ export function TaskFormModal({
       deadline: toDateTimeLocalValue(task?.deadline ?? null),
       startDate: toDateTimeLocalValue(task?.startDate ?? null),
       projectId: task?.projectId ?? "",
-      assigneeId: task?.assigneeId ?? "",
+      assigneeIds: task?.assigneeIds?.length ? task.assigneeIds : task?.assigneeId ? [task.assigneeId] : [],
     });
   }, [form, task]);
 
   const selectedProjectId = form.watch("projectId");
+  const selectedAssigneeIds = form.watch("assigneeIds");
   const assignableMembers = members.filter(
     (member) => member.active && member.projectIds.includes(selectedProjectId),
   );
+
+  useEffect(() => {
+    const assignableIds = new Set(assignableMembers.map((member) => member.id));
+    const nextAssigneeIds = selectedAssigneeIds.filter((memberId) => assignableIds.has(memberId));
+
+    if (nextAssigneeIds.length !== selectedAssigneeIds.length) {
+      form.setValue("assigneeIds", nextAssigneeIds, { shouldValidate: true });
+    }
+  }, [assignableMembers, form, selectedAssigneeIds]);
 
   return (
     <Modal opened={opened} onClose={onClose} title={task ? "Edit task" : "New task"} centered size="lg" radius="lg">
@@ -95,7 +108,8 @@ export function TaskFormModal({
             deadline: toIsoFromLocal(values.deadline),
             startDate: values.startDate ? toIsoFromLocal(values.startDate) : "",
             projectId: values.projectId,
-            assigneeId: values.assigneeId,
+            assigneeId: values.assigneeIds[0],
+            assigneeIds: values.assigneeIds,
           });
         })}
       >
@@ -145,15 +159,16 @@ export function TaskFormModal({
           />
           <Controller
             control={form.control}
-            name="assigneeId"
+            name="assigneeIds"
             render={({ field }) => (
-              <Select
-                label="Assignee"
+              <MultiSelect
+                label="Assignees"
                 data={assignableMembers.map((member) => ({ value: member.id, label: member.name }))}
                 value={field.value}
-                onChange={(value) => field.onChange(value ?? "")}
-                error={form.formState.errors.assigneeId?.message}
+                onChange={field.onChange}
+                error={form.formState.errors.assigneeIds?.message}
                 disabled={!selectedProjectId}
+                searchable
               />
             )}
           />

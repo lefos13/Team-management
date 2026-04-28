@@ -9,7 +9,7 @@ Use the task import flow from the Tasks page. Select the target project first, t
 - Required sheet name: `Tasks`
 - Header row must be row 1 and must match this order:
   - `Title`
-  - `Member Email`
+  - `Member Emails`
   - `Deadline`
   - `Description`
   - `Status`
@@ -19,7 +19,7 @@ Use the task import flow from the Tasks page. Select the target project first, t
 ## Required Fields
 
 - `Title`: task title.
-- `Member Email`: email of an active member already assigned to the selected project.
+- `Member Emails`: one or more emails of active members already assigned to the selected project. Separate multiple emails with commas or semicolons.
 - `Deadline`: Excel date/datetime or ISO-like date string.
 
 ## Optional Fields
@@ -44,7 +44,7 @@ The server checks the file before creating tasks:
 - All rows are validated before any database insert happens.
 - Member emails must belong to active members assigned to the selected project.
 - Invalid rows reject the whole import and no tasks are created.
-- Duplicate rows are skipped when an existing task in the selected project has the same title, assignee, and deadline.
+- Duplicate rows are skipped when an existing task in the selected project has the same title, assignee set, and deadline.
 
 ## Recommended Workflow
 

@@ -64,11 +64,12 @@ export function mapProjectDetail(
 export function mapMember(
   member: TeamMember & {
     projectMembers: Array<{ projectId: string }>;
-    tasks: Array<{ status: string }>;
+    taskAssignees: Array<{ task: { status: string } }>;
   },
 ): TeamMemberDTO {
-  const openTaskCount = member.tasks.filter((task) => task.status !== "done").length;
-  const completedTaskCount = member.tasks.filter((task) => task.status === "done").length;
+  const assignedTasks = member.taskAssignees.map((assignment) => assignment.task);
+  const openTaskCount = assignedTasks.filter((task) => task.status !== "done").length;
+  const completedTaskCount = assignedTasks.filter((task) => task.status === "done").length;
 
   return {
     id: member.id,
@@ -89,8 +90,23 @@ export function mapTask(
   task: Task & {
     project: { name: string };
     assignee: { name: string };
+    taskAssignees: Array<{ teamMemberId: string; teamMember: { name: string } }>;
   },
 ): TaskDTO {
+  const orderedAssignees = [...task.taskAssignees].sort((left, right) => {
+    if (left.teamMemberId === task.assigneeId) {
+      return -1;
+    }
+
+    if (right.teamMemberId === task.assigneeId) {
+      return 1;
+    }
+
+    return left.teamMember.name.localeCompare(right.teamMember.name);
+  });
+  const assigneeIds = orderedAssignees.map((assignment) => assignment.teamMemberId);
+  const assigneeNames = orderedAssignees.map((assignment) => assignment.teamMember.name);
+
   return {
     id: task.id,
     title: task.title,
@@ -102,8 +118,10 @@ export function mapTask(
     completedAt: task.completedAt ? toIsoString(task.completedAt) : null,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
+    assigneeIds: assigneeIds.length > 0 ? assigneeIds : [task.assigneeId],
     projectName: task.project.name,
     assigneeName: task.assignee.name,
+    assigneeNames: assigneeNames.length > 0 ? assigneeNames : [task.assignee.name],
     createdAt: toIsoString(task.createdAt),
     updatedAt: toIsoString(task.updatedAt),
   };
@@ -112,6 +130,7 @@ export function mapTask(
 export function mapCalendarEvent(
   task: Task & {
     project: { name: string };
+    taskAssignees: Array<{ teamMemberId: string }>;
   },
 ): CalendarEventDTO {
   const overdue = task.status !== "done" && task.deadline.getTime() < Date.now();
@@ -125,6 +144,8 @@ export function mapCalendarEvent(
     taskId: task.id,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
+    assigneeIds:
+      task.taskAssignees.length > 0 ? task.taskAssignees.map((assignment) => assignment.teamMemberId) : [task.assigneeId],
     status: task.status as CalendarEventDTO["status"],
     overdue,
   };
