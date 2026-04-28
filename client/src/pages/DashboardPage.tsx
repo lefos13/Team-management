@@ -100,7 +100,25 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
   );
 }
 
-function PaginatedTaskStack({ tasks, empty }: { tasks: TaskDTO[]; empty: string }) {
+type TaskDateFormatter = (task: TaskDTO) => string | null;
+
+type PaginatedTaskStackProps = {
+  tasks: TaskDTO[];
+  empty: string;
+  datePrefix?: string;
+  getTaskDate?: TaskDateFormatter;
+};
+
+/*
+Allow dashboard summary panels to reuse the same compact row layout while each
+panel chooses the business date it represents, such as deadlines or completion time.
+*/
+export function PaginatedTaskStack({
+  tasks,
+  empty,
+  datePrefix,
+  getTaskDate = (task) => task.deadline,
+}: PaginatedTaskStackProps) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(tasks, 4);
 
   return (
@@ -120,7 +138,8 @@ function PaginatedTaskStack({ tasks, empty }: { tasks: TaskDTO[]; empty: string 
                     {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName} - {task.projectName}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {formatDateTime(task.deadline)}
+                    {datePrefix ? `${datePrefix} ` : null}
+                    {formatDateTime(getTaskDate(task))}
                   </Text>
                 </Stack>
                 <TaskStatusBadge status={task.status} />
@@ -389,7 +408,12 @@ export function DashboardPage() {
               </Text>
               <Badge variant="light">{dashboard.recentCompletions.count}</Badge>
             </Group>
-            <PaginatedTaskStack tasks={dashboard.recentCompletions.tasks} empty="No completed tasks in this range." />
+            <PaginatedTaskStack
+              tasks={dashboard.recentCompletions.tasks}
+              empty="No completed tasks in this range."
+              datePrefix="Done"
+              getTaskDate={(task) => task.completedAt}
+            />
           </Paper>
         </Grid.Col>
       </Grid>
