@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const taskStatusValues = ["todo", "in_progress", "blocked", "done"] as const;
+export const taskStatusValues = ["todo", "in_progress", "blocked", "review_testing", "done"] as const;
+export const taskStatusLabels = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  blocked: "Blocked",
+  review_testing: "Review/Testing",
+  done: "Done",
+} as const satisfies Record<(typeof taskStatusValues)[number], string>;
 export const projectStatusValues = ["active", "on_hold", "completed"] as const;
 export const authStatusValues = [
   "verification_required",

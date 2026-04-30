@@ -25,7 +25,7 @@ import {
   IconFolder,
   IconUsers,
 } from "@tabler/icons-react";
-import { taskStatusValues, type ProjectSummaryDTO, type TaskDTO } from "@team-management/shared";
+import { taskStatusLabels, taskStatusValues, type ProjectSummaryDTO, type TaskDTO } from "@team-management/shared";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,13 +34,6 @@ import { CompactPagination } from "../components/CompactPagination";
 import { useCalendarEvents, useDashboard, useMembers, useProjects, useTasks } from "../hooks/use-app-data";
 import { usePagination } from "../hooks/use-pagination";
 import { formatDate, formatDateTime } from "../lib/dates";
-
-const statusLabels: Record<TaskDTO["status"], string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  blocked: "Blocked",
-  done: "Done",
-};
 
 function completionRangeForPreset(preset: "today" | "three-days" | "week") {
   const now = dayjs();
@@ -60,7 +53,7 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
       <Stack h="100%" gap="sm">
         <Group justify="space-between">
           <Text fw={800} size="sm">
-            {statusLabels[status]}
+            {taskStatusLabels[status]}
           </Text>
           <Badge size="sm" variant="light">
             {tasks.length}
@@ -290,7 +283,7 @@ export function DashboardPage() {
                 <IconFolder size={18} />
               </ThemeIcon>
             </Group>
-            <SimpleGrid cols={{ base: 1, md: 2, xl: 4 }} spacing="sm">
+            <SimpleGrid cols={{ base: 1, md: 2, xl: 5 }} spacing="sm">
               {taskStatusValues.map((status) => (
                 <TaskColumn key={status} status={status} tasks={tasks.filter((task) => task.status === status)} />
               ))}

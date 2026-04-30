@@ -558,6 +558,22 @@ describe("team management API", () => {
       expect.arrayContaining([parent.body.id, subtask.body.id]),
     );
 
+    const completeParent = await request(app.server)
+      .patch(`/api/tasks/${parent.body.id}/status`)
+      .set("Cookie", cookie)
+      .send({ status: "done" });
+
+    expect(completeParent.status).toBe(200);
+    expect(completeParent.body.status).toBe("done");
+
+    const cascadedSubtasks = await prisma.task.findMany({
+      where: { parentTaskId: parent.body.id },
+      orderBy: { title: "asc" },
+    });
+    expect(cascadedSubtasks).toHaveLength(1);
+    expect(cascadedSubtasks[0].status).toBe("done");
+    expect(cascadedSubtasks[0].completedAt).toBeTruthy();
+
     const deleteParent = await request(app.server).delete(`/api/tasks/${parent.body.id}`).set("Cookie", cookie);
     expect(deleteParent.status).toBe(204);
 
@@ -565,6 +581,84 @@ describe("team management API", () => {
       where: { id: subtask.body.id },
     });
     expect(promotedSubtask.parentTaskId).toBeNull();
+  });
+
+  it("supports review/testing status across API, dashboard counts, and import aliases", async () => {
+    await register("review-status@example.com", "password123");
+    await verify("review-status@example.com");
+    const loginResponse = await login("review-status@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Review status project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [],
+      });
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Review Owner",
+        role: "QA",
+        email: "review-owner@example.com",
+        notes: "",
+        active: true,
+        projectIds: [project.body.id],
+      });
+    const deadline = new Date(Date.now() + 86_400_000).toISOString();
+    const task = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Run acceptance tests",
+        description: "",
+        status: "review_testing",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(task.status).toBe(200);
+    expect(task.body.status).toBe("review_testing");
+
+    const dashboard = await request(app.server).get("/api/dashboard").set("Cookie", cookie);
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.tasksByStatus).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: "review_testing", count: 1 })]),
+    );
+
+    const workbook = await buildTaskImportWorkbook([
+      {
+        title: "Imported testing task",
+        memberEmail: "review-owner@example.com",
+        deadline: new Date(2026, 0, 15),
+        status: "Review/Testing",
+      },
+    ]);
+    const importResponse = await request(app.server)
+      .post(`/api/projects/${project.body.id}/tasks/import`)
+      .set("Cookie", cookie)
+      .attach("file", workbook, {
+        filename: "tasks.xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+    expect(importResponse.status).toBe(200);
+    expect(importResponse.body.inserted).toBe(1);
+
+    const importedTask = await prisma.task.findFirstOrThrow({
+      where: {
+        userId: loginResponse.body.id,
+        title: "Imported testing task",
+      },
+    });
+    expect(importedTask.status).toBe("review_testing");
   });
 
   /*

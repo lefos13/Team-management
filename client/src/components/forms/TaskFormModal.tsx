@@ -3,7 +3,7 @@ Convert the task form into the API payload shape, including the compatibility
 primary assignee and the complete multi-assignee member set.
 */
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
-import { taskStatusValues } from "@team-management/shared";
+import { taskStatusLabels, taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, Button, Checkbox, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { Controller, useForm } from "react-hook-form";
@@ -146,7 +146,7 @@ export function TaskFormModal({
             render={({ field }) => (
               <Select
                 label="Status"
-                data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+                data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
                 value={field.value}
                 onChange={(value) => field.onChange(value ?? "todo")}
               />

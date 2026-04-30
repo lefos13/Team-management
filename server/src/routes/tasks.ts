@@ -5,6 +5,7 @@ import {
   taskFiltersSchema,
   taskImportTemplateQuerySchema,
   taskInputSchema,
+  taskStatusLabels,
   taskStatusSchema,
   taskStatusValues,
 } from "@team-management/shared";
@@ -58,6 +59,11 @@ const statusAliasMap = new Map<string, (typeof taskStatusValues)[number]>([
   ["in_progress", "in_progress"],
   ["in progress", "in_progress"],
   ["blocked", "blocked"],
+  ["review", "review_testing"],
+  ["testing", "review_testing"],
+  ["review/testing", "review_testing"],
+  ["review testing", "review_testing"],
+  ["review_testing", "review_testing"],
   ["done", "done"],
   ["complete", "done"],
   ["completed", "done"],
@@ -255,8 +261,25 @@ function buildCompletedAtUpdate(nextStatus: string, currentStatus?: string, curr
   return null;
 }
 
+function buildCompletedAtUpdateAt(
+  nextStatus: string,
+  completedAt: Date,
+  currentStatus?: string,
+  currentCompletedAt?: Date | null,
+) {
+  if (nextStatus === "done") {
+    return currentStatus === "done" && currentCompletedAt ? currentCompletedAt : completedAt;
+  }
+
+  return null;
+}
+
 function formatWorkbookDate(value: Date | null): string {
   return value ? value.toISOString() : "";
+}
+
+function formatTaskStatus(status: string): string {
+  return status in taskStatusLabels ? taskStatusLabels[status as keyof typeof taskStatusLabels] : status.replace("_", " ");
 }
 
 function setDateTime(date: Date, hour: number): Date {
@@ -446,7 +469,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
       task.parentTask?.title ?? "",
       task.project.name,
       formatAssigneeNames(task),
-      task.status.replace("_", " "),
+      formatTaskStatus(task.status),
       task.isDefect ? "Yes" : "No",
       formatWorkbookDate(task.startDate),
       formatWorkbookDate(task.deadline),
@@ -540,7 +563,7 @@ async function buildTaskImportTemplateWorkbook(
     ["Project", project.name],
     ["Required columns", "Title, Member Emails, Deadline"],
     ["Optional columns", "Parent Task Title, Description, Status, Defect, Start Date"],
-    ["Statuses", "todo, in_progress, blocked, done"],
+    ["Statuses", "todo, in_progress, blocked, review_testing, done"],
     ["Defect values", "yes/no, true/false, or blank"],
     ["Date-only rule", "Start Date uses 09:00; Deadline uses 17:00."],
     ["Multiple members", "Separate member emails with commas or semicolons."],
@@ -597,7 +620,7 @@ async function buildTaskImportTemplateWorkbook(
     tasks.getCell(row, 6).dataValidation = {
       type: "list",
       allowBlank: true,
-      formulae: ['"todo,in_progress,blocked,done"'],
+      formulae: ['"todo,in_progress,blocked,review_testing,done"'],
     };
     tasks.getCell(row, 7).dataValidation = {
       type: "list",
@@ -700,7 +723,7 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
     }
 
     if (!status) {
-      rowErrors.push("Status must be one of todo, in_progress, blocked, or done.");
+      rowErrors.push("Status must be one of todo, in_progress, blocked, review_testing, or done.");
     }
 
     if (isDefect === null) {
@@ -1094,11 +1117,17 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
       await ensureAssignable(user.id, body.projectId, assigneeIds);
 
-      const [, task] = await prisma.$transaction([
-        prisma.taskAssignee.deleteMany({
+      /*
+      Full task edits can also complete a parent, so keep the same cascade rule
+      used by the status-only endpoint inside the assignment replacement transaction.
+      */
+      const completedAt = new Date();
+      const task = await prisma.$transaction(async (tx) => {
+        await tx.taskAssignee.deleteMany({
           where: { taskId: params.id },
-        }),
-        prisma.task.update({
+        });
+
+        const updated = await tx.task.update({
           where: { id: params.id },
           data: {
             title: body.title,
@@ -1107,7 +1136,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             isDefect: body.isDefect,
             deadline: new Date(body.deadline),
             startDate: normalizeOptionalDate(body.startDate),
-            completedAt: buildCompletedAtUpdate(body.status, existingTask.status, existingTask.completedAt),
+            completedAt: buildCompletedAtUpdateAt(body.status, completedAt, existingTask.status, existingTask.completedAt),
             projectId: body.projectId,
             assigneeId: assigneeIds[0],
             parentTaskId,
@@ -1136,8 +1165,24 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
               orderBy: { createdAt: "asc" },
             },
           },
-        }),
-      ]);
+        });
+
+        if (body.status === "done" && !existingTask.parentTaskId) {
+          await tx.task.updateMany({
+            where: {
+              userId: user.id,
+              parentTaskId: params.id,
+              status: { not: "done" },
+            },
+            data: {
+              status: "done",
+              completedAt,
+            },
+          });
+        }
+
+        return updated;
+      });
 
       return mapTask(task);
     },
@@ -1164,30 +1209,54 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         throw notFound("Task");
       }
 
-      const updatedTask = await prisma.task.update({
-        where: { id: params.id },
-        data: {
-          status: body.status,
-          completedAt: buildCompletedAtUpdate(body.status, task.status, task.completedAt),
-        },
-        include: {
-          project: {
-            select: { name: true },
+      /*
+      Completing a parent task is a hierarchy-level action: direct subtasks move
+      to done in the same transaction so the task page cannot show stale active
+      child work under a completed parent.
+      */
+      const completedAt = new Date();
+      const updatedTask = await prisma.$transaction(async (tx) => {
+        const updated = await tx.task.update({
+          where: { id: params.id },
+          data: {
+            status: body.status,
+            completedAt: buildCompletedAtUpdateAt(body.status, completedAt, task.status, task.completedAt),
           },
-          assignee: {
-            select: { name: true },
-          },
-          parentTask: {
-            select: { title: true },
-          },
-          taskAssignees: {
-            select: {
-              teamMemberId: true,
-              teamMember: { select: { name: true, email: true } },
+          include: {
+            project: {
+              select: { name: true },
             },
-            orderBy: { createdAt: "asc" },
+            assignee: {
+              select: { name: true },
+            },
+            parentTask: {
+              select: { title: true },
+            },
+            taskAssignees: {
+              select: {
+                teamMemberId: true,
+                teamMember: { select: { name: true, email: true } },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
-        },
+        });
+
+        if (body.status === "done" && !task.parentTaskId) {
+          await tx.task.updateMany({
+            where: {
+              userId: user.id,
+              parentTaskId: params.id,
+              status: { not: "done" },
+            },
+            data: {
+              status: "done",
+              completedAt,
+            },
+          });
+        }
+
+        return updated;
       });
 
       return mapTask(updatedTask);

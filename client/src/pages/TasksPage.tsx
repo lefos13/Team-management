@@ -26,6 +26,7 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import {
+  taskStatusLabels,
   taskStatusValues,
   type TaskDTO,
   type TaskExportFilters,
@@ -54,6 +55,53 @@ import {
 import { getErrorMessage } from "../lib/api";
 import { formatDateTime } from "../lib/dates";
 import { usePagination } from "../hooks/use-pagination";
+
+function isActiveTaskStatus(status: TaskDTO["status"]) {
+  return status !== "done";
+}
+
+export function buildVisibleTaskHierarchy(tasks: TaskDTO[], statusFilter?: TaskFilters["status"]) {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const grouped = new Map<string, TaskDTO[]>();
+  const isDoneFilter = statusFilter === "done";
+
+  for (const task of tasks) {
+    if (!task.parentTaskId) {
+      continue;
+    }
+
+    const parent = tasksById.get(task.parentTaskId);
+
+    if (!parent) {
+      continue;
+    }
+
+    if (isDoneFilter && parent.status === "done" && task.status === "done") {
+      grouped.set(task.parentTaskId, [...(grouped.get(task.parentTaskId) ?? []), task]);
+    }
+
+    if (!isDoneFilter && isActiveTaskStatus(parent.status) && isActiveTaskStatus(task.status)) {
+      grouped.set(task.parentTaskId, [...(grouped.get(task.parentTaskId) ?? []), task]);
+    }
+  }
+
+  const visibleTasks = tasks.filter((task) => {
+    const parent = task.parentTaskId ? tasksById.get(task.parentTaskId) : null;
+    const isTopLevel = !task.parentTaskId || !parent;
+
+    if (isDoneFilter) {
+      return task.status === "done" && (isTopLevel || parent.status !== "done");
+    }
+
+    if (statusFilter) {
+      return isTopLevel && task.status === statusFilter;
+    }
+
+    return isTopLevel && isActiveTaskStatus(task.status);
+  });
+
+  return { visibleTasks, subtasksByParent: grouped };
+}
 
 type TaskTableColumnsProps = {
   task: TaskDTO;
@@ -84,7 +132,7 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onStatusChang
             size="xs"
             w={150}
             value={task.status}
-            data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+            data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
             onChange={(value) => {
               if (!value || value === task.status) {
                 return;
@@ -167,10 +215,20 @@ export function TasksPage() {
   const [importResult, setImportResult] = useState<TaskImportResultDTO | null>(null);
   const [opened, setOpened] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const taskQueryFilters = useMemo<TaskFilters>(
+    () => ({
+      projectId: filters.projectId,
+      assigneeId: filters.assigneeId,
+      isDefect: filters.isDefect,
+      dueFrom: filters.dueFrom,
+      dueTo: filters.dueTo,
+    }),
+    [filters],
+  );
 
   const projectsQuery = useProjects();
   const membersQuery = useMembers();
-  const tasksQuery = useTasks(filters);
+  const tasksQuery = useTasks(taskQueryFilters);
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const updateTaskStatus = useUpdateTaskStatus();
@@ -200,26 +258,11 @@ export function TasksPage() {
   const projects = projectsQuery.data ?? [];
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
-  const tasksById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
-  const subtasksByParent = useMemo(() => {
-    const grouped = new Map<string, TaskDTO[]>();
-
-    for (const task of tasks) {
-      if (!task.parentTaskId) {
-        continue;
-      }
-
-      grouped.set(task.parentTaskId, [...(grouped.get(task.parentTaskId) ?? []), task]);
-    }
-
-    return grouped;
-  }, [tasks]);
-  const topLevelTasks = useMemo(
-    () => tasks.filter((task) => !task.parentTaskId || !tasksById.has(task.parentTaskId)),
-    [tasks, tasksById],
-  );
+  const { visibleTasks, subtasksByParent } = useMemo(() => {
+    return buildVisibleTaskHierarchy(tasks, filters.status);
+  }, [filters.status, tasks]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(() => new Set());
-  const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(topLevelTasks, 10);
+  const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(visibleTasks, 10);
 
   if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading) {
     return <Loader />;
@@ -421,7 +464,7 @@ export function TasksPage() {
               label="Status"
               clearable
               value={filters.status ?? null}
-              data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+              data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
               onChange={(value) => setFilters((current) => ({ ...current, status: (value as TaskFilters["status"]) ?? undefined }))}
             />
           </Grid.Col>
@@ -556,7 +599,7 @@ export function TasksPage() {
                 label="Status"
                 clearable
                 value={exportFilters.status ?? null}
-                data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+                data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
                 onChange={(value) => setExportFilters((current) => ({ ...current, status: (value as TaskExportFilters["status"]) ?? undefined }))}
               />
             </Grid.Col>

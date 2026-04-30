@@ -148,7 +148,7 @@ async function main() {
     const memberIndexes = projects[projectIndex][4];
 
     for (let index = 0; index < 7; index += 1) {
-      const status = (["todo", "in_progress", "blocked", "done"] as const)[(index + projectIndex) % 4];
+      const status = (["todo", "in_progress", "blocked", "review_testing", "done"] as const)[(index + projectIndex) % 5];
       const deadline = daysFromNow(index - 3 + projectIndex * 2, 10 + (index % 7));
       const completedAt = status === "done" ? daysFromNow(-index, 15) : null;
       const assignee = createdMembers[memberIndexes[index % memberIndexes.length]];
