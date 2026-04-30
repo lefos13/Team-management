@@ -6,16 +6,18 @@ import { describe, expect, it, vi } from "vitest";
 import { CompactPagination } from "../components/CompactPagination";
 
 describe("CompactPagination", () => {
-  it("hides distant page numbers while keeping nearby choices", () => {
+  it("limits page buttons to three and marks hidden ranges with ellipses", () => {
     render(
       <MantineProvider>
-        <CompactPagination total={20} value={10} onChange={vi.fn()} />
+        <CompactPagination total={100} value={50} onChange={vi.fn()} />
       </MantineProvider>,
     );
 
-    expect(screen.getByRole("button", { name: "10" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "9" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "11" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "6" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "49" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "50" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "51" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "100" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("...")).toHaveLength(2);
   });
 });

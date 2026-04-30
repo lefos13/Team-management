@@ -249,6 +249,21 @@ body {
   margin-top: auto;
 }
 
+.compact-pagination {
+  max-width: 100%;
+}
+
+.compact-pagination-page {
+  min-width: 38px;
+  padding-inline: 0;
+}
+
+.compact-pagination-ellipsis {
+  width: 18px;
+  text-align: center;
+  line-height: 1;
+}
+
 .paginated-card-grid {
   height: 720px;
   align-content: start;
