@@ -58,11 +58,12 @@ describe("team management API", () => {
   async function buildTaskImportWorkbook(rows: Array<Record<string, unknown>>) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Tasks");
-    worksheet.addRow(["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"]);
+    worksheet.addRow(["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"]);
 
     for (const row of rows) {
       worksheet.addRow([
         row.title,
+        row.parentTaskTitle ?? "",
         row.memberEmail,
         row.deadline,
         row.description ?? "",
@@ -434,12 +435,136 @@ describe("team management API", () => {
 
     expect(worksheet).toBeTruthy();
     expect(worksheet?.getCell("A7").value).toBe("Fix login bug");
-    expect(worksheet?.getCell("C7").value).toBe("John Tester, Mia Reviewer");
-    expect(worksheet?.getCell("E7").value).toBe("Yes");
+    expect(worksheet?.getCell("D7").value).toBe("John Tester, Mia Reviewer");
+    expect(worksheet?.getCell("F7").value).toBe("Yes");
 
     const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
     expect(nonDefectTasks.status).toBe(200);
     expect(nonDefectTasks.body).toHaveLength(0);
+  });
+
+  /*
+  Exercise the one-level hierarchy contract through create, update, list, and
+  delete so production data keeps subtasks without allowing nested children.
+  */
+  it("supports one-level subtasks and preserves them when a parent is deleted", async () => {
+    await register("subtasks@example.com", "password123");
+    await verify("subtasks@example.com");
+    const loginResponse = await login("subtasks@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Subtask Owner",
+        role: "Lead",
+        email: "owner@subtasks.test",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Hierarchy project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+    const deadline = new Date(Date.now() + 86_400_000).toISOString();
+    const parent = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Parent rollout",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(parent.status).toBe(200);
+    expect(parent.body.parentTaskId).toBeNull();
+
+    const subtask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Subtask checklist",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+        parentTaskId: parent.body.id,
+      });
+
+    expect(subtask.status).toBe(200);
+    expect(subtask.body.parentTaskId).toBe(parent.body.id);
+    expect(subtask.body.parentTaskTitle).toBe("Parent rollout");
+
+    const nestedSubtask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Nested child",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+        parentTaskId: subtask.body.id,
+      });
+
+    expect(nestedSubtask.status).toBe(400);
+
+    const moveParentUnderChild = await request(app.server)
+      .put(`/api/tasks/${parent.body.id}`)
+      .set("Cookie", cookie)
+      .send({
+        title: "Parent rollout",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+        parentTaskId: subtask.body.id,
+      });
+
+    expect(moveParentUnderChild.status).toBe(400);
+
+    const listedTasks = await request(app.server).get("/api/tasks").set("Cookie", cookie);
+    expect(listedTasks.status).toBe(200);
+    expect(listedTasks.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: parent.body.id, parentTaskId: null }),
+        expect.objectContaining({ id: subtask.body.id, parentTaskId: parent.body.id, parentTaskTitle: "Parent rollout" }),
+      ]),
+    );
+
+    const filteredTasks = await request(app.server)
+      .get(`/api/tasks?projectId=${project.body.id}`)
+      .set("Cookie", cookie);
+    expect(filteredTasks.status).toBe(200);
+    expect(filteredTasks.body.map((task: { id: string }) => task.id)).toEqual(
+      expect.arrayContaining([parent.body.id, subtask.body.id]),
+    );
+
+    const deleteParent = await request(app.server).delete(`/api/tasks/${parent.body.id}`).set("Cookie", cookie);
+    expect(deleteParent.status).toBe(204);
+
+    const promotedSubtask = await prisma.task.findUniqueOrThrow({
+      where: { id: subtask.body.id },
+    });
+    expect(promotedSubtask.parentTaskId).toBeNull();
   });
 
   /*
@@ -507,6 +632,16 @@ describe("team management API", () => {
         defect: "no",
         startDate,
       },
+      {
+        title: "Imported planning subtask",
+        parentTaskTitle: "Imported planning task",
+        memberEmail: "owner@import.test",
+        deadline,
+        description: "Created as a child row",
+        status: "todo",
+        defect: "no",
+        startDate,
+      },
     ]);
 
     const importResponse = await request(app.server)
@@ -518,7 +653,7 @@ describe("team management API", () => {
       });
 
     expect(importResponse.status).toBe(200);
-    expect(importResponse.body.inserted).toBe(1);
+    expect(importResponse.body.inserted).toBe(2);
     expect(importResponse.body.skipped).toBe(0);
 
     const importedTask = await prisma.task.findFirstOrThrow({
@@ -541,6 +676,14 @@ describe("team management API", () => {
       expect.arrayContaining([member.body.id, secondMember.body.id]),
     );
 
+    const importedSubtask = await prisma.task.findFirstOrThrow({
+      where: {
+        userId: loginResponse.body.id,
+        title: "Imported planning subtask",
+      },
+    });
+    expect(importedSubtask.parentTaskId).toBe(importedTask.id);
+
     const duplicateResponse = await request(app.server)
       .post(`/api/projects/${project.body.id}/tasks/import`)
       .set("Cookie", cookie)
@@ -551,7 +694,7 @@ describe("team management API", () => {
 
     expect(duplicateResponse.status).toBe(200);
     expect(duplicateResponse.body.inserted).toBe(0);
-    expect(duplicateResponse.body.skipped).toBe(1);
+    expect(duplicateResponse.body.skipped).toBe(2);
   });
 
   it("rejects task imports with members outside the selected project before inserting rows", async () => {
@@ -618,6 +761,17 @@ describe("team management API", () => {
     expect(migration).toContain("CREATE TABLE \"TaskAssignee\"");
     expect(migration).toContain("SELECT \"id\", \"assigneeId\"");
     expect(migration).toContain("Task_primary_assignee_sync_trigger");
+  });
+
+  it("adds nullable task hierarchy links in a production-safe migration", () => {
+    const migration = readFileSync(
+      new URL("../../prisma/migrations/20260430120000_task_subtasks/migration.sql", import.meta.url),
+      "utf8",
+    );
+
+    expect(migration).toContain("ADD COLUMN \"parentTaskId\" TEXT");
+    expect(migration).toContain("ON DELETE SET NULL");
+    expect(migration).toContain("Task_parentTaskId_not_self_check");
   });
 
   it("rejects unauthenticated access", async () => {

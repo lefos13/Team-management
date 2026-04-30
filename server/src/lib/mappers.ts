@@ -90,6 +90,7 @@ export function mapTask(
   task: Task & {
     project: { name: string };
     assignee: { name: string };
+    parentTask?: { title: string } | null;
     taskAssignees: Array<{ teamMemberId: string; teamMember: { name: string } }>;
   },
 ): TaskDTO {
@@ -119,6 +120,8 @@ export function mapTask(
     projectId: task.projectId,
     assigneeId: task.assigneeId,
     assigneeIds: assigneeIds.length > 0 ? assigneeIds : [task.assigneeId],
+    parentTaskId: task.parentTaskId,
+    parentTaskTitle: task.parentTask?.title ?? null,
     projectName: task.project.name,
     assigneeName: task.assignee.name,
     assigneeNames: assigneeNames.length > 0 ? assigneeNames : [task.assignee.name],

@@ -32,6 +32,7 @@ const projectTaskImportParamsSchema = z.object({
 
 const taskExportHeaders = [
   "Title",
+  "Parent Task Title",
   "Project",
   "Members",
   "Current stage",
@@ -44,8 +45,9 @@ const taskExportHeaders = [
   "Description",
 ] as const;
 
-const taskImportHeaders = ["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
+const taskImportHeaders = ["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
 const legacyTaskImportHeaders = ["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
+const legacyMultiMemberTaskImportHeaders = ["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
 const allowedMimeTypes = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/octet-stream",
@@ -69,6 +71,7 @@ type TaskImportFile = {
 type ParsedImportTask = {
   row: number;
   title: string;
+  parentTaskTitle: string | null;
   description: string;
   status: (typeof taskStatusValues)[number];
   isDefect: boolean;
@@ -82,6 +85,7 @@ type ExportTask = Prisma.TaskGetPayload<{
   include: {
     project: { select: { name: true } };
     assignee: { select: { name: true } };
+    parentTask: { select: { title: true; parentTaskId: true } };
     taskAssignees: {
       select: {
         teamMemberId: true;
@@ -102,6 +106,10 @@ function normalizeOptionalText(value?: string): string | null {
 
 function normalizeOptionalDate(value?: string | null): Date | null {
   return value && value !== "" ? new Date(value) : null;
+}
+
+function normalizeOptionalId(value?: string | null): string | null {
+  return value && value.trim() !== "" ? value.trim() : null;
 }
 
 function normalizeHeader(value: unknown): string {
@@ -170,6 +178,56 @@ async function ensureAssignable(userId: string, projectId: string, assigneeIds: 
   if (membershipCount !== uniqueAssigneeIds.length) {
     throw badRequest("Every selected team member must be assigned to that project.");
   }
+}
+
+/*
+Keep the hierarchy intentionally one level deep. The parent must be an existing
+top-level task in the same project, and tasks that already own subtasks cannot
+be moved under another parent because that would create nested grandchildren.
+*/
+async function validateParentTask(
+  userId: string,
+  projectId: string,
+  parentTaskId: string | null,
+  currentTaskId?: string,
+): Promise<string | null> {
+  if (!parentTaskId) {
+    return null;
+  }
+
+  if (currentTaskId && parentTaskId === currentTaskId) {
+    throw badRequest("A task cannot be its own parent.");
+  }
+
+  const [parentTask, childCount] = await Promise.all([
+    prisma.task.findFirst({
+      where: { id: parentTaskId, userId },
+      select: { id: true, projectId: true, parentTaskId: true },
+    }),
+    currentTaskId
+      ? prisma.task.count({
+          where: { parentTaskId: currentTaskId, userId },
+        })
+      : Promise.resolve(0),
+  ]);
+
+  if (!parentTask) {
+    throw notFound("Parent task");
+  }
+
+  if (parentTask.projectId !== projectId) {
+    throw badRequest("Parent task must belong to the same project.");
+  }
+
+  if (parentTask.parentTaskId) {
+    throw badRequest("Subtasks cannot be used as parent tasks.");
+  }
+
+  if (childCount > 0) {
+    throw badRequest("A task with subtasks cannot become a subtask.");
+  }
+
+  return parentTask.id;
 }
 
 function buildTaskWhere(filters: z.infer<typeof taskFiltersSchema>) {
@@ -273,8 +331,8 @@ function parseImportDefect(value: unknown): boolean | null {
   return null;
 }
 
-function duplicateKey(projectId: string, title: string, assigneeIds: string[], deadline: Date): string {
-  return `${projectId}|${title.trim().toLowerCase()}|${[...assigneeIds].sort().join(",")}|${deadline.getTime()}`;
+function duplicateKey(projectId: string, parentTaskId: string | null, title: string, assigneeIds: string[], deadline: Date): string {
+  return `${projectId}|${parentTaskId ?? ""}|${title.trim().toLowerCase()}|${[...assigneeIds].sort().join(",")}|${deadline.getTime()}`;
 }
 
 function formatAssigneeNames(task: ExportTask): string {
@@ -303,6 +361,10 @@ function parseMemberEmailsCell(value: unknown): string[] {
     .split(/[;,]/)
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function normalizeTaskTitleKey(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 async function validateTaskImportFile(request: FastifyRequest): Promise<void> {
@@ -344,7 +406,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
     views: [{ state: "frozen", ySplit: 6 }],
   });
 
-  worksheet.mergeCells("A1:K1");
+  worksheet.mergeCells("A1:L1");
   worksheet.getCell("A1").value = "Task Current Stage Export";
   worksheet.getCell("A1").font = { size: 18, bold: true, color: { argb: "FFFFFFFF" } };
   worksheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F766E" } };
@@ -362,9 +424,26 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
   headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111827" } };
   headerRow.alignment = { vertical: "middle" };
 
+  /*
+  Export top-level tasks followed by their direct subtasks so spreadsheet users
+  see the same parent-child hierarchy that the task page renders.
+  */
+  const tasksByParent = new Map<string | null, ExportTask[]>();
   for (const task of tasks) {
+    const parentId = task.parentTaskId ?? null;
+    tasksByParent.set(parentId, [...(tasksByParent.get(parentId) ?? []), task]);
+  }
+
+  const orderedTasks = (tasksByParent.get(null) ?? []).flatMap((task) => [
+    task,
+    ...(tasksByParent.get(task.id) ?? []),
+  ]);
+  const orphanSubtasks = tasks.filter((task) => task.parentTaskId && !tasks.some((candidate) => candidate.id === task.parentTaskId));
+
+  for (const task of [...orderedTasks, ...orphanSubtasks]) {
     worksheet.addRow([
-      task.title,
+      task.parentTaskId ? `  ${task.title}` : task.title,
+      task.parentTask?.title ?? "",
       task.project.name,
       formatAssigneeNames(task),
       task.status.replace("_", " "),
@@ -380,6 +459,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
 
   worksheet.columns = [
     { width: 34 },
+    { width: 24 },
     { width: 24 },
     { width: 24 },
     { width: 16 },
@@ -459,11 +539,12 @@ async function buildTaskImportTemplateWorkbook(
     ["Team Management Task Import"],
     ["Project", project.name],
     ["Required columns", "Title, Member Emails, Deadline"],
-    ["Optional columns", "Description, Status, Defect, Start Date"],
+    ["Optional columns", "Parent Task Title, Description, Status, Defect, Start Date"],
     ["Statuses", "todo, in_progress, blocked, done"],
     ["Defect values", "yes/no, true/false, or blank"],
     ["Date-only rule", "Start Date uses 09:00; Deadline uses 17:00."],
     ["Multiple members", "Separate member emails with commas or semicolons."],
+    ["Subtasks", "Parent Task Title must match an existing top-level task or an earlier row in this workbook."],
     ["Duplicate rule", "Existing tasks with the same title, member set, and deadline are skipped."],
   ]);
   instructions.getColumn(1).width = 24;
@@ -478,6 +559,7 @@ async function buildTaskImportTemplateWorkbook(
   tasks.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   tasks.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111827" } };
   tasks.columns = [
+    { width: 34 },
     { width: 34 },
     { width: 32 },
     { width: 22 },
@@ -496,6 +578,7 @@ async function buildTaskImportTemplateWorkbook(
 
     tasks.addRow([
       "Review project plan",
+      "",
       secondSampleMember ? `${sampleMember.email}, ${secondSampleMember.email}` : sampleMember.email,
       tomorrow,
       "Confirm scope, owner, and next actions.",
@@ -506,17 +589,17 @@ async function buildTaskImportTemplateWorkbook(
   }
 
   for (let row = 2; row <= 201; row += 1) {
-    tasks.getCell(row, 2).dataValidation = {
+    tasks.getCell(row, 3).dataValidation = {
       type: "list",
       allowBlank: false,
       formulae: [`'Allowed Members'!$C$2:$C$${Math.max(project.assignableMembers.length + 1, 2)}`],
     };
-    tasks.getCell(row, 5).dataValidation = {
+    tasks.getCell(row, 6).dataValidation = {
       type: "list",
       allowBlank: true,
       formulae: ['"todo,in_progress,blocked,done"'],
     };
-    tasks.getCell(row, 6).dataValidation = {
+    tasks.getCell(row, 7).dataValidation = {
       type: "list",
       allowBlank: true,
       formulae: ['"yes,no,true,false"'],
@@ -548,31 +631,49 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
 
   const headers = taskImportHeaders.map((_, index) => normalizeHeader(worksheet.getCell(1, index + 1).value));
   const hasCurrentHeaders = headers.every((header, index) => header === taskImportHeaders[index]);
-  const hasLegacyHeaders = headers.every((header, index) => header === legacyTaskImportHeaders[index]);
+  const legacyHeaders = legacyTaskImportHeaders.map((_, index) => normalizeHeader(worksheet.getCell(1, index + 1).value));
+  const hasLegacyHeaders = legacyHeaders.every((header, index) => header === legacyTaskImportHeaders[index]);
+  const hasLegacyMultiMemberHeaders = legacyHeaders.every((header, index) => header === legacyMultiMemberTaskImportHeaders[index]);
 
-  if (!hasCurrentHeaders && !hasLegacyHeaders) {
+  if (!hasCurrentHeaders && !hasLegacyHeaders && !hasLegacyMultiMemberHeaders) {
     throw badRequest("Import workbook headers do not match the required template.", {
       expectedHeaders: taskImportHeaders,
-      receivedHeaders: headers,
+      receivedHeaders: hasCurrentHeaders ? headers : legacyHeaders,
     });
   }
 
   const project = await getProjectForImport(userId, projectId);
   const membersByEmail = new Map(project.assignableMembers.map((member) => [member.email.toLowerCase(), member]));
+  const existingTopLevelTasks = await prisma.task.findMany({
+    where: {
+      userId,
+      projectId,
+      parentTaskId: null,
+    },
+    select: { id: true, title: true },
+  });
+  const existingParentIdsByTitle = new Map<string, string[]>();
+  for (const task of existingTopLevelTasks) {
+    const key = normalizeTaskTitleKey(task.title);
+    existingParentIdsByTitle.set(key, [...(existingParentIdsByTitle.get(key) ?? []), task.id]);
+  }
   const rejectedRows: TaskImportResultDTO["rejectedRows"] = [];
   const parsedRows: ParsedImportTask[] = [];
+  const workbookParentRowsByTitle = new Map<string, number[]>();
 
   for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     const title = normalizeImportText(row.getCell(1).value);
-    const memberEmails = parseMemberEmailsCell(row.getCell(2).value);
-    const deadline = parseImportDate(row.getCell(3).value, 17);
-    const description = normalizeImportText(row.getCell(4).value);
-    const status = parseImportStatus(row.getCell(5).value);
-    const isDefect = parseImportDefect(row.getCell(6).value);
-    const startDate = parseImportDate(row.getCell(7).value, 9);
+    const parentTaskTitle = hasCurrentHeaders ? normalizeImportText(row.getCell(2).value) : "";
+    const memberOffset = hasCurrentHeaders ? 1 : 0;
+    const memberEmails = parseMemberEmailsCell(row.getCell(2 + memberOffset).value);
+    const deadline = parseImportDate(row.getCell(3 + memberOffset).value, 17);
+    const description = normalizeImportText(row.getCell(4 + memberOffset).value);
+    const status = parseImportStatus(row.getCell(5 + memberOffset).value);
+    const isDefect = parseImportDefect(row.getCell(6 + memberOffset).value);
+    const startDate = parseImportDate(row.getCell(7 + memberOffset).value, 9);
 
-    if (!title && memberEmails.length === 0 && !deadline && !description && !normalizeImportText(row.getCell(5).value)) {
+    if (!title && !parentTaskTitle && memberEmails.length === 0 && !deadline && !description && !normalizeImportText(row.getCell(5 + memberOffset).value)) {
       continue;
     }
 
@@ -610,6 +711,20 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       rowErrors.push("Start Date must be before Deadline.");
     }
 
+    if (parentTaskTitle) {
+      const parentKey = normalizeTaskTitleKey(parentTaskTitle);
+      const existingMatches = existingParentIdsByTitle.get(parentKey) ?? [];
+      const workbookMatches = workbookParentRowsByTitle.get(parentKey) ?? [];
+
+      if (existingMatches.length + workbookMatches.length === 0) {
+        rowErrors.push("Parent Task Title must match an existing top-level task or an earlier top-level row.");
+      }
+
+      if (existingMatches.length > 1 || (existingMatches.length === 0 && workbookMatches.length > 1)) {
+        rowErrors.push("Parent Task Title is ambiguous. Use a unique top-level task title.");
+      }
+    }
+
     if (rowErrors.length > 0 || members.some((member) => !member) || !deadline || !status || isDefect === null) {
       rejectedRows.push({
         row: rowNumber,
@@ -623,6 +738,7 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
     parsedRows.push({
       row: rowNumber,
       title,
+      parentTaskTitle: parentTaskTitle || null,
       description,
       status,
       isDefect,
@@ -631,6 +747,11 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       assigneeIds: members.map((member) => member!.id),
       memberEmails: uniqueMemberEmails,
     });
+
+    if (!parentTaskTitle) {
+      const titleKey = normalizeTaskTitleKey(title);
+      workbookParentRowsByTitle.set(titleKey, [...(workbookParentRowsByTitle.get(titleKey) ?? []), rowNumber]);
+    }
   }
 
   if (rejectedRows.length > 0) {
@@ -667,6 +788,9 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          parentTask: {
+            select: { title: true },
           },
           taskAssignees: {
             select: {
@@ -705,6 +829,9 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          parentTask: {
+            select: { title: true, parentTaskId: true },
           },
           taskAssignees: {
             select: {
@@ -771,8 +898,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           projectId: params.projectId,
         },
         select: {
+          id: true,
           title: true,
           assigneeId: true,
+          parentTaskId: true,
           deadline: true,
           taskAssignees: {
             select: { teamMemberId: true },
@@ -783,6 +912,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         existingTasks.map((task) =>
           duplicateKey(
             params.projectId,
+            task.parentTaskId,
             task.title,
             task.taskAssignees.length > 0
               ? task.taskAssignees.map((assignment) => assignment.teamMemberId)
@@ -793,9 +923,19 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       );
       const skippedRows: TaskImportResultDTO["skippedRows"] = [];
       const createRows: ParsedImportTask[] = [];
+      const existingParentIdsByTitle = new Map<string, string[]>();
+      for (const task of existingTasks.filter((task) => !task.parentTaskId)) {
+        const titleKey = normalizeTaskTitleKey(task.title);
+        existingParentIdsByTitle.set(titleKey, [...(existingParentIdsByTitle.get(titleKey) ?? []), task.id]);
+      }
+      const pendingParentRowByTitle = new Map<string, ParsedImportTask>();
 
       for (const row of parsedRows) {
-        const key = duplicateKey(params.projectId, row.title, row.assigneeIds, row.deadline);
+        const parentTaskId = row.parentTaskTitle
+          ? existingParentIdsByTitle.get(normalizeTaskTitleKey(row.parentTaskTitle))?.[0] ?? null
+          : null;
+        const duplicateParentId = row.parentTaskTitle ? parentTaskId ?? `row:${row.parentTaskTitle}` : null;
+        const key = duplicateKey(params.projectId, duplicateParentId, row.title, row.assigneeIds, row.deadline);
 
         if (seenKeys.has(key)) {
           skippedRows.push({
@@ -809,12 +949,28 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
 
         seenKeys.add(key);
         createRows.push(row);
+
+        if (!row.parentTaskTitle) {
+          pendingParentRowByTitle.set(normalizeTaskTitleKey(row.title), row);
+        }
       }
 
       if (createRows.length > 0) {
-        await prisma.$transaction(
-          createRows.map((row) =>
-            prisma.task.create({
+        /*
+        Imported rows are created sequentially inside one transaction because a
+        subtask may refer to a parent created by an earlier row in the workbook.
+        */
+        await prisma.$transaction(async (tx) => {
+          const createdParentIdsByRow = new Map<number, string>();
+
+          for (const row of createRows) {
+            const parentTaskId = row.parentTaskTitle
+              ? existingParentIdsByTitle.get(normalizeTaskTitleKey(row.parentTaskTitle))?.[0] ??
+                createdParentIdsByRow.get(pendingParentRowByTitle.get(normalizeTaskTitleKey(row.parentTaskTitle))?.row ?? 0) ??
+                null
+              : null;
+
+            const createdTask = await tx.task.create({
               data: {
                 userId: user.id,
                 title: row.title,
@@ -826,6 +982,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
                 completedAt: buildCompletedAtUpdate(row.status),
                 projectId: params.projectId,
                 assigneeId: row.assigneeIds[0],
+                parentTaskId,
                 taskAssignees: {
                   createMany: {
                     data: row.assigneeIds.map((teamMemberId) => ({ teamMemberId })),
@@ -833,9 +990,14 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
                   },
                 },
               },
-            }),
-          ),
-        );
+              select: { id: true },
+            });
+
+            if (!row.parentTaskTitle) {
+              createdParentIdsByRow.set(row.row, createdTask.id);
+            }
+          }
+        });
       }
 
       return {
@@ -860,6 +1022,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const user = requireCurrentUser(request);
       const body = taskInputSchema.parse(request.body);
       const assigneeIds = normalizeAssigneeIds(body);
+      const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId));
       await ensureAssignable(user.id, body.projectId, assigneeIds);
 
       const task = await prisma.task.create({
@@ -874,6 +1037,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           completedAt: buildCompletedAtUpdate(body.status),
           projectId: body.projectId,
           assigneeId: assigneeIds[0],
+          parentTaskId,
           taskAssignees: {
             createMany: {
               data: assigneeIds.map((teamMemberId) => ({ teamMemberId })),
@@ -887,6 +1051,9 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          parentTask: {
+            select: { title: true },
           },
           taskAssignees: {
             select: {
@@ -924,6 +1091,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         throw notFound("Task");
       }
 
+      const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
       await ensureAssignable(user.id, body.projectId, assigneeIds);
 
       const [, task] = await prisma.$transaction([
@@ -942,6 +1110,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             completedAt: buildCompletedAtUpdate(body.status, existingTask.status, existingTask.completedAt),
             projectId: body.projectId,
             assigneeId: assigneeIds[0],
+            parentTaskId,
             taskAssignees: {
               createMany: {
                 data: assigneeIds.map((teamMemberId) => ({ teamMemberId })),
@@ -955,6 +1124,9 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             },
             assignee: {
               select: { name: true },
+            },
+            parentTask: {
+              select: { title: true },
             },
             taskAssignees: {
               select: {
@@ -1004,6 +1176,9 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           },
           assignee: {
             select: { name: true },
+          },
+          parentTask: {
+            select: { title: true },
           },
           taskAssignees: {
             select: {

@@ -6,7 +6,6 @@ import {
   Grid,
   Group,
   Loader,
-  Pagination,
   Paper,
   Progress,
   RingProgress,
@@ -31,6 +30,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
+import { CompactPagination } from "../components/CompactPagination";
 import { useCalendarEvents, useDashboard, useMembers, useProjects, useTasks } from "../hooks/use-app-data";
 import { usePagination } from "../hooks/use-pagination";
 import { formatDate, formatDateTime } from "../lib/dates";
@@ -93,7 +93,7 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
           )}
         </Stack>
         <Group className="fixed-pagination-slot" justify="center">
-          {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+          {totalPages > 1 ? <CompactPagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
         </Group>
       </Stack>
     </Paper>
@@ -149,7 +149,7 @@ export function PaginatedTaskStack({
         )}
       </Stack>
       <Group className="fixed-pagination-slot" justify="center">
-        {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+        {totalPages > 1 ? <CompactPagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
       </Group>
     </Stack>
   );
@@ -198,7 +198,7 @@ function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
       </Table>
       </div>
       <Group className="fixed-pagination-slot" justify="center">
-        {totalPages > 1 ? <Pagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+        {totalPages > 1 ? <CompactPagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
       </Group>
     </Stack>
   );

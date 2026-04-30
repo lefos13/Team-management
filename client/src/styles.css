@@ -265,6 +265,22 @@ body {
   overflow: hidden;
 }
 
+.subtask-panel-row td {
+  background: #f8fafc;
+  padding: 10px 12px 14px;
+}
+
+.subtask-panel {
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.subtask-row td {
+  border-bottom-color: #edf2f7;
+}
+
 .project-swatch {
   width: 14px;
   height: 14px;

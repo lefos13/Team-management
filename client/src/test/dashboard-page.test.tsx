@@ -19,6 +19,8 @@ const completedTask = {
   projectId: "project-1",
   assigneeId: "member-1",
   assigneeIds: ["member-1"],
+  parentTaskId: null,
+  parentTaskTitle: null,
   projectName: "Operations",
   assigneeName: "Ada Manager",
   assigneeNames: ["Ada Manager"],

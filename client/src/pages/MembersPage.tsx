@@ -1,9 +1,10 @@
-import { ActionIcon, Button, Card, Group, Loader, Pagination, SimpleGrid, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArchive, IconEdit, IconPlus } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "../components/PageHeader";
+import { CompactPagination } from "../components/CompactPagination";
 import { MemberFormModal } from "../components/forms/MemberFormModal";
 import {
   useArchiveMember,
@@ -113,7 +114,7 @@ export function MembersPage() {
         ))}
       </SimpleGrid>
       <Group className="page-pagination-slot" justify="center">
-        {totalPages > 1 ? <Pagination total={totalPages} value={page} onChange={setPage} /> : null}
+        {totalPages > 1 ? <CompactPagination total={totalPages} value={page} onChange={setPage} /> : null}
       </Group>
 
       <MemberFormModal

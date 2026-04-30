@@ -71,6 +71,7 @@ export const taskInputSchema = z
     projectId: z.string().min(1),
     assigneeId: z.string().min(1).optional(),
     assigneeIds: z.array(z.string().min(1)).default([]),
+    parentTaskId: z.string().min(1).optional().nullable().or(z.literal("")),
   })
   .superRefine((value, ctx) => {
     if (value.assigneeIds.length === 0 && !value.assigneeId) {
@@ -203,6 +204,8 @@ export const taskSchema = z.object({
   projectId: z.string(),
   assigneeId: z.string(),
   assigneeIds: z.array(z.string()),
+  parentTaskId: z.string().nullable(),
+  parentTaskTitle: z.string().nullable(),
   projectName: z.string(),
   assigneeName: z.string(),
   assigneeNames: z.array(z.string()),

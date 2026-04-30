@@ -5,7 +5,7 @@ primary assignee and the complete multi-assignee member set.
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
 import { taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Checkbox, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from "@mantine/core";
+import { Alert, Button, Checkbox, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { Controller, useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -22,6 +22,7 @@ const taskFormSchema = z
     startDate: z.string().optional(),
     projectId: z.string().min(1, "Project is required."),
     assigneeIds: z.array(z.string()).min(1, "At least one assignee is required."),
+    parentTaskId: z.string().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.startDate && new Date(value.startDate) > new Date(value.deadline)) {
@@ -41,6 +42,7 @@ type TaskFormModalProps = {
   opened: boolean;
   pending: boolean;
   task: TaskDTO | null;
+  tasks: TaskDTO[];
   onClose: () => void;
   onSubmit: (values: TaskInput) => void;
 };
@@ -51,6 +53,7 @@ export function TaskFormModal({
   opened,
   pending,
   task,
+  tasks,
   onClose,
   onSubmit,
 }: TaskFormModalProps) {
@@ -65,6 +68,7 @@ export function TaskFormModal({
       startDate: "",
       projectId: "",
       assigneeIds: [],
+      parentTaskId: "",
     },
   });
 
@@ -78,14 +82,20 @@ export function TaskFormModal({
       startDate: toDateTimeLocalValue(task?.startDate ?? null),
       projectId: task?.projectId ?? "",
       assigneeIds: task?.assigneeIds?.length ? task.assigneeIds : task?.assigneeId ? [task.assigneeId] : [],
+      parentTaskId: task?.parentTaskId ?? "",
     });
   }, [form, task]);
 
   const selectedProjectId = form.watch("projectId");
   const selectedAssigneeIds = form.watch("assigneeIds");
+  const selectedParentTaskId = form.watch("parentTaskId");
   const assignableMembers = members.filter(
     (member) => member.active && member.projectIds.includes(selectedProjectId),
   );
+  const taskHasSubtasks = Boolean(task && tasks.some((candidate) => candidate.parentTaskId === task.id));
+  const parentOptions = tasks
+    .filter((candidate) => candidate.projectId === selectedProjectId && !candidate.parentTaskId && candidate.id !== task?.id)
+    .map((candidate) => ({ value: candidate.id, label: candidate.title }));
 
   useEffect(() => {
     const assignableIds = new Set(assignableMembers.map((member) => member.id));
@@ -95,6 +105,14 @@ export function TaskFormModal({
       form.setValue("assigneeIds", nextAssigneeIds, { shouldValidate: true });
     }
   }, [assignableMembers, form, selectedAssigneeIds]);
+
+  useEffect(() => {
+    const parentIds = new Set(parentOptions.map((option) => option.value));
+
+    if (selectedParentTaskId && (!parentIds.has(selectedParentTaskId) || taskHasSubtasks)) {
+      form.setValue("parentTaskId", "", { shouldValidate: true });
+    }
+  }, [form, parentOptions, selectedParentTaskId, taskHasSubtasks]);
 
   return (
     <Modal opened={opened} onClose={onClose} title={task ? "Edit task" : "New task"} centered size="lg" radius="lg">
@@ -110,6 +128,7 @@ export function TaskFormModal({
             projectId: values.projectId,
             assigneeId: values.assigneeIds[0],
             assigneeIds: values.assigneeIds,
+            parentTaskId: values.parentTaskId || null,
           });
         })}
       >
@@ -168,6 +187,27 @@ export function TaskFormModal({
                 onChange={field.onChange}
                 error={form.formState.errors.assigneeIds?.message}
                 disabled={!selectedProjectId}
+                searchable
+              />
+            )}
+          />
+          {taskHasSubtasks ? (
+            <Alert color="yellow" variant="light">
+              Tasks with subtasks cannot be moved under another parent.
+            </Alert>
+          ) : null}
+          <Controller
+            control={form.control}
+            name="parentTaskId"
+            render={({ field }) => (
+              <Select
+                label="Parent task"
+                description="Leave empty for a top-level task."
+                clearable
+                data={parentOptions}
+                value={field.value || null}
+                onChange={(value) => field.onChange(value ?? "")}
+                disabled={!selectedProjectId || taskHasSubtasks}
                 searchable
               />
             )}

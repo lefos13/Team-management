@@ -8,7 +8,6 @@ import {
   Group,
   Loader,
   Modal,
-  Pagination,
   Paper,
   Select,
   Stack,
@@ -16,7 +15,16 @@ import {
   Text,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDownload, IconEdit, IconFileSpreadsheet, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconDownload,
+  IconEdit,
+  IconFileSpreadsheet,
+  IconPlus,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import {
   taskStatusValues,
   type TaskDTO,
@@ -24,10 +32,11 @@ import {
   type TaskFilters,
   type TaskImportResultDTO,
 } from "@team-management/shared";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
+import { CompactPagination } from "../components/CompactPagination";
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
 import {
@@ -45,6 +54,105 @@ import {
 import { getErrorMessage } from "../lib/api";
 import { formatDateTime } from "../lib/dates";
 import { usePagination } from "../hooks/use-pagination";
+
+type TaskTableColumnsProps = {
+  task: TaskDTO;
+  deletePending: boolean;
+  onEdit: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onStatusChange: (task: TaskDTO, status: TaskDTO["status"]) => void;
+};
+
+function TaskTableColumns({ task, deletePending, onEdit, onDelete, onStatusChange }: TaskTableColumnsProps) {
+  return (
+    <>
+      <Table.Td>
+        <Stack gap={2}>
+          <Text fw={700}>{task.title}</Text>
+          <Text size="sm" c="dimmed">{task.description || "No description"}</Text>
+          {task.parentTaskTitle ? (
+            <Text size="xs" c="dimmed">Subtask of {task.parentTaskTitle}</Text>
+          ) : null}
+        </Stack>
+      </Table.Td>
+      <Table.Td>{task.projectName}</Table.Td>
+      <Table.Td>{task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}</Table.Td>
+      <Table.Td>
+        <Group gap="sm">
+          <TaskStatusBadge status={task.status} />
+          <Select
+            size="xs"
+            w={150}
+            value={task.status}
+            data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
+            onChange={(value) => {
+              if (!value || value === task.status) {
+                return;
+              }
+
+              onStatusChange(task, value as TaskDTO["status"]);
+            }}
+          />
+        </Group>
+      </Table.Td>
+      <Table.Td>
+        <Stack gap={6}>
+          {task.isDefect ? <DefectBadge /> : <Text size="sm" c="dimmed">Standard</Text>}
+          {task.completedAt ? (
+            <Text size="xs" c="dimmed">Done {formatDateTime(task.completedAt)}</Text>
+          ) : null}
+        </Stack>
+      </Table.Td>
+      <Table.Td>{formatDateTime(task.deadline)}</Table.Td>
+      <Table.Td>
+        <Group justify="end" gap="xs">
+          <ActionIcon variant="light" onClick={() => onEdit(task.id)}>
+            <IconEdit size={16} />
+          </ActionIcon>
+          <ActionIcon color="red" variant="light" loading={deletePending} onClick={() => onDelete(task.id)}>
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Group>
+      </Table.Td>
+    </>
+  );
+}
+
+type SubtaskPanelProps = Omit<TaskTableColumnsProps, "task"> & {
+  subtasks: TaskDTO[];
+};
+
+/*
+Keep subtask paging local to each expanded parent so opening one hierarchy does
+not change the page position inside another parent task.
+*/
+function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onStatusChange }: SubtaskPanelProps) {
+  const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
+
+  return (
+    <Stack gap="sm" className="subtask-panel">
+      <Table verticalSpacing="sm">
+        <Table.Tbody>
+          {paginatedItems.map((subtask) => (
+            <Table.Tr key={subtask.id} className="subtask-row">
+              <Table.Td />
+              <TaskTableColumns
+                task={subtask}
+                deletePending={deletePending}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onStatusChange={onStatusChange}
+              />
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+      <Group justify="center">
+        {totalPages > 1 ? <CompactPagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
+    </Stack>
+  );
+}
 
 export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -92,7 +200,26 @@ export function TasksPage() {
   const projects = projectsQuery.data ?? [];
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
-  const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(tasks, 10);
+  const tasksById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
+  const subtasksByParent = useMemo(() => {
+    const grouped = new Map<string, TaskDTO[]>();
+
+    for (const task of tasks) {
+      if (!task.parentTaskId) {
+        continue;
+      }
+
+      grouped.set(task.parentTaskId, [...(grouped.get(task.parentTaskId) ?? []), task]);
+    }
+
+    return grouped;
+  }, [tasks]);
+  const topLevelTasks = useMemo(
+    () => tasks.filter((task) => !task.parentTaskId || !tasksById.has(task.parentTaskId)),
+    [tasks, tasksById],
+  );
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(() => new Set());
+  const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(topLevelTasks, 10);
 
   if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading) {
     return <Loader />;
@@ -177,6 +304,49 @@ export function TasksPage() {
         message: getErrorMessage(error),
       });
     }
+  }
+
+  function handleEditTask(taskId: string) {
+    setEditingTaskId(taskId);
+    setOpened(true);
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await deleteTask.mutateAsync(taskId);
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to delete task",
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
+  async function handleStatusChange(task: TaskDTO, status: TaskDTO["status"]) {
+    try {
+      await updateTaskStatus.mutateAsync({ id: task.id, status });
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to update status",
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
+  function toggleExpandedTask(taskId: string) {
+    setExpandedTaskIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+
+      return next;
+    });
   }
 
   return (
@@ -274,104 +444,70 @@ export function TasksPage() {
         <Table verticalSpacing="md">
           <Table.Thead>
             <Table.Tr>
+              <Table.Th w={46} />
               <Table.Th>Task</Table.Th>
               <Table.Th>Project</Table.Th>
-                <Table.Th>Assignee</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Info</Table.Th>
-                <Table.Th>Deadline</Table.Th>
-                <Table.Th />
+              <Table.Th>Assignee</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Info</Table.Th>
+              <Table.Th>Deadline</Table.Th>
+              <Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {paginatedTasks.map((task) => (
-              <Table.Tr key={task.id}>
-                <Table.Td>
-                  <Stack gap={2}>
-                    <Text fw={700}>{task.title}</Text>
-                    <Text size="sm" c="dimmed">{task.description || "No description"}</Text>
-                  </Stack>
-                </Table.Td>
-                <Table.Td>{task.projectName}</Table.Td>
-                <Table.Td>{task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}</Table.Td>
-                <Table.Td>
-                  <Group gap="sm">
-                    <TaskStatusBadge status={task.status} />
-                    <Select
-                      size="xs"
-                      w={150}
-                      value={task.status}
-                      data={taskStatusValues.map((status) => ({ value: status, label: status.replace("_", " ") }))}
-                      onChange={async (value) => {
-                        if (!value || value === task.status) {
-                          return;
-                        }
+            {paginatedTasks.map((task) => {
+              const subtasks = subtasksByParent.get(task.id) ?? [];
+              const expanded = expandedTaskIds.has(task.id);
 
-                        try {
-                          await updateTaskStatus.mutateAsync({ id: task.id, status: value as TaskDTO["status"] });
-                        } catch (error) {
-                          notifications.show({
-                            color: "red",
-                            title: "Unable to update status",
-                            message: getErrorMessage(error),
-                          });
-                        }
-                      }}
+              return (
+                <Fragment key={task.id}>
+                  <Table.Tr>
+                    <Table.Td>
+                      {subtasks.length > 0 ? (
+                        <ActionIcon
+                          variant="subtle"
+                          aria-label={expanded ? "Collapse subtasks" : "Expand subtasks"}
+                          onClick={() => toggleExpandedTask(task.id)}
+                        >
+                          {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        </ActionIcon>
+                      ) : null}
+                    </Table.Td>
+                    <TaskTableColumns
+                      task={task}
+                      deletePending={deleteTask.isPending}
+                      onEdit={handleEditTask}
+                      onDelete={(taskId) => void handleDeleteTask(taskId)}
+                      onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
                     />
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  <Stack gap={6}>
-                    {task.isDefect ? <DefectBadge /> : <Text size="sm" c="dimmed">Standard</Text>}
-                    {task.completedAt ? (
-                      <Text size="xs" c="dimmed">Done {formatDateTime(task.completedAt)}</Text>
-                    ) : null}
-                  </Stack>
-                </Table.Td>
-                <Table.Td>{formatDateTime(task.deadline)}</Table.Td>
-                <Table.Td>
-                  <Group justify="end" gap="xs">
-                    <ActionIcon
-                      variant="light"
-                      onClick={() => {
-                        setEditingTaskId(task.id);
-                        setOpened(true);
-                      }}
-                    >
-                      <IconEdit size={16} />
-                    </ActionIcon>
-                    <ActionIcon
-                      color="red"
-                      variant="light"
-                      loading={deleteTask.isPending}
-                      onClick={async () => {
-                        try {
-                          await deleteTask.mutateAsync(task.id);
-                        } catch (error) {
-                          notifications.show({
-                            color: "red",
-                            title: "Unable to delete task",
-                            message: getErrorMessage(error),
-                          });
-                        }
-                      }}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
+                  </Table.Tr>
+                  {subtasks.length > 0 && expanded ? (
+                    <Table.Tr className="subtask-panel-row">
+                      <Table.Td colSpan={8}>
+                        <SubtaskPanel
+                          subtasks={subtasks}
+                          deletePending={deleteTask.isPending}
+                          onEdit={handleEditTask}
+                          onDelete={(taskId) => void handleDeleteTask(taskId)}
+                          onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
+                        />
+                      </Table.Td>
+                    </Table.Tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </Table.Tbody>
         </Table>
       </Paper>
       <Group className="page-pagination-slot" justify="center">
-        {totalPages > 1 ? <Pagination total={totalPages} value={page} onChange={setPage} /> : null}
+        {totalPages > 1 ? <CompactPagination total={totalPages} value={page} onChange={setPage} /> : null}
       </Group>
 
       <TaskFormModal
         projects={projects}
         members={members}
+        tasks={tasks}
         opened={opened}
         pending={createTask.isPending || updateTask.isPending}
         task={selectedTask}
