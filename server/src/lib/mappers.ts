@@ -1,4 +1,6 @@
 import type {
+  TaskAttachmentArchiveDTO,
+  TaskAttachmentDTO,
   CalendarEventDTO,
   ProjectDetailDTO,
   ProjectSummaryDTO,
@@ -92,6 +94,20 @@ export function mapTask(
     assignee: { name: string };
     parentTask?: { title: string } | null;
     taskAssignees: Array<{ teamMemberId: string; teamMember: { name: string } }>;
+    attachments: Array<{
+      id: string;
+      filename: string;
+      mimeType: string;
+      sizeBytes: number;
+      isImage: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+    archive?: {
+      id: string;
+      sizeBytes: number;
+      generatedAt: Date;
+    } | null;
   },
 ): TaskDTO {
   const orderedAssignees = [...task.taskAssignees].sort((left, right) => {
@@ -107,6 +123,22 @@ export function mapTask(
   });
   const assigneeIds = orderedAssignees.map((assignment) => assignment.teamMemberId);
   const assigneeNames = orderedAssignees.map((assignment) => assignment.teamMember.name);
+  const attachments: TaskAttachmentDTO[] = task.attachments.map((attachment) => ({
+    id: attachment.id,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    isImage: attachment.isImage,
+    createdAt: toIsoString(attachment.createdAt),
+    updatedAt: toIsoString(attachment.updatedAt),
+  }));
+  const attachmentArchive: TaskAttachmentArchiveDTO | null = task.archive
+    ? {
+        id: task.archive.id,
+        sizeBytes: task.archive.sizeBytes,
+        generatedAt: toIsoString(task.archive.generatedAt),
+      }
+    : null;
 
   return {
     id: task.id,
@@ -125,6 +157,9 @@ export function mapTask(
     projectName: task.project.name,
     assigneeName: task.assignee.name,
     assigneeNames: assigneeNames.length > 0 ? assigneeNames : [task.assignee.name],
+    attachments,
+    attachmentArchive,
+    attachmentsPreviewAvailable: task.status !== "done",
     createdAt: toIsoString(task.createdAt),
     updatedAt: toIsoString(task.updatedAt),
   };

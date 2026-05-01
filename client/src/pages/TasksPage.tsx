@@ -41,14 +41,19 @@ import { CompactPagination } from "../components/CompactPagination";
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
 import {
+  downloadTaskAttachment,
+  downloadTaskAttachmentArchive,
   downloadTaskImportTemplate,
   exportTasks,
+  previewTaskAttachment,
   useCreateTask,
+  useDeleteTaskAttachment,
   useDeleteTask,
   useImportTasks,
   useMembers,
   useProjects,
   useTasks,
+  useUploadTaskAttachments,
   useUpdateTask,
   useUpdateTaskStatus,
 } from "../hooks/use-app-data";
@@ -120,6 +125,15 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onStatusChang
           <Text size="sm" c="dimmed">{task.description || "No description"}</Text>
           {task.parentTaskTitle ? (
             <Text size="xs" c="dimmed">Subtask of {task.parentTaskTitle}</Text>
+          ) : null}
+          {task.status === "done" ? (
+            <Text size="xs" c="dimmed">
+              {task.attachments.length} attachments archived
+            </Text>
+          ) : task.attachments.length > 0 ? (
+            <Text size="xs" c="dimmed">
+              {task.attachments.length} attachments
+            </Text>
           ) : null}
         </Stack>
       </Table.Td>
@@ -233,6 +247,8 @@ export function TasksPage() {
   const updateTask = useUpdateTask();
   const updateTaskStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
+  const uploadTaskAttachments = useUploadTaskAttachments();
+  const deleteTaskAttachment = useDeleteTaskAttachment();
   const importTasks = useImportTasks();
 
   const selectedTask = useMemo(
@@ -376,6 +392,31 @@ export function TasksPage() {
         message: getErrorMessage(error),
       });
     }
+  }
+
+  async function saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function openBlob(blob: Blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.click();
+
+    /*
+    Browsers may intentionally hide the new-tab window handle when noopener is
+    used, so release the blob after navigation starts instead of treating that
+    privacy behavior as a preview failure.
+    */
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   function toggleExpandedTask(taskId: string) {
@@ -553,8 +594,56 @@ export function TasksPage() {
         tasks={tasks}
         opened={opened}
         pending={createTask.isPending || updateTask.isPending}
+        attachmentPending={uploadTaskAttachments.isPending || deleteTaskAttachment.isPending}
         task={selectedTask}
         onClose={() => setOpened(false)}
+        onDeleteAttachment={async (taskId, attachmentId) => {
+          try {
+            await deleteTaskAttachment.mutateAsync({ taskId, attachmentId });
+          } catch (error) {
+            notifications.show({
+              color: "red",
+              title: "Unable to delete attachment",
+              message: getErrorMessage(error),
+            });
+          }
+        }}
+        onDownloadAttachment={async (taskId, attachmentId, filename) => {
+          try {
+            const blob = await downloadTaskAttachment(taskId, attachmentId);
+            await saveBlob(blob, filename);
+          } catch (error) {
+            notifications.show({
+              color: "red",
+              title: "Unable to download attachment",
+              message: getErrorMessage(error),
+            });
+          }
+        }}
+        onDownloadAttachmentArchive={async (taskId) => {
+          try {
+            const blob = await downloadTaskAttachmentArchive(taskId);
+            await saveBlob(blob, `task-${taskId}-attachments.zip`);
+          } catch (error) {
+            notifications.show({
+              color: "red",
+              title: "Unable to download archive",
+              message: getErrorMessage(error),
+            });
+          }
+        }}
+        onPreviewAttachment={async (taskId, attachmentId, _filename, _mimeType) => {
+          try {
+            const blob = await previewTaskAttachment(taskId, attachmentId);
+            await openBlob(blob);
+          } catch (error) {
+            notifications.show({
+              color: "red",
+              title: "Unable to preview attachment",
+              message: getErrorMessage(error),
+            });
+          }
+        }}
         onSubmit={async (values) => {
           try {
             if (editingTaskId) {
@@ -567,6 +656,17 @@ export function TasksPage() {
             notifications.show({
               color: "red",
               title: "Unable to save task",
+              message: getErrorMessage(error),
+            });
+          }
+        }}
+        onUploadAttachments={async (taskId, files) => {
+          try {
+            await uploadTaskAttachments.mutateAsync({ taskId, files });
+          } catch (error) {
+            notifications.show({
+              color: "red",
+              title: "Unable to upload attachments",
               message: getErrorMessage(error),
             });
           }

@@ -5,9 +5,25 @@ primary assignee and the complete multi-assignee member set.
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
 import { taskStatusLabels, taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Alert, Button, Checkbox, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  Checkbox,
+  FileInput,
+  Group,
+  Modal,
+  MultiSelect,
+  Paper,
+  Select,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+} from "@mantine/core";
+import { IconDownload, IconEye, IconTrash, IconUpload } from "@tabler/icons-react";
 import { Controller, useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { z } from "zod";
 
 import { toDateTimeLocalValue, toIsoFromLocal } from "../../lib/dates";
@@ -41,22 +57,55 @@ type TaskFormModalProps = {
   members: TeamMemberDTO[];
   opened: boolean;
   pending: boolean;
+  attachmentPending: boolean;
   task: TaskDTO | null;
   tasks: TaskDTO[];
+  onDeleteAttachment: (taskId: string, attachmentId: string) => Promise<void>;
   onClose: () => void;
+  onDownloadAttachment: (taskId: string, attachmentId: string, filename: string) => Promise<void>;
+  onDownloadAttachmentArchive: (taskId: string) => Promise<void>;
+  onPreviewAttachment: (taskId: string, attachmentId: string, filename: string, mimeType: string) => Promise<void>;
   onSubmit: (values: TaskInput) => void;
+  onUploadAttachments: (taskId: string, files: File[]) => Promise<void>;
 };
+
+const maxAttachmentBytes = 10 * 1024 * 1024;
+
+export function validateAttachmentFiles(files: File[]) {
+  const oversized = files.find((file) => file.size > maxAttachmentBytes);
+  return oversized ? `${oversized.name} exceeds the 10 MB limit.` : null;
+}
+
+function formatAttachmentSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isPreviewableAttachment(mimeType: string) {
+  return mimeType.startsWith("image/") || mimeType === "application/pdf" || mimeType.startsWith("text/");
+}
 
 export function TaskFormModal({
   projects,
   members,
   opened,
   pending,
+  attachmentPending,
   task,
   tasks,
+  onDeleteAttachment,
   onClose,
+  onDownloadAttachment,
+  onDownloadAttachmentArchive,
+  onPreviewAttachment,
   onSubmit,
+  onUploadAttachments,
 }: TaskFormModalProps) {
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -84,6 +133,8 @@ export function TaskFormModal({
       assigneeIds: task?.assigneeIds?.length ? task.assigneeIds : task?.assigneeId ? [task.assigneeId] : [],
       parentTaskId: task?.parentTaskId ?? "",
     });
+    setAttachmentFiles([]);
+    setAttachmentError(null);
   }, [form, task]);
 
   const selectedProjectId = form.watch("projectId");
@@ -113,6 +164,11 @@ export function TaskFormModal({
       form.setValue("parentTaskId", "", { shouldValidate: true });
     }
   }, [form, parentOptions, selectedParentTaskId, taskHasSubtasks]);
+
+  const previewableAttachmentCount = useMemo(
+    () => task?.attachments.filter((attachment) => isPreviewableAttachment(attachment.mimeType)).length ?? 0,
+    [task],
+  );
 
   return (
     <Modal opened={opened} onClose={onClose} title={task ? "Edit task" : "New task"} centered size="lg" radius="lg">
@@ -159,7 +215,7 @@ export function TaskFormModal({
               <Checkbox
                 label="Mark as defect"
                 checked={field.value}
-                onChange={(event) => field.onChange(event.currentTarget.checked)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => field.onChange(event.currentTarget.checked)}
               />
             )}
           />
@@ -224,6 +280,127 @@ export function TaskFormModal({
             {...form.register("deadline")}
             error={form.formState.errors.deadline?.message}
           />
+          <Paper withBorder radius="md" p="md">
+            {task ? (
+              <Stack gap="sm">
+                <Text fw={600}>Attachments</Text>
+                {task.status === "done" ? (
+                  <>
+                    <Text size="sm" c="dimmed">
+                      Preview is disabled for done tasks. Download the archive to inspect the compressed files.
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      {task.attachments.length} files archived{task.attachmentArchive ? ` • ${formatAttachmentSize(task.attachmentArchive.sizeBytes)}` : ""}
+                    </Text>
+                    <Group justify="flex-start">
+                      <Button
+                        variant="light"
+                        leftSection={<IconDownload size={16} />}
+                        disabled={!task.attachmentArchive}
+                        loading={attachmentPending}
+                        onClick={() => void onDownloadAttachmentArchive(task.id)}
+                      >
+                        Download archive
+                      </Button>
+                    </Group>
+                  </>
+                ) : (
+                  <>
+                    <Text size="sm" c="dimmed">
+                      {task.attachments.length} files attached{previewableAttachmentCount > 0 ? ` • ${previewableAttachmentCount} previewable` : ""}
+                    </Text>
+                    <FileInput
+                      label="Add files"
+                      placeholder="Upload task files or images"
+                      value={attachmentFiles}
+                      onChange={(files) => {
+                        const nextFiles = Array.isArray(files) ? files.filter(Boolean) : [];
+                        const nextError = validateAttachmentFiles(nextFiles);
+
+                        if (nextError) {
+                          setAttachmentError(nextError);
+                          setAttachmentFiles([]);
+                          return;
+                        }
+
+                        setAttachmentFiles(nextFiles);
+                        setAttachmentError(null);
+                      }}
+                      multiple
+                    />
+                    {attachmentError ? <Alert color="red" variant="light">{attachmentError}</Alert> : null}
+                    <Group justify="flex-start">
+                      <Button
+                        variant="light"
+                        leftSection={<IconUpload size={16} />}
+                        disabled={attachmentFiles.length === 0}
+                        loading={attachmentPending}
+                        onClick={async () => {
+                          if (attachmentFiles.length === 0) {
+                            return;
+                          }
+
+                          await onUploadAttachments(task.id, attachmentFiles);
+                          setAttachmentFiles([]);
+                        }}
+                      >
+                        Upload files
+                      </Button>
+                    </Group>
+                    <Stack gap="xs">
+                      {task.attachments.length === 0 ? (
+                        <Text size="sm" c="dimmed">No files attached yet.</Text>
+                      ) : (
+                        task.attachments.map((attachment) => (
+                          <Group key={attachment.id} justify="space-between" wrap="nowrap">
+                            <Stack gap={0} style={{ flex: 1 }}>
+                              <Text size="sm" fw={500}>{attachment.filename}</Text>
+                              <Text size="xs" c="dimmed">
+                                {formatAttachmentSize(attachment.sizeBytes)} • {attachment.mimeType}
+                              </Text>
+                            </Stack>
+                            <Group gap="xs" wrap="nowrap">
+                              <ActionIcon
+                                variant="light"
+                                aria-label={`Download ${attachment.filename}`}
+                                onClick={() => void onDownloadAttachment(task.id, attachment.id, attachment.filename)}
+                              >
+                                <IconDownload size={16} />
+                              </ActionIcon>
+                              <ActionIcon
+                                variant="light"
+                                aria-label={`Preview ${attachment.filename}`}
+                                disabled={!isPreviewableAttachment(attachment.mimeType)}
+                                onClick={() => void onPreviewAttachment(task.id, attachment.id, attachment.filename, attachment.mimeType)}
+                              >
+                                <IconEye size={16} />
+                              </ActionIcon>
+                              <ActionIcon
+                                color="red"
+                                variant="light"
+                                aria-label={`Delete ${attachment.filename}`}
+                                loading={attachmentPending}
+                                onClick={() => void onDeleteAttachment(task.id, attachment.id)}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Group>
+                          </Group>
+                        ))
+                      )}
+                    </Stack>
+                  </>
+                )}
+              </Stack>
+            ) : (
+              <Stack gap="xs">
+                <Text fw={600}>Attachments</Text>
+                <Text size="sm" c="dimmed">
+                  Save the task first, then upload files from this same modal.
+                </Text>
+              </Stack>
+            )}
+          </Paper>
           <Button type="submit" loading={pending}>
             Save task
           </Button>

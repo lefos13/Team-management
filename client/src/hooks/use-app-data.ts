@@ -6,6 +6,7 @@ import type {
   ProjectDetailDTO,
   ProjectInput,
   ProjectSummaryDTO,
+  TaskAttachmentDTO,
   TaskDTO,
   TaskExportFilters,
   TaskFilters,
@@ -262,4 +263,66 @@ export function useDeleteTask() {
       await invalidateCoreQueries(queryClient);
     },
   });
+}
+
+export async function downloadTaskAttachment(taskId: string, attachmentId: string) {
+  const response = await api.get<Blob>(`/tasks/${taskId}/attachments/${attachmentId}/download`, {
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function previewTaskAttachment(taskId: string, attachmentId: string) {
+  const response = await api.get<Blob>(`/tasks/${taskId}/attachments/${attachmentId}/preview`, {
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function downloadTaskAttachmentArchive(taskId: string) {
+  const response = await api.get<Blob>(`/tasks/${taskId}/attachments/archive`, {
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export function useUploadTaskAttachments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, files }: { taskId: string; files: File[] }) => {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append("file", file);
+      }
+
+      const response = await api.post<TaskDTO>(`/tasks/${taskId}/attachments`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    },
+    onSuccess: async () => {
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
+export function useDeleteTaskAttachment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, attachmentId }: { taskId: string; attachmentId: string }) => {
+      const response = await api.delete<TaskDTO>(`/tasks/${taskId}/attachments/${attachmentId}`);
+      return response.data;
+    },
+    onSuccess: async () => {
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
+export function countTaskPreviewableAttachments(attachments: TaskAttachmentDTO[]) {
+  return attachments.filter((attachment) => attachment.isImage || attachment.mimeType === "application/pdf" || attachment.mimeType.startsWith("text/")).length;
 }

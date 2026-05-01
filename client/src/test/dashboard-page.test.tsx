@@ -24,6 +24,9 @@ const completedTask = {
   projectName: "Operations",
   assigneeName: "Ada Manager",
   assigneeNames: ["Ada Manager"],
+  attachments: [],
+  attachmentArchive: null,
+  attachmentsPreviewAvailable: false,
   createdAt: "2029-04-01T08:00:00.000Z",
   updatedAt: "2029-04-03T12:30:00.000Z",
 } satisfies TaskDTO;

@@ -1,5 +1,6 @@
 /* Parse runtime configuration once so auth, mail, and deployment-sensitive behavior share one strict source of truth. */
 import { z } from "zod";
+import { resolve } from "node:path";
 
 const booleanStringSchema = z
   .union([z.boolean(), z.string()])
@@ -23,6 +24,7 @@ const envSchema = z
     GMAIL_APP_PASSWORD: z.string().optional(),
     EMAIL_FROM: z.string().trim().min(1).default("Team Management <no-reply@example.com>"),
     EMAIL_REPLY_TO: z.string().trim().email().optional(),
+    ATTACHMENTS_DIR: z.string().trim().optional(),
     OTP_EXPIRY_MINUTES: z.coerce.number().int().positive().default(10),
     OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
     OTP_OVERRIDE_CODE: z.string().trim().regex(/^\d{6}$/).optional(),
@@ -79,8 +81,17 @@ const envSchema = z
     }
   });
 
-export type AppConfig = z.infer<typeof envSchema>;
+export type AppConfig = Omit<z.infer<typeof envSchema>, "ATTACHMENTS_DIR"> & {
+  ATTACHMENTS_DIR: string;
+};
 
 export function getConfig(): AppConfig {
-  return envSchema.parse(process.env);
+  const config = envSchema.parse(process.env);
+
+  return {
+    ...config,
+    ATTACHMENTS_DIR: config.ATTACHMENTS_DIR && config.ATTACHMENTS_DIR !== ""
+      ? config.ATTACHMENTS_DIR
+      : resolve(process.cwd(), "server", "storage", "attachments"),
+  };
 }

@@ -15,6 +15,8 @@ set -a
 source "$ENV_FILE"
 set +a
 
+ATTACHMENTS_DIR="${ATTACHMENTS_DIR:-$PROJECT_ROOT/server/storage/attachments}"
+
 if [[ -z "${DATABASE_URL:-}" || -z "${APP_BASE_URL:-}" || -z "${CLIENT_ORIGIN:-}" || -z "${SESSION_SECRET:-}" || -z "${EMAIL_PROVIDER:-}" ]]; then
   echo "DATABASE_URL, APP_BASE_URL, CLIENT_ORIGIN, SESSION_SECRET, and EMAIL_PROVIDER must be set in $ENV_FILE."
   exit 1
@@ -115,6 +117,7 @@ fi
 cd "$APP_DIR"
 npm install
 npx prisma generate --schema server/prisma/schema.prisma
+mkdir -p "$ATTACHMENTS_DIR"
 
 : <<'COMMENT'
 /*

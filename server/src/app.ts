@@ -45,8 +45,8 @@ export async function createApp() {
   });
   await app.register(multipart, {
     limits: {
-      files: 1,
-      fileSize: 5 * 1024 * 1024,
+      files: 20,
+      fileSize: 10 * 1024 * 1024,
     },
   });
   await app.register(authPlugin);

@@ -9,14 +9,30 @@ import {
   taskStatusSchema,
   taskStatusValues,
 } from "@team-management/shared";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import ExcelJS from "exceljs";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { mapTask } from "../lib/mappers.js";
+import {
+  archiveTaskAttachments,
+  buildAttachmentMetadata,
+  deleteStorageKey,
+  deleteTaskStorage,
+  ensureAttachmentsRoot,
+  fileExists,
+  isPreviewableMimeType,
+  maxTaskAttachmentBytes,
+  readAttachmentFile,
+  removeActiveAttachmentFiles,
+  restoreTaskArchive,
+  taskAttachmentStorageKey,
+  writeAttachmentFile,
+} from "../lib/task-attachments.js";
 import { requireCurrentUser } from "../lib/request-user.js";
 
 const taskIdParamsSchema = z.object({
@@ -25,6 +41,11 @@ const taskIdParamsSchema = z.object({
 
 const taskStatusUpdateSchema = z.object({
   status: taskStatusSchema,
+});
+
+const taskAttachmentParamsSchema = z.object({
+  taskId: z.string().min(1),
+  attachmentId: z.string().min(1),
 });
 
 const projectTaskImportParamsSchema = z.object({
@@ -99,6 +120,33 @@ type ExportTask = Prisma.TaskGetPayload<{
       };
     };
   };
+}>;
+
+const taskDetailsInclude = Prisma.validator<Prisma.TaskInclude>()({
+  project: {
+    select: { name: true },
+  },
+  assignee: {
+    select: { name: true },
+  },
+  parentTask: {
+    select: { title: true },
+  },
+  taskAssignees: {
+    select: {
+      teamMemberId: true,
+      teamMember: { select: { name: true, email: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  },
+  attachments: {
+    orderBy: [{ createdAt: "asc" }, { filename: "asc" }],
+  },
+  archive: true,
+});
+
+type TaskDetails = Prisma.TaskGetPayload<{
+  include: typeof taskDetailsInclude;
 }>;
 
 /*
@@ -419,6 +467,68 @@ async function validateTaskImportFile(request: FastifyRequest): Promise<void> {
     filename: file.filename,
     buffer,
   };
+}
+
+/*
+Attachment lifecycle depends on task status: active tasks keep original files
+for preview, while done tasks swap those originals for one ZIP archive until
+the task is reopened.
+*/
+async function prepareTaskArchive(task: Pick<TaskDetails, "id" | "attachments" | "archive">) {
+  if (task.attachments.length === 0) {
+    return null;
+  }
+
+  if (task.archive) {
+    return {
+      storageKey: task.archive.storageKey,
+      sizeBytes: task.archive.sizeBytes,
+      generatedAt: task.archive.generatedAt,
+    };
+  }
+
+  return archiveTaskAttachments(
+    task.id,
+    task.attachments.map((attachment) => attachment.storageKey),
+  );
+}
+
+async function finalizeTaskArchive(task: Pick<TaskDetails, "attachments">) {
+  await removeActiveAttachmentFiles(task.attachments.map((attachment) => attachment.storageKey));
+}
+
+async function prepareTaskRestore(task: Pick<TaskDetails, "id" | "archive">) {
+  if (!task.archive) {
+    return;
+  }
+
+  const archiveExists = await fileExists(task.archive.storageKey);
+  if (!archiveExists) {
+    throw badRequest("The task archive is missing and cannot be restored.");
+  }
+
+  await restoreTaskArchive(task.id, task.archive.storageKey);
+}
+
+async function finalizeTaskRestore(task: Pick<TaskDetails, "archive">) {
+  if (!task.archive) {
+    return;
+  }
+
+  await deleteStorageKey(task.archive.storageKey);
+}
+
+async function getTaskForUser(userId: string, taskId: string) {
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, userId },
+    include: taskDetailsInclude,
+  });
+
+  if (!task) {
+    throw notFound("Task");
+  }
+
+  return task;
 }
 
 async function buildTasksWorkbook(tasks: ExportTask[]) {
@@ -805,24 +915,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           userId: user.id,
           ...buildTaskWhere(query),
         },
-        include: {
-          project: {
-            select: { name: true },
-          },
-          assignee: {
-            select: { name: true },
-          },
-          parentTask: {
-            select: { title: true },
-          },
-          taskAssignees: {
-            select: {
-              teamMemberId: true,
-              teamMember: { select: { name: true, email: true } },
-            },
-            orderBy: { createdAt: "asc" },
-          },
-        },
+        include: taskDetailsInclude,
         orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
       });
 
@@ -1068,24 +1161,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         },
-        include: {
-          project: {
-            select: { name: true },
-          },
-          assignee: {
-            select: { name: true },
-          },
-          parentTask: {
-            select: { title: true },
-          },
-          taskAssignees: {
-            select: {
-              teamMemberId: true,
-              teamMember: { select: { name: true, email: true } },
-            },
-            orderBy: { createdAt: "asc" },
-          },
-        },
+        include: taskDetailsInclude,
       });
 
       return mapTask(task);
@@ -1106,16 +1182,25 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const params = taskIdParamsSchema.parse(request.params);
       const body = taskInputSchema.parse(request.body);
       const assigneeIds = normalizeAssigneeIds(body);
-      const existingTask = await prisma.task.findFirst({
-        where: { id: params.id, userId: user.id },
-      });
-
-      if (!existingTask) {
-        throw notFound("Task");
-      }
+      const existingTask = await getTaskForUser(user.id, params.id);
 
       const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
       await ensureAssignable(user.id, body.projectId, assigneeIds);
+      const archivePreparation = body.status === "done" && existingTask.status !== "done" ? await prepareTaskArchive(existingTask) : null;
+      if (body.status !== "done" && existingTask.status === "done") {
+        await prepareTaskRestore(existingTask);
+      }
+      const childTasks = body.status === "done" && !existingTask.parentTaskId
+        ? await prisma.task.findMany({
+            where: {
+              userId: user.id,
+              parentTaskId: params.id,
+              status: { not: "done" },
+            },
+            include: taskDetailsInclude,
+          })
+        : [];
+      const childArchives = await Promise.all(childTasks.map((task) => prepareTaskArchive(task)));
 
       /*
       Full task edits can also complete a parent, so keep the same cascade rule
@@ -1146,43 +1231,53 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
                 skipDuplicates: true,
               },
             },
+            archive:
+              body.status === "done" && archivePreparation
+                ? {
+                    upsert: {
+                      create: archivePreparation,
+                      update: archivePreparation,
+                    },
+                  }
+                : body.status !== "done" && existingTask.archive
+                  ? { delete: true }
+                  : undefined,
           },
-          include: {
-            project: {
-              select: { name: true },
-            },
-            assignee: {
-              select: { name: true },
-            },
-            parentTask: {
-              select: { title: true },
-            },
-            taskAssignees: {
-              select: {
-                teamMemberId: true,
-                teamMember: { select: { name: true, email: true } },
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
+          include: taskDetailsInclude,
         });
 
         if (body.status === "done" && !existingTask.parentTaskId) {
-          await tx.task.updateMany({
-            where: {
-              userId: user.id,
-              parentTaskId: params.id,
-              status: { not: "done" },
-            },
-            data: {
-              status: "done",
-              completedAt,
-            },
-          });
+          for (const [index, childTask] of childTasks.entries()) {
+            const childArchive = childArchives[index];
+            await tx.task.update({
+              where: { id: childTask.id },
+              data: {
+                status: "done",
+                completedAt,
+                archive: childArchive
+                  ? {
+                      upsert: {
+                        create: childArchive,
+                        update: childArchive,
+                      },
+                    }
+                  : undefined,
+              },
+            });
+          }
         }
 
         return updated;
       });
+
+      if (body.status === "done" && existingTask.status !== "done") {
+        await finalizeTaskArchive(existingTask);
+        await Promise.all(childTasks.map((childTask) => finalizeTaskArchive(childTask)));
+      }
+
+      if (body.status !== "done" && existingTask.status === "done") {
+        await finalizeTaskRestore(existingTask);
+      }
 
       return mapTask(task);
     },
@@ -1201,13 +1296,22 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
       const body = taskStatusUpdateSchema.parse(request.body);
-      const task = await prisma.task.findFirst({
-        where: { id: params.id, userId: user.id },
-      });
-
-      if (!task) {
-        throw notFound("Task");
+      const task = await getTaskForUser(user.id, params.id);
+      const archivePreparation = body.status === "done" && task.status !== "done" ? await prepareTaskArchive(task) : null;
+      if (body.status !== "done" && task.status === "done") {
+        await prepareTaskRestore(task);
       }
+      const childTasks = body.status === "done" && !task.parentTaskId
+        ? await prisma.task.findMany({
+            where: {
+              userId: user.id,
+              parentTaskId: params.id,
+              status: { not: "done" },
+            },
+            include: taskDetailsInclude,
+          })
+        : [];
+      const childArchives = await Promise.all(childTasks.map((childTask) => prepareTaskArchive(childTask)));
 
       /*
       Completing a parent task is a hierarchy-level action: direct subtasks move
@@ -1221,44 +1325,260 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           data: {
             status: body.status,
             completedAt: buildCompletedAtUpdateAt(body.status, completedAt, task.status, task.completedAt),
+            archive:
+              body.status === "done" && archivePreparation
+                ? {
+                    upsert: {
+                      create: archivePreparation,
+                      update: archivePreparation,
+                    },
+                  }
+                : body.status !== "done" && task.archive
+                  ? { delete: true }
+                  : undefined,
           },
-          include: {
-            project: {
-              select: { name: true },
-            },
-            assignee: {
-              select: { name: true },
-            },
-            parentTask: {
-              select: { title: true },
-            },
-            taskAssignees: {
-              select: {
-                teamMemberId: true,
-                teamMember: { select: { name: true, email: true } },
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
+          include: taskDetailsInclude,
         });
 
         if (body.status === "done" && !task.parentTaskId) {
-          await tx.task.updateMany({
-            where: {
-              userId: user.id,
-              parentTaskId: params.id,
-              status: { not: "done" },
-            },
-            data: {
-              status: "done",
-              completedAt,
-            },
-          });
+          for (const [index, childTask] of childTasks.entries()) {
+            const childArchive = childArchives[index];
+            await tx.task.update({
+              where: { id: childTask.id },
+              data: {
+                status: "done",
+                completedAt,
+                archive: childArchive
+                  ? {
+                      upsert: {
+                        create: childArchive,
+                        update: childArchive,
+                      },
+                    }
+                  : undefined,
+              },
+            });
+          }
         }
 
         return updated;
       });
 
+      if (body.status === "done" && task.status !== "done") {
+        await finalizeTaskArchive(task);
+        await Promise.all(childTasks.map((childTask) => finalizeTaskArchive(childTask)));
+      }
+
+      if (body.status !== "done" && task.status === "done") {
+        await finalizeTaskRestore(task);
+      }
+
+      return mapTask(updatedTask);
+    },
+  );
+
+  app.post(
+    "/tasks/:id/attachments",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskIdParamsSchema,
+      },
+    },
+    async (request): Promise<TaskDTO> => {
+      const user = requireCurrentUser(request);
+      const params = taskIdParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.id);
+
+      if (task.status === "done") {
+        throw badRequest("Done tasks can only expose the task archive. Reopen the task to manage attachments.");
+      }
+
+      await ensureAttachmentsRoot();
+      const parts = request.files();
+      const createRows: Array<{
+        id: string;
+        filename: string;
+        mimeType: string;
+        sizeBytes: number;
+        storageKey: string;
+        isImage: boolean;
+      }> = [];
+      const storedKeys: string[] = [];
+      try {
+        for await (const file of parts) {
+          let buffer: Buffer;
+          try {
+            buffer = await file.toBuffer();
+          } catch (error) {
+            if (error && typeof error === "object" && "code" in error && error.code === "FST_REQ_FILE_TOO_LARGE") {
+              throw badRequest("Each attachment must be 10 MB or smaller.");
+            }
+
+            throw error;
+          }
+
+          if (file.file.truncated || buffer.length > maxTaskAttachmentBytes) {
+            throw badRequest("Each attachment must be 10 MB or smaller.");
+          }
+
+          const attachmentId = randomUUID();
+          const metadata = buildAttachmentMetadata(file.filename, file.mimetype, buffer.length);
+          const storageKey = taskAttachmentStorageKey(task.id, attachmentId, metadata.filename);
+          await writeAttachmentFile(storageKey, buffer);
+          storedKeys.push(storageKey);
+          createRows.push({
+            id: attachmentId,
+            filename: metadata.filename,
+            mimeType: metadata.mimeType,
+            sizeBytes: metadata.sizeBytes,
+            storageKey,
+            isImage: metadata.isImage,
+          });
+        }
+
+        if (createRows.length === 0) {
+          throw badRequest("Upload at least one file.");
+        }
+
+        const updatedTask = await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            attachments: {
+              createMany: {
+                data: createRows,
+              },
+            },
+          },
+          include: taskDetailsInclude,
+        });
+
+        return mapTask(updatedTask);
+      } catch (error) {
+        await Promise.all(storedKeys.map((storageKey) => deleteStorageKey(storageKey)));
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/tasks/:taskId/attachments/:attachmentId/download",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskAttachmentParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const user = requireCurrentUser(request);
+      const params = taskAttachmentParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.taskId);
+      const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
+
+      if (!attachment) {
+        throw notFound("Attachment");
+      }
+
+      if (task.status === "done") {
+        throw badRequest("Done tasks expose attachments through the archive download only.");
+      }
+
+      const file = await readAttachmentFile(attachment.storageKey);
+      return reply
+        .header("Content-Type", attachment.mimeType)
+        .header("Content-Disposition", `attachment; filename="${attachment.filename.replace(/"/g, "")}"`)
+        .send(file);
+    },
+  );
+
+  app.get(
+    "/tasks/:taskId/attachments/:attachmentId/preview",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskAttachmentParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const user = requireCurrentUser(request);
+      const params = taskAttachmentParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.taskId);
+      const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
+
+      if (!attachment) {
+        throw notFound("Attachment");
+      }
+
+      if (task.status === "done") {
+        throw badRequest("Preview is disabled after a task is done.");
+      }
+
+      if (!isPreviewableMimeType(attachment.mimeType)) {
+        throw badRequest("This attachment type cannot be previewed in the browser.");
+      }
+
+      const file = await readAttachmentFile(attachment.storageKey);
+      return reply.header("Content-Type", attachment.mimeType).send(file);
+    },
+  );
+
+  app.get(
+    "/tasks/:taskId/attachments/archive",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: z.object({ taskId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      const user = requireCurrentUser(request);
+      const params = z.object({ taskId: z.string().min(1) }).parse(request.params);
+      const task = await getTaskForUser(user.id, params.taskId);
+
+      if (task.status !== "done") {
+        throw badRequest("Archives are available only for done tasks.");
+      }
+
+      if (!task.archive) {
+        throw notFound("Attachment archive");
+      }
+
+      const archiveFile = await readAttachmentFile(task.archive.storageKey);
+      return reply
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", `attachment; filename="task-${task.id}-attachments.zip"`)
+        .send(archiveFile);
+    },
+  );
+
+  app.delete(
+    "/tasks/:taskId/attachments/:attachmentId",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskAttachmentParamsSchema,
+      },
+    },
+    async (request): Promise<TaskDTO> => {
+      const user = requireCurrentUser(request);
+      const params = taskAttachmentParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.taskId);
+      const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
+
+      if (!attachment) {
+        throw notFound("Attachment");
+      }
+
+      if (task.status === "done") {
+        throw badRequest("Done tasks cannot delete individual attachments.");
+      }
+
+      await prisma.taskAttachment.delete({
+        where: { id: attachment.id },
+      });
+      await deleteStorageKey(attachment.storageKey);
+
+      const updatedTask = await getTaskForUser(user.id, params.taskId);
       return mapTask(updatedTask);
     },
   );
@@ -1274,17 +1594,12 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
-      const task = await prisma.task.findFirst({
-        where: { id: params.id, userId: user.id },
-      });
-
-      if (!task) {
-        throw notFound("Task");
-      }
+      await getTaskForUser(user.id, params.id);
 
       await prisma.task.delete({
         where: { id: params.id },
       });
+      await deleteTaskStorage(params.id);
 
       return reply.status(204).send();
     },

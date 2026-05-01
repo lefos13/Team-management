@@ -3,10 +3,12 @@ import "dotenv/config";
 
 import ExcelJS from "exceljs";
 import { readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../app.js";
+import { getConfig } from "../config.js";
 import { prisma } from "../db.js";
 import { passwordResetPurpose } from "../lib/auth.js";
 
@@ -31,6 +33,7 @@ describe("team management API", () => {
     await prisma.teamMember.deleteMany();
     await prisma.emailVerificationToken.deleteMany();
     await prisma.user.deleteMany();
+    await rm(getConfig().ATTACHMENTS_DIR, { recursive: true, force: true });
   });
 
   async function register(email: string, password: string) {
@@ -74,6 +77,10 @@ describe("team management API", () => {
     }
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
+  async function readBinaryResponse(response: request.Response) {
+    return Buffer.isBuffer(response.body) ? response.body : Buffer.from(response.body);
   }
 
   it("registers, verifies, and signs in a user", async () => {
@@ -581,6 +588,206 @@ describe("team management API", () => {
       where: { id: subtask.body.id },
     });
     expect(promotedSubtask.parentTaskId).toBeNull();
+  });
+
+  /*
+  Verify task attachments can move between active originals and done archives
+  without leaving the task API, filesystem, or access controls out of sync.
+  */
+  it("supports attachment upload, preview, archiving, restore, and cleanup", async () => {
+    await register("attachments@example.com", "password123");
+    await verify("attachments@example.com");
+    const loginResponse = await login("attachments@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    await register("other-user@example.com", "password123");
+    await verify("other-user@example.com");
+    const otherLogin = await login("other-user@example.com", "password123");
+    const otherCookie = otherLogin.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Attachment Owner",
+        role: "Lead",
+        email: "owner@attachments.test",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Attachments project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+    const deadline = new Date(Date.now() + 86_400_000).toISOString();
+    const parent = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Parent task",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+    const child = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Child task",
+        description: "",
+        status: "todo",
+        deadline,
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+        parentTaskId: parent.body.id,
+      });
+
+    const uploadParent = await request(app.server)
+      .post(`/api/tasks/${parent.body.id}/attachments`)
+      .set("Cookie", cookie)
+      .attach("file", Buffer.from("preview-ready note"), {
+        filename: "note.txt",
+        contentType: "text/plain",
+      })
+      .attach("file", Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGA0sP7WQAAAABJRU5ErkJggg==", "base64"), {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    expect(uploadParent.status).toBe(200);
+    expect(uploadParent.body.attachments).toHaveLength(2);
+    expect(uploadParent.body.attachmentsPreviewAvailable).toBe(true);
+
+    const uploadChild = await request(app.server)
+      .post(`/api/tasks/${child.body.id}/attachments`)
+      .set("Cookie", cookie)
+      .attach("file", Buffer.from("child preview"), {
+        filename: "child.txt",
+        contentType: "text/plain",
+      });
+
+    expect(uploadChild.status).toBe(200);
+    expect(uploadChild.body.attachments).toHaveLength(1);
+
+    const noteAttachment = uploadParent.body.attachments.find((attachment: { filename: string }) => attachment.filename === "note.txt");
+    const previewResponse = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}/preview`)
+      .set("Cookie", cookie);
+    expect(previewResponse.status).toBe(200);
+    expect(previewResponse.text).toBe("preview-ready note");
+
+    const downloadResponse = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}/download`)
+      .set("Cookie", cookie)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+    expect(downloadResponse.status).toBe(200);
+    expect((await readBinaryResponse(downloadResponse)).toString("utf8")).toBe("preview-ready note");
+
+    const unauthorizedDownload = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}/download`)
+      .set("Cookie", otherCookie);
+    expect(unauthorizedDownload.status).toBe(404);
+
+    const oversizeUpload = await request(app.server)
+      .post(`/api/tasks/${parent.body.id}/attachments`)
+      .set("Cookie", cookie)
+      .attach("file", Buffer.alloc(10 * 1024 * 1024 + 1, 1), {
+        filename: "too-large.bin",
+        contentType: "application/octet-stream",
+      });
+    expect(oversizeUpload.status).toBeGreaterThanOrEqual(400);
+
+    const completeParent = await request(app.server)
+      .patch(`/api/tasks/${parent.body.id}/status`)
+      .set("Cookie", cookie)
+      .send({ status: "done" });
+    expect(completeParent.status).toBe(200);
+    expect(completeParent.body.attachmentArchive).toBeTruthy();
+    expect(completeParent.body.attachmentsPreviewAvailable).toBe(false);
+
+    const doneParent = await prisma.task.findUniqueOrThrow({
+      where: { id: parent.body.id },
+      include: { archive: true, attachments: true },
+    });
+    const doneChild = await prisma.task.findUniqueOrThrow({
+      where: { id: child.body.id },
+      include: { archive: true, attachments: true },
+    });
+    expect(doneParent.archive?.sizeBytes).toBeGreaterThan(0);
+    expect(doneChild.archive?.sizeBytes).toBeGreaterThan(0);
+
+    const donePreview = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}/preview`)
+      .set("Cookie", cookie);
+    expect(donePreview.status).toBe(400);
+
+    const archiveResponse = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/archive`)
+      .set("Cookie", cookie)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+    expect(archiveResponse.status).toBe(200);
+    expect((await readBinaryResponse(archiveResponse)).byteLength).toBeGreaterThan(0);
+
+    const uploadWhileDone = await request(app.server)
+      .post(`/api/tasks/${parent.body.id}/attachments`)
+      .set("Cookie", cookie)
+      .attach("file", Buffer.from("blocked"), {
+        filename: "blocked.txt",
+        contentType: "text/plain",
+      });
+    expect(uploadWhileDone.status).toBe(400);
+
+    const reopenedParent = await request(app.server)
+      .patch(`/api/tasks/${parent.body.id}/status`)
+      .set("Cookie", cookie)
+      .send({ status: "todo" });
+    expect(reopenedParent.status).toBe(200);
+    expect(reopenedParent.body.attachmentArchive).toBeNull();
+    expect(reopenedParent.body.attachmentsPreviewAvailable).toBe(true);
+
+    const restoredPreview = await request(app.server)
+      .get(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}/preview`)
+      .set("Cookie", cookie);
+    expect(restoredPreview.status).toBe(200);
+    expect(restoredPreview.text).toBe("preview-ready note");
+
+    const deleteAttachment = await request(app.server)
+      .delete(`/api/tasks/${parent.body.id}/attachments/${noteAttachment.id}`)
+      .set("Cookie", cookie);
+    expect(deleteAttachment.status).toBe(200);
+    expect(deleteAttachment.body.attachments).toHaveLength(1);
+
+    const deleteParent = await request(app.server)
+      .delete(`/api/tasks/${parent.body.id}`)
+      .set("Cookie", cookie);
+    expect(deleteParent.status).toBe(204);
+
+    const deletedTask = await prisma.task.findUnique({
+      where: { id: parent.body.id },
+    });
+    expect(deletedTask).toBeNull();
+    await rm(getConfig().ATTACHMENTS_DIR, { recursive: true, force: true });
   });
 
   it("supports review/testing status across API, dashboard counts, and import aliases", async () => {

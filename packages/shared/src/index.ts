@@ -120,6 +120,22 @@ export const taskImportTemplateQuerySchema = z.object({
   variant: taskImportTemplateVariantSchema,
 });
 
+export const taskAttachmentSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  isImage: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const taskAttachmentArchiveSchema = z.object({
+  id: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  generatedAt: z.string().datetime(),
+});
+
 export const taskImportRowResultSchema = z.object({
   row: z.number().int().positive(),
   title: z.string().optional(),
@@ -216,6 +232,9 @@ export const taskSchema = z.object({
   projectName: z.string(),
   assigneeName: z.string(),
   assigneeNames: z.array(z.string()),
+  attachments: z.array(taskAttachmentSchema),
+  attachmentArchive: taskAttachmentArchiveSchema.nullable(),
+  attachmentsPreviewAvailable: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -274,6 +293,8 @@ export type TaskExportFilters = z.infer<typeof taskExportFiltersSchema>;
 export type TaskImportTemplateVariant = z.infer<typeof taskImportTemplateVariantSchema>;
 export type TaskImportResultDTO = z.infer<typeof taskImportResultSchema>;
 export type TaskImportRowResultDTO = z.infer<typeof taskImportRowResultSchema>;
+export type TaskAttachmentDTO = z.infer<typeof taskAttachmentSchema>;
+export type TaskAttachmentArchiveDTO = z.infer<typeof taskAttachmentArchiveSchema>;
 export type DashboardFilters = z.infer<typeof dashboardFiltersSchema>;
 export type CalendarFilters = z.infer<typeof calendarFiltersSchema>;
 export type UserDTO = z.infer<typeof userSchema>;
