@@ -61,15 +61,20 @@ describe("team management API", () => {
   async function buildTaskImportWorkbook(rows: Array<Record<string, unknown>>) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Tasks");
-    worksheet.addRow(["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"]);
+    /*
+    Keep the test workbook aligned with the production import template so notes
+    and optional dates are exercised through the same column order as real files.
+    */
+    worksheet.addRow(["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Notes", "Status", "Defect", "Start Date"]);
 
     for (const row of rows) {
       worksheet.addRow([
         row.title,
         row.parentTaskTitle ?? "",
-        row.memberEmail,
-        row.deadline,
+        row.memberEmails ?? row.memberEmail ?? "",
+        row.deadline ?? "",
         row.description ?? "",
+        row.notes ?? "",
         row.status ?? "",
         row.defect ?? "",
         row.startDate ?? "",
@@ -448,6 +453,140 @@ describe("team management API", () => {
     const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
     expect(nonDefectTasks.status).toBe(200);
     expect(nonDefectTasks.body).toHaveLength(0);
+  });
+
+  /*
+  Keep notes and optional dates flowing through create, update, detail, export,
+  and date-based summaries so undated tasks stay usable without polluting deadline views.
+  */
+  it("supports task notes, optional dates, and date-aware dashboard filtering", async () => {
+    await register("notes@example.com", "password123");
+    await verify("notes@example.com");
+    const loginResponse = await login("notes@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Casey Planner",
+        role: "Coordinator",
+        email: "casey@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Optional dates project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    const undatedTask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Draft rollout plan",
+        description: "Prepare the initial scope.",
+        notes: "Only visible in the detail screen.",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(undatedTask.status).toBe(200);
+    expect(undatedTask.body.deadline).toBeNull();
+    expect(undatedTask.body.startDate).toBeNull();
+    expect(undatedTask.body.notes).toBe("Only visible in the detail screen.");
+
+    const detailResponse = await request(app.server)
+      .get(`/api/tasks/${undatedTask.body.id}`)
+      .set("Cookie", cookie);
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.notes).toBe("Only visible in the detail screen.");
+    expect(detailResponse.body.deadline).toBeNull();
+    expect(detailResponse.body.startDate).toBeNull();
+
+    const updateResponse = await request(app.server)
+      .put(`/api/tasks/${undatedTask.body.id}`)
+      .set("Cookie", cookie)
+      .send({
+        title: "Draft rollout plan",
+        description: "Prepare the initial scope.",
+        notes: "Expanded implementation notes.",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.notes).toBe("Expanded implementation notes.");
+
+    const datedTask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Scheduled release",
+        description: "",
+        notes: "",
+        status: "todo",
+        isDefect: false,
+        deadline: new Date(Date.now() + 86_400_000).toISOString(),
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    expect(datedTask.status).toBe(200);
+
+    const calendarResponse = await request(app.server).get("/api/calendar/events").set("Cookie", cookie);
+    expect(calendarResponse.status).toBe(200);
+    expect(calendarResponse.body).toHaveLength(1);
+    expect(calendarResponse.body[0].taskId).toBe(datedTask.body.id);
+
+    const dashboardResponse = await request(app.server).get("/api/dashboard").set("Cookie", cookie);
+    expect(dashboardResponse.status).toBe(200);
+    expect(dashboardResponse.body.upcomingTasks).toHaveLength(1);
+    expect(dashboardResponse.body.upcomingTasks[0].id).toBe(datedTask.body.id);
+
+    const exportResponse = await request(app.server)
+      .get(`/api/tasks/export?projectId=${project.body.id}`)
+      .set("Cookie", cookie)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(exportResponse.status).toBe(200);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResponse.body);
+    const worksheet = workbook.getWorksheet("Tasks");
+    const taskRows = [7, 8].map((rowNumber) => ({
+      title: worksheet?.getCell(`A${rowNumber}`).value,
+      notes: worksheet?.getCell(`M${rowNumber}`).value,
+    }));
+    expect(taskRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Draft rollout plan",
+          notes: "Expanded implementation notes.",
+        }),
+      ]),
+    );
   });
 
   /*
@@ -971,7 +1110,7 @@ describe("team management API", () => {
     });
 
     expect(importedTask.startDate?.getHours()).toBe(9);
-    expect(importedTask.deadline.getHours()).toBe(17);
+    expect(importedTask.deadline?.getHours()).toBe(17);
     expect(importedTask.assigneeId).toBe(member.body.id);
     expect(importedTask.taskAssignees.map((assignment) => assignment.teamMemberId)).toEqual(
       expect.arrayContaining([member.body.id, secondMember.body.id]),

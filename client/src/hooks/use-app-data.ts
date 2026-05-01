@@ -70,6 +70,17 @@ export function useTasks(filters: TaskFilters) {
   });
 }
 
+export function useTaskDetail(taskId: string | null) {
+  return useQuery({
+    queryKey: ["task", taskId],
+    enabled: Boolean(taskId),
+    queryFn: async () => {
+      const response = await api.get<TaskDTO>(`/tasks/${taskId}`);
+      return response.data;
+    },
+  });
+}
+
 export async function exportTasks(filters: TaskExportFilters) {
   const response = await api.get<Blob>("/tasks/export", {
     params: filters,
@@ -232,8 +243,9 @@ export function useUpdateTask() {
       const response = await api.put<TaskDTO>(`/tasks/${id}`, payload);
       return response.data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await invalidateCoreQueries(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["task", variables.id] });
     },
   });
 }
@@ -246,8 +258,9 @@ export function useUpdateTaskStatus() {
       const response = await api.patch<TaskDTO>(`/tasks/${id}/status`, { status });
       return response.data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await invalidateCoreQueries(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["task", variables.id] });
     },
   });
 }
@@ -303,8 +316,9 @@ export function useUploadTaskAttachments() {
       });
       return response.data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await invalidateCoreQueries(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["task", variables.taskId] });
     },
   });
 }
@@ -317,8 +331,9 @@ export function useDeleteTaskAttachment() {
       const response = await api.delete<TaskDTO>(`/tasks/${taskId}/attachments/${attachmentId}`);
       return response.data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await invalidateCoreQueries(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["task", variables.taskId] });
     },
   });
 }

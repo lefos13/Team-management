@@ -29,6 +29,7 @@ function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
     id: "task-1",
     title: "Attachment task",
     description: null,
+    notes: null,
     status: "todo",
     isDefect: false,
     deadline: "2030-05-10T09:00:00.000Z",

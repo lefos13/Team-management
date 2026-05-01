@@ -10,6 +10,7 @@ import { buildVisibleTaskHierarchy } from "../pages/TasksPage";
 function task(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "status">): TaskDTO {
   return {
     description: null,
+    notes: null,
     isDefect: false,
     deadline: "2030-05-10T09:00:00.000Z",
     startDate: null,

@@ -34,14 +34,14 @@ const taskFormSchema = z
     description: z.string().optional(),
     status: z.enum(taskStatusValues),
     isDefect: z.boolean(),
-    deadline: z.string().min(1, "Deadline is required."),
+    deadline: z.string().optional(),
     startDate: z.string().optional(),
     projectId: z.string().min(1, "Project is required."),
     assigneeIds: z.array(z.string()).min(1, "At least one assignee is required."),
     parentTaskId: z.string().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.startDate && new Date(value.startDate) > new Date(value.deadline)) {
+    if (value.startDate && value.deadline && new Date(value.startDate) > new Date(value.deadline)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Start date must be before deadline.",
@@ -179,7 +179,7 @@ export function TaskFormModal({
             description: values.description ?? "",
             status: values.status,
             isDefect: values.isDefect,
-            deadline: toIsoFromLocal(values.deadline),
+            deadline: values.deadline ? toIsoFromLocal(values.deadline) : "",
             startDate: values.startDate ? toIsoFromLocal(values.startDate) : "",
             projectId: values.projectId,
             assigneeId: values.assigneeIds[0],

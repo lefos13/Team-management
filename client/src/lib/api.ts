@@ -8,6 +8,11 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+export function buildApiUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl}${normalizedPath}`;
+}
+
 export type ApiErrorPayload = {
   error?: {
     code?: string;

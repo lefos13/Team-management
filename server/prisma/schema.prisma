@@ -108,9 +108,10 @@ model Task {
   id            String         @id @default(cuid())
   title         String
   description   String?
+  notes         String?
   status        String         @default("todo")
   isDefect      Boolean        @default(false)
-  deadline      DateTime
+  deadline      DateTime?
   startDate     DateTime?
   completedAt   DateTime?
   createdAt     DateTime       @default(now())

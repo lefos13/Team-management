@@ -65,9 +65,10 @@ const taskExportHeaders = [
   "Created at",
   "Updated at",
   "Description",
+  "Notes",
 ] as const;
 
-const taskImportHeaders = ["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
+const taskImportHeaders = ["Title", "Parent Task Title", "Member Emails", "Deadline", "Description", "Notes", "Status", "Defect", "Start Date"] as const;
 const legacyTaskImportHeaders = ["Title", "Member Email", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
 const legacyMultiMemberTaskImportHeaders = ["Title", "Member Emails", "Deadline", "Description", "Status", "Defect", "Start Date"] as const;
 const allowedMimeTypes = new Set([
@@ -100,10 +101,11 @@ type ParsedImportTask = {
   title: string;
   parentTaskTitle: string | null;
   description: string;
+  notes: string;
   status: (typeof taskStatusValues)[number];
   isDefect: boolean;
   startDate: Date | null;
-  deadline: Date;
+  deadline: Date | null;
   assigneeIds: string[];
   memberEmails: string[];
 };
@@ -402,8 +404,8 @@ function parseImportDefect(value: unknown): boolean | null {
   return null;
 }
 
-function duplicateKey(projectId: string, parentTaskId: string | null, title: string, assigneeIds: string[], deadline: Date): string {
-  return `${projectId}|${parentTaskId ?? ""}|${title.trim().toLowerCase()}|${[...assigneeIds].sort().join(",")}|${deadline.getTime()}`;
+function duplicateKey(projectId: string, parentTaskId: string | null, title: string, assigneeIds: string[], deadline: Date | null): string {
+  return `${projectId}|${parentTaskId ?? ""}|${title.trim().toLowerCase()}|${[...assigneeIds].sort().join(",")}|${deadline ? deadline.getTime() : "none"}`;
 }
 
 function formatAssigneeNames(task: ExportTask): string {
@@ -539,7 +541,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
     views: [{ state: "frozen", ySplit: 6 }],
   });
 
-  worksheet.mergeCells("A1:L1");
+  worksheet.mergeCells("A1:M1");
   worksheet.getCell("A1").value = "Task Current Stage Export";
   worksheet.getCell("A1").font = { size: 18, bold: true, color: { argb: "FFFFFFFF" } };
   worksheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F766E" } };
@@ -587,6 +589,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
       formatWorkbookDate(task.createdAt),
       formatWorkbookDate(task.updatedAt),
       task.description ?? "",
+      task.notes ?? "",
     ]);
   }
 
@@ -602,6 +605,7 @@ async function buildTasksWorkbook(tasks: ExportTask[]) {
     { width: 24 },
     { width: 24 },
     { width: 24 },
+    { width: 50 },
     { width: 50 },
   ];
 
@@ -671,8 +675,8 @@ async function buildTaskImportTemplateWorkbook(
   instructions.addRows([
     ["Team Management Task Import"],
     ["Project", project.name],
-    ["Required columns", "Title, Member Emails, Deadline"],
-    ["Optional columns", "Parent Task Title, Description, Status, Defect, Start Date"],
+    ["Required columns", "Title, Member Emails"],
+    ["Optional columns", "Parent Task Title, Deadline, Description, Notes, Status, Defect, Start Date"],
     ["Statuses", "todo, in_progress, blocked, review_testing, done"],
     ["Defect values", "yes/no, true/false, or blank"],
     ["Date-only rule", "Start Date uses 09:00; Deadline uses 17:00."],
@@ -697,6 +701,7 @@ async function buildTaskImportTemplateWorkbook(
     { width: 32 },
     { width: 22 },
     { width: 44 },
+    { width: 44 },
     { width: 18 },
     { width: 12 },
     { width: 22 },
@@ -715,6 +720,7 @@ async function buildTaskImportTemplateWorkbook(
       secondSampleMember ? `${sampleMember.email}, ${secondSampleMember.email}` : sampleMember.email,
       tomorrow,
       "Confirm scope, owner, and next actions.",
+      "Capture reviewer comments here.",
       "todo",
       "no",
       "",
@@ -727,12 +733,12 @@ async function buildTaskImportTemplateWorkbook(
       allowBlank: false,
       formulae: [`'Allowed Members'!$C$2:$C$${Math.max(project.assignableMembers.length + 1, 2)}`],
     };
-    tasks.getCell(row, 6).dataValidation = {
+    tasks.getCell(row, 7).dataValidation = {
       type: "list",
       allowBlank: true,
       formulae: ['"todo,in_progress,blocked,review_testing,done"'],
     };
-    tasks.getCell(row, 7).dataValidation = {
+    tasks.getCell(row, 8).dataValidation = {
       type: "list",
       allowBlank: true,
       formulae: ['"yes,no,true,false"'],
@@ -802,11 +808,12 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
     const memberEmails = parseMemberEmailsCell(row.getCell(2 + memberOffset).value);
     const deadline = parseImportDate(row.getCell(3 + memberOffset).value, 17);
     const description = normalizeImportText(row.getCell(4 + memberOffset).value);
-    const status = parseImportStatus(row.getCell(5 + memberOffset).value);
-    const isDefect = parseImportDefect(row.getCell(6 + memberOffset).value);
-    const startDate = parseImportDate(row.getCell(7 + memberOffset).value, 9);
+    const notes = hasCurrentHeaders ? normalizeImportText(row.getCell(5 + memberOffset).value) : "";
+    const status = parseImportStatus(row.getCell((hasCurrentHeaders ? 6 : 5) + memberOffset).value);
+    const isDefect = parseImportDefect(row.getCell((hasCurrentHeaders ? 7 : 6) + memberOffset).value);
+    const startDate = parseImportDate(row.getCell((hasCurrentHeaders ? 8 : 7) + memberOffset).value, 9);
 
-    if (!title && !parentTaskTitle && memberEmails.length === 0 && !deadline && !description && !normalizeImportText(row.getCell(5 + memberOffset).value)) {
+    if (!title && !parentTaskTitle && memberEmails.length === 0 && !deadline && !description && !notes && !normalizeImportText(row.getCell((hasCurrentHeaders ? 6 : 5) + memberOffset).value)) {
       continue;
     }
 
@@ -818,10 +825,6 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
 
     if (memberEmails.length === 0) {
       rowErrors.push("Member Emails is required.");
-    }
-
-    if (!deadline) {
-      rowErrors.push("Deadline is required and must be a valid date.");
     }
 
     const uniqueMemberEmails = Array.from(new Set(memberEmails));
@@ -873,6 +876,7 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
       title,
       parentTaskTitle: parentTaskTitle || null,
       description,
+      notes,
       status,
       isDefect,
       startDate,
@@ -916,7 +920,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           ...buildTaskWhere(query),
         },
         include: taskDetailsInclude,
-        orderBy: [{ deadline: "asc" }, { createdAt: "desc" }],
+        orderBy: [{ deadline: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       });
 
       return tasks.map(mapTask);
@@ -957,7 +961,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             orderBy: { createdAt: "asc" },
           },
         },
-        orderBy: [{ project: { name: "asc" } }, { status: "asc" }, { deadline: "asc" }],
+        orderBy: [{ project: { name: "asc" } }, { status: "asc" }, { deadline: { sort: "asc", nulls: "last" } }],
       });
       const buffer = await buildTasksWorkbook(tasks);
 
@@ -1091,6 +1095,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
                 userId: user.id,
                 title: row.title,
                 description: normalizeOptionalText(row.description),
+                notes: normalizeOptionalText(row.notes),
                 status: row.status,
                 isDefect: row.isDefect,
                 deadline: row.deadline,
@@ -1146,9 +1151,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           userId: user.id,
           title: body.title,
           description: normalizeOptionalText(body.description),
+          notes: normalizeOptionalText(body.notes),
           status: body.status,
           isDefect: body.isDefect,
-          deadline: new Date(body.deadline),
+          deadline: normalizeOptionalDate(body.deadline),
           startDate: normalizeOptionalDate(body.startDate),
           completedAt: buildCompletedAtUpdate(body.status),
           projectId: body.projectId,
@@ -1217,9 +1223,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           data: {
             title: body.title,
             description: normalizeOptionalText(body.description),
+            notes: body.notes === undefined ? existingTask.notes : normalizeOptionalText(body.notes),
             status: body.status,
             isDefect: body.isDefect,
-            deadline: new Date(body.deadline),
+            deadline: normalizeOptionalDate(body.deadline),
             startDate: normalizeOptionalDate(body.startDate),
             completedAt: buildCompletedAtUpdateAt(body.status, completedAt, existingTask.status, existingTask.completedAt),
             projectId: body.projectId,
@@ -1374,6 +1381,23 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return mapTask(updatedTask);
+    },
+  );
+
+  app.get(
+    "/tasks/:id",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskIdParamsSchema,
+      },
+    },
+    async (request): Promise<TaskDTO> => {
+      const user = requireCurrentUser(request);
+      const params = taskIdParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.id);
+
+      return mapTask(task);
     },
   );
 

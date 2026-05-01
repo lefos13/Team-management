@@ -1,0 +1,3 @@
+ALTER TABLE "Task" ADD COLUMN "notes" TEXT;
+
+ALTER TABLE "Task" ALTER COLUMN "deadline" DROP NOT NULL;

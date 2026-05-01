@@ -14,6 +14,7 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TasksPage } from "./pages/TasksPage";
+import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { getCurrentUser } from "./hooks/use-auth";
 
@@ -113,6 +114,7 @@ export function App() {
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
           <Route path="calendar" element={<CalendarPage />} />
         </Route>
       </Routes>

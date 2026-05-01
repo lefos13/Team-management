@@ -144,9 +144,10 @@ export function mapTask(
     id: task.id,
     title: task.title,
     description: task.description,
+    notes: task.notes,
     status: task.status as TaskDTO["status"],
     isDefect: task.isDefect,
-    deadline: toIsoString(task.deadline),
+    deadline: task.deadline ? toIsoString(task.deadline) : null,
     startDate: task.startDate ? toIsoString(task.startDate) : null,
     completedAt: task.completedAt ? toIsoString(task.completedAt) : null,
     projectId: task.projectId,
@@ -171,6 +172,10 @@ export function mapCalendarEvent(
     taskAssignees: Array<{ teamMemberId: string }>;
   },
 ): CalendarEventDTO {
+  if (!task.deadline) {
+    throw new Error("Calendar events require a deadline.");
+  }
+
   const overdue = task.status !== "done" && task.deadline.getTime() < Date.now();
 
   return {

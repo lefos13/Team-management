@@ -20,6 +20,7 @@ import {
   IconChevronRight,
   IconDownload,
   IconEdit,
+  IconEye,
   IconFileSpreadsheet,
   IconPlus,
   IconTrash,
@@ -34,7 +35,7 @@ import {
   type TaskImportResultDTO,
 } from "@team-management/shared";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
 import { CompactPagination } from "../components/CompactPagination";
@@ -113,10 +114,11 @@ type TaskTableColumnsProps = {
   deletePending: boolean;
   onEdit: (taskId: string) => void;
   onDelete: (taskId: string) => void;
+  onPreview: (taskId: string) => void;
   onStatusChange: (task: TaskDTO, status: TaskDTO["status"]) => void;
 };
 
-function TaskTableColumns({ task, deletePending, onEdit, onDelete, onStatusChange }: TaskTableColumnsProps) {
+function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, onStatusChange }: TaskTableColumnsProps) {
   return (
     <>
       <Table.Td>
@@ -165,9 +167,12 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onStatusChang
           ) : null}
         </Stack>
       </Table.Td>
-      <Table.Td>{formatDateTime(task.deadline)}</Table.Td>
+      <Table.Td>{task.deadline ? formatDateTime(task.deadline) : "No deadline"}</Table.Td>
       <Table.Td>
         <Group justify="end" gap="xs">
+          <ActionIcon variant="light" onClick={() => onPreview(task.id)}>
+            <IconEye size={16} />
+          </ActionIcon>
           <ActionIcon variant="light" onClick={() => onEdit(task.id)}>
             <IconEdit size={16} />
           </ActionIcon>
@@ -188,7 +193,7 @@ type SubtaskPanelProps = Omit<TaskTableColumnsProps, "task"> & {
 Keep subtask paging local to each expanded parent so opening one hierarchy does
 not change the page position inside another parent task.
 */
-function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onStatusChange }: SubtaskPanelProps) {
+function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onStatusChange }: SubtaskPanelProps) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
 
   return (
@@ -203,6 +208,7 @@ function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onStatusChang
                 deletePending={deletePending}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onPreview={onPreview}
                 onStatusChange={onStatusChange}
               />
             </Table.Tr>
@@ -217,6 +223,7 @@ function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onStatusChang
 }
 
 export function TasksPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<TaskFilters>({});
   const [exportFilters, setExportFilters] = useState<TaskExportFilters>({});
@@ -368,6 +375,10 @@ export function TasksPage() {
   function handleEditTask(taskId: string) {
     setEditingTaskId(taskId);
     setOpened(true);
+  }
+
+  function handlePreviewTask(taskId: string) {
+    navigate(`/tasks/${taskId}`);
   }
 
   async function handleDeleteTask(taskId: string) {
@@ -562,6 +573,7 @@ export function TasksPage() {
                       deletePending={deleteTask.isPending}
                       onEdit={handleEditTask}
                       onDelete={(taskId) => void handleDeleteTask(taskId)}
+                      onPreview={handlePreviewTask}
                       onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
                     />
                   </Table.Tr>
@@ -573,6 +585,7 @@ export function TasksPage() {
                           deletePending={deleteTask.isPending}
                           onEdit={handleEditTask}
                           onDelete={(taskId) => void handleDeleteTask(taskId)}
+                          onPreview={handlePreviewTask}
                           onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
                         />
                       </Table.Td>

@@ -78,7 +78,7 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
                     {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}
                   </Text>
                   <Text size="xs" c={task.status === "blocked" ? "red" : "dimmed"}>
-                    {formatDate(task.deadline)}
+                    {task.deadline ? formatDate(task.deadline) : "No deadline"}
                   </Text>
                 </Stack>
               </Paper>
@@ -313,7 +313,7 @@ export function DashboardPage() {
                 color: event.overdue ? "#C92A2A" : "#16A98B",
               }))}
               eventClick={(info) => {
-                navigate(`/tasks?taskId=${info.event.id}`);
+                navigate(`/tasks/${info.event.id}`);
               }}
             />
           </Paper>

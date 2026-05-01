@@ -43,14 +43,14 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       prisma.task.count({
         where: {
           userId: user.id,
-          deadline: { lt: now },
+          deadline: { not: null, lt: now },
           status: { not: "done" },
         },
       }),
       prisma.task.findMany({
         where: {
           userId: user.id,
-          deadline: { lt: now },
+          deadline: { not: null, lt: now },
           status: { not: "done" },
         },
         include: {
@@ -66,13 +66,14 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           attachments: true,
           archive: true,
         },
-        orderBy: { deadline: "asc" },
+        orderBy: { deadline: { sort: "asc", nulls: "last" } },
         take: 6,
       }),
       prisma.task.findMany({
         where: {
           userId: user.id,
           deadline: {
+            not: null,
             gte: now,
             lte: upcomingCutoff,
           },
@@ -91,7 +92,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           attachments: true,
           archive: true,
         },
-        orderBy: { deadline: "asc" },
+        orderBy: { deadline: { sort: "asc", nulls: "last" } },
         take: 8,
       }),
       prisma.task.count({
@@ -178,14 +179,11 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           status: {
             not: "done",
           },
-          ...((query.from || query.to)
-            ? {
-                deadline: {
-                  ...(query.from ? { gte: new Date(query.from) } : {}),
-                  ...(query.to ? { lte: new Date(query.to) } : {}),
-                },
-              }
-            : {}),
+          deadline: {
+            not: null,
+            ...(query.from ? { gte: new Date(query.from) } : {}),
+            ...(query.to ? { lte: new Date(query.to) } : {}),
+          },
         },
         include: {
           project: {
@@ -196,7 +194,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             orderBy: { createdAt: "asc" },
           },
         },
-        orderBy: { deadline: "asc" },
+        orderBy: { deadline: { sort: "asc", nulls: "last" } },
       });
 
       return tasks.map(mapCalendarEvent);

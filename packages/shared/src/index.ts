@@ -71,9 +71,10 @@ export const taskInputSchema = z
   .object({
     title: z.string().trim().min(1).max(160),
     description: z.string().trim().max(4000).optional().or(z.literal("")),
+    notes: z.string().trim().max(4000).optional().or(z.literal("")),
     status: taskStatusSchema,
     isDefect: z.boolean().default(false),
-    deadline: z.string().datetime(),
+    deadline: z.string().datetime().optional().nullable().or(z.literal("")),
     startDate: z.string().datetime().optional().nullable().or(z.literal("")),
     projectId: z.string().min(1),
     assigneeId: z.string().min(1).optional(),
@@ -89,7 +90,7 @@ export const taskInputSchema = z
       });
     }
 
-    if (value.startDate && value.startDate !== "" && new Date(value.startDate) > new Date(value.deadline)) {
+    if (value.startDate && value.startDate !== "" && value.deadline && value.deadline !== "" && new Date(value.startDate) > new Date(value.deadline)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Start date must be before deadline.",
@@ -219,9 +220,10 @@ export const taskSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string().nullable(),
+  notes: z.string().nullable(),
   status: taskStatusSchema,
   isDefect: z.boolean(),
-  deadline: z.string().datetime(),
+  deadline: z.string().datetime().nullable(),
   startDate: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),
   projectId: z.string(),

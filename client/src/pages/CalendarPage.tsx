@@ -64,7 +64,7 @@ export function CalendarPage() {
             })
           }
           eventClick={(info) => {
-            navigate(`/tasks?taskId=${info.event.id}`);
+            navigate(`/tasks/${info.event.id}`);
           }}
         />
       </Paper>

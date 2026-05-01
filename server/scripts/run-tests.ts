@@ -1,7 +1,9 @@
 /* Own the PostgreSQL test lifecycle so vitest always runs against a migrated disposable database instance. */
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 
 const databaseUrl = "postgresql://postgres@127.0.0.1:55432/team_management_test?schema=public";
+const attachmentsDir = resolve(process.cwd(), "storage", "test-attachments");
 
 function run(command: string, args: string[], env?: NodeJS.ProcessEnv) {
   const result = spawnSync(command, args, {
@@ -26,6 +28,7 @@ try {
     NODE_ENV: "test",
     CLIENT_ORIGIN: "http://localhost:5173",
     APP_BASE_URL: "http://localhost:5173",
+    ATTACHMENTS_DIR: attachmentsDir,
     SESSION_SECRET: "replace-with-a-long-random-string",
     EMAIL_PROVIDER: "json",
     OTP_OVERRIDE_CODE: "123456",
