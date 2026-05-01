@@ -3,7 +3,6 @@ live outside the busy /tasks table while preserving the archive-only behavior
 for done work and keeping notes out of list views.
 */
 import type { ProjectDetailDTO, TaskDTO } from "@team-management/shared";
-import { taskStatusLabels } from "@team-management/shared";
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconEye, IconFileText, IconNotes } from "@tabler/icons-react";
@@ -65,28 +64,17 @@ the detail page gives agents both execution instructions and project context.
 function buildTaskAgentPrompt(task: TaskDTO, project: Pick<ProjectDetailDTO, "name" | "status" | "description" | "aiContext">) {
   const sections: string[] = [];
   const projectLines = [
-    `Name: ${project.name}`,
-    `Status: ${project.status.replace("_", " ")}`,
     ...(project.description ? [`Description:\n${project.description}`] : []),
     ...(project.aiContext ? [`AI Context:\n${project.aiContext}`] : []),
   ];
   const taskLines = [
     `Title: ${task.title}`,
-    `Status: ${taskStatusLabels[task.status]}`,
-    ...(task.isDefect ? ["Defect: Yes"] : []),
-    `Assignees: ${task.assigneeNames.join(", ")}`,
-    ...(task.startDate ? [`Start Date: ${formatDateTime(task.startDate)}`] : []),
-    ...(task.deadline ? [`Deadline: ${formatDateTime(task.deadline)}`] : []),
-    ...(task.parentTaskTitle ? [`Parent Task: ${task.parentTaskTitle}`] : []),
     ...(task.description ? [`Description:\n${task.description}`] : []),
     ...(task.notes ? [`Notes:\n${task.notes}`] : []),
   ];
 
-  sections.push(`Project\n${projectLines.join("\n\n")}`);
+  sections.push(`Project Context\n${projectLines.join("\n\n")}`);
   sections.push(`Task\n${taskLines.join("\n\n")}`);
-  sections.push(
-    "Instructions\nUse the project context as background information. Complete or plan this task using the task details, and call out assumptions when the task data is incomplete.",
-  );
 
   return sections.join("\n\n");
 }

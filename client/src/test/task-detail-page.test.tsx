@@ -165,11 +165,12 @@ describe("TaskDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "Copy AI prompt" }));
 
     await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Project\nName: Operations"));
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Project Context\nDescription:\nCoordinate launch readiness."));
       expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("AI Context:\nUse release-safe language and note customer-impact assumptions."));
       expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Task\nTitle: Preview task"));
       expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Notes:\nCoordinate with support before rollout."));
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Instructions\nUse the project context as background information."));
+      expect(writeTextMock).not.toHaveBeenCalledWith(expect.stringContaining("Status:"));
+      expect(writeTextMock).not.toHaveBeenCalledWith(expect.stringContaining("Assignees:"));
     });
   });
 });
