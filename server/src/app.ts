@@ -1,5 +1,5 @@
 /* Compose the API around shared validation, cookie sessions, route modules, and the built client so one production process can serve the whole app. */
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
@@ -18,6 +18,17 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { memberRoutes } from "./routes/members.js";
 import { projectRoutes } from "./routes/projects.js";
 import { taskRoutes } from "./routes/tasks.js";
+
+/*
+Production must only use environment injected by the deploy/runtime process.
+Loading local dotenv files there can overwrite host values with localhost defaults.
+*/
+if (process.env.NODE_ENV !== "production") {
+  loadDotenv({
+    path: "server/.env",
+    override: false,
+  });
+}
 
 export async function createApp() {
   const config = getConfig();
