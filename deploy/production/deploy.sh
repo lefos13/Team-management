@@ -6,14 +6,16 @@ ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/server/.env.production}"
 PM2_APP_NAME="${PM2_APP_NAME:-team-management}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  cp "$PROJECT_ROOT/server/.env.production.example" "$ENV_FILE"
-  echo "Created $ENV_FILE. Fill in the production values and rerun the deploy script."
+  echo "Missing required env file: $ENV_FILE"
+  echo "Create server/.env.production (or set ENV_FILE to an existing path) and rerun deploy."
   exit 1
 fi
 
 set -a
 source "$ENV_FILE"
 set +a
+echo "Using ENV_FILE=$ENV_FILE"
+echo "Loaded CLIENT_ORIGIN=${CLIENT_ORIGIN:-<unset>}"
 
 ATTACHMENTS_DIR="${ATTACHMENTS_DIR:-$PROJECT_ROOT/server/storage/attachments}"
 
@@ -134,7 +136,13 @@ npx prisma migrate deploy --schema server/prisma/schema.prisma
 export APP_DIR
 export ENV_FILE
 export PM2_APP_NAME
-pm2 startOrReload "$APP_DIR/deploy/production/ecosystem.config.cjs"
+: <<'COMMENT'
+/*
+Force PM2 to refresh environment variables on every deploy so changes in
+server/.env.production are applied immediately instead of keeping stale values.
+*/
+COMMENT
+pm2 startOrReload "$APP_DIR/deploy/production/ecosystem.config.cjs" --update-env
 pm2 save
 sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null || true
 echo "Deployment completed. PM2 is running the API and built frontend on the same port; configure your reverse proxy separately."
