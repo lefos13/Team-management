@@ -31,6 +31,7 @@ export function ProjectFormModal({
     defaultValues: {
       name: "",
       description: "",
+      aiContext: "",
       status: "active",
       color: "#16A98B",
       memberIds: [],
@@ -41,6 +42,7 @@ export function ProjectFormModal({
     form.reset({
       name: project?.name ?? "",
       description: project?.description ?? "",
+      aiContext: project?.aiContext ?? "",
       status: project?.status ?? "active",
       color: project?.color ?? "#16A98B",
       memberIds: project?.memberIds ?? [],
@@ -57,6 +59,13 @@ export function ProjectFormModal({
             minRows={3}
             {...form.register("description")}
             error={form.formState.errors.description?.message}
+          />
+          <Textarea
+            label="AI context"
+            description="Extra project context included when exporting a task as an agent prompt."
+            minRows={5}
+            {...form.register("aiContext")}
+            error={form.formState.errors.aiContext?.message}
           />
           <Controller
             control={form.control}

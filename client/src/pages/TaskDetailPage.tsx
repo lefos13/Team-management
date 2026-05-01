@@ -2,18 +2,9 @@
 live outside the busy /tasks table while preserving the archive-only behavior
 for done work and keeping notes out of list views.
 */
-import {
-  Alert,
-  Anchor,
-  Button,
-  Group,
-  Loader,
-  Paper,
-  SimpleGrid,
-  Stack,
-  Text,
-  Textarea,
-} from "@mantine/core";
+import type { ProjectDetailDTO, TaskDTO } from "@team-management/shared";
+import { taskStatusLabels } from "@team-management/shared";
+import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconEye, IconFileText, IconNotes } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -25,6 +16,7 @@ import {
   downloadTaskAttachment,
   downloadTaskAttachmentArchive,
   previewTaskAttachment,
+  useProjectDetail,
   useTaskDetail,
   useUpdateTask,
 } from "../hooks/use-app-data";
@@ -66,10 +58,44 @@ async function openBlob(blob: Blob) {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/*
+Serialize the task and its parent project into a stable prompt so copying from
+the detail page gives agents both execution instructions and project context.
+*/
+function buildTaskAgentPrompt(task: TaskDTO, project: Pick<ProjectDetailDTO, "name" | "status" | "description" | "aiContext">) {
+  const sections: string[] = [];
+  const projectLines = [
+    `Name: ${project.name}`,
+    `Status: ${project.status.replace("_", " ")}`,
+    ...(project.description ? [`Description:\n${project.description}`] : []),
+    ...(project.aiContext ? [`AI Context:\n${project.aiContext}`] : []),
+  ];
+  const taskLines = [
+    `Title: ${task.title}`,
+    `Status: ${taskStatusLabels[task.status]}`,
+    ...(task.isDefect ? ["Defect: Yes"] : []),
+    `Assignees: ${task.assigneeNames.join(", ")}`,
+    ...(task.startDate ? [`Start Date: ${formatDateTime(task.startDate)}`] : []),
+    ...(task.deadline ? [`Deadline: ${formatDateTime(task.deadline)}`] : []),
+    ...(task.parentTaskTitle ? [`Parent Task: ${task.parentTaskTitle}`] : []),
+    ...(task.description ? [`Description:\n${task.description}`] : []),
+    ...(task.notes ? [`Notes:\n${task.notes}`] : []),
+  ];
+
+  sections.push(`Project\n${projectLines.join("\n\n")}`);
+  sections.push(`Task\n${taskLines.join("\n\n")}`);
+  sections.push(
+    "Instructions\nUse the project context as background information. Complete or plan this task using the task details, and call out assumptions when the task data is incomplete.",
+  );
+
+  return sections.join("\n\n");
+}
+
 export function TaskDetailPage() {
   const navigate = useNavigate();
   const { taskId } = useParams();
   const taskQuery = useTaskDetail(taskId ?? null);
+  const projectDetailQuery = useProjectDetail(taskQuery.data?.projectId ?? null);
   const updateTask = useUpdateTask();
   const [notes, setNotes] = useState("");
 
@@ -126,6 +152,34 @@ export function TaskDetailPage() {
     }
   }
 
+  async function handleCopyAgentPrompt() {
+    const project = projectDetailQuery.data;
+
+    if (!project) {
+      notifications.show({
+        color: "red",
+        title: "Unable to copy AI prompt",
+        message: "Project context is still loading.",
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(buildTaskAgentPrompt(currentTask, project));
+      notifications.show({
+        color: "teal",
+        title: "AI prompt copied",
+        message: "The task prompt was copied with project context.",
+      });
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to copy AI prompt",
+        message: getErrorMessage(error, "Clipboard access failed."),
+      });
+    }
+  }
+
   return (
     <Stack gap="xl">
       <PageHeader
@@ -143,6 +197,11 @@ export function TaskDetailPage() {
           <Group gap="sm">
             <TaskStatusBadge status={task.status} />
             {task.isDefect ? <DefectBadge /> : null}
+          </Group>
+          <Group>
+            <Button variant="light" leftSection={<IconFileText size={16} />} onClick={() => void handleCopyAgentPrompt()}>
+              Copy AI prompt
+            </Button>
           </Group>
           <SimpleGrid cols={{ base: 1, md: 2 }}>
             <Stack gap={4}>

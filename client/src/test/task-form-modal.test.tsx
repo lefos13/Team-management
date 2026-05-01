@@ -21,7 +21,7 @@ afterEach(() => {
   cleanup();
 });
 
-const projects: ProjectSummaryDTO[] = [{ id: "project-1", name: "Operations", description: null, status: "active", color: "#16A98B", memberCount: 1, taskCount: 1, createdAt: "2030-05-01T08:00:00.000Z", updatedAt: "2030-05-01T08:00:00.000Z" }];
+const projects: ProjectSummaryDTO[] = [{ id: "project-1", name: "Operations", description: null, aiContext: null, status: "active", color: "#16A98B", memberCount: 1, taskCount: 1, createdAt: "2030-05-01T08:00:00.000Z", updatedAt: "2030-05-01T08:00:00.000Z" }];
 const members: TeamMemberDTO[] = [{ id: "member-1", name: "Ada Manager", role: "Lead", email: "ada@example.com", notes: null, active: true, projectIds: ["project-1"], openTaskCount: 1, completedTaskCount: 0, createdAt: "2030-05-01T08:00:00.000Z", updatedAt: "2030-05-01T08:00:00.000Z" }];
 
 function task(overrides: Partial<TaskDTO> = {}): TaskDTO {

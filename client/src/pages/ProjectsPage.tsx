@@ -36,6 +36,7 @@ export function ProjectsPage() {
 
     return {
       ...project,
+      aiContext: projectDetailQuery.data?.aiContext ?? project.aiContext,
       memberIds: projectDetailQuery.data?.memberIds ?? [],
     };
   }, [editingProjectId, projectDetailQuery.data?.memberIds, projectsQuery.data]);

@@ -37,6 +37,7 @@ export function mapProjectSummary(
     id: project.id,
     name: project.name,
     description: project.description,
+    aiContext: project.aiContext,
     status: project.status as ProjectSummaryDTO["status"],
     color: project.color,
     memberCount: project._count.projectMembers,

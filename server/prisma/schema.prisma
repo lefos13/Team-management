@@ -53,6 +53,7 @@ model Project {
   id             String          @id @default(cuid())
   name           String
   description    String?
+  aiContext      String?
   status         String          @default("active")
   color          String?
   createdAt      DateTime        @default(now())

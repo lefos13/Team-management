@@ -3,7 +3,7 @@ read-focused screen while preserving archive-only behavior for done tasks.
 */
 
 import { MantineProvider } from "@mantine/core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { TaskDTO } from "@team-management/shared";
@@ -12,12 +12,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TaskDetailPage } from "../pages/TaskDetailPage";
 
-const { useTaskDetailMock, mutateAsync } = vi.hoisted(() => ({
+const { useProjectDetailMock, useTaskDetailMock, mutateAsync, writeTextMock } = vi.hoisted(() => ({
+  useProjectDetailMock: vi.fn(),
   useTaskDetailMock: vi.fn(),
   mutateAsync: vi.fn().mockResolvedValue(undefined),
+  writeTextMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../hooks/use-app-data", () => ({
+  useProjectDetail: useProjectDetailMock,
   useTaskDetail: useTaskDetailMock,
   useUpdateTask: vi.fn(() => ({
     mutateAsync,
@@ -67,8 +70,32 @@ function buildTask(overrides: Partial<TaskDTO> = {}): TaskDTO {
 }
 
 function renderPage(task: TaskDTO) {
+  Object.defineProperty(window.navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: writeTextMock,
+    },
+  });
+
   useTaskDetailMock.mockReturnValue({
     data: task,
+    isLoading: false,
+  });
+  useProjectDetailMock.mockReturnValue({
+    data: {
+      id: "project-1",
+      name: "Operations",
+      description: "Coordinate launch readiness.",
+      aiContext: "Use release-safe language and note customer-impact assumptions.",
+      status: "active",
+      color: "#16A98B",
+      memberCount: 1,
+      taskCount: 1,
+      createdAt: "2030-05-01T08:00:00.000Z",
+      updatedAt: "2030-05-01T08:00:00.000Z",
+      memberIds: ["member-1"],
+      tasks: ["task-1"],
+    },
     isLoading: false,
   });
 
@@ -130,5 +157,19 @@ describe("TaskDetailPage", () => {
     });
     expect(screen.getByRole("button", { name: "Download archive" })).toBeEnabled();
     expect(screen.queryByAltText("brief.png")).not.toBeInTheDocument();
+  });
+
+  it("copies an AI prompt with project and task context", async () => {
+    const user = userEvent.setup();
+    renderPage(buildTask());
+    await user.click(screen.getByRole("button", { name: "Copy AI prompt" }));
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Project\nName: Operations"));
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("AI Context:\nUse release-safe language and note customer-impact assumptions."));
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Task\nTitle: Preview task"));
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Notes:\nCoordinate with support before rollout."));
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Instructions\nUse the project context as background information."));
+    });
   });
 });

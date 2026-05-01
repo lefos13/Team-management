@@ -112,6 +112,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           userId: user.id,
           name: body.name,
           description: normalizeOptionalText(body.description),
+          aiContext: normalizeOptionalText(body.aiContext),
           status: body.status,
           color: normalizeOptionalText(body.color),
           projectMembers: {
@@ -166,6 +167,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           data: {
             name: body.name,
             description: normalizeOptionalText(body.description),
+            aiContext: normalizeOptionalText(body.aiContext),
             status: body.status,
             color: normalizeOptionalText(body.color),
             projectMembers: {

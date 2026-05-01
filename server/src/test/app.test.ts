@@ -272,6 +272,7 @@ describe("team management API", () => {
       .send({
         name: "Alpha migration",
         description: "",
+        aiContext: "Legacy API migration with customer-specific rollout rules.",
         status: "active",
         color: "#16A98B",
         memberIds: [alphaMember.body.id],
@@ -318,6 +319,74 @@ describe("team management API", () => {
     expect(betaDashboard.status).toBe(200);
     expect(betaDashboard.body.stats.projectCount).toBe(0);
     expect(betaDashboard.body.stats.taskCount).toBe(0);
+  });
+
+  /*
+  Exercise project reads and writes with agent context so the new field stays
+  aligned across create, detail fetch, update, and list responses.
+  */
+  it("stores and returns project AI context", async () => {
+    await register("projects@example.com", "password123");
+    await verify("projects@example.com");
+    const loginResponse = await login("projects@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Project Owner",
+        role: "Lead",
+        email: "owner@projects.test",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+
+    const createProject = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Agent rollout",
+        description: "Coordinate automation across teams.",
+        aiContext: "This project uses staged releases, shared terminology, and strict customer-impact review.",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    expect(createProject.status).toBe(200);
+    expect(createProject.body.aiContext).toBe(
+      "This project uses staged releases, shared terminology, and strict customer-impact review.",
+    );
+
+    const detailProject = await request(app.server)
+      .get(`/api/projects/${createProject.body.id}`)
+      .set("Cookie", cookie);
+
+    expect(detailProject.status).toBe(200);
+    expect(detailProject.body.aiContext).toBe(createProject.body.aiContext);
+
+    const updateProject = await request(app.server)
+      .put(`/api/projects/${createProject.body.id}`)
+      .set("Cookie", cookie)
+      .send({
+        name: "Agent rollout",
+        description: "Coordinate automation across teams.",
+        aiContext: "Use the project context for agents, prefer release-safe changes, and highlight risky assumptions.",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    expect(updateProject.status).toBe(200);
+    expect(updateProject.body.aiContext).toBe(
+      "Use the project context for agents, prefer release-safe changes, and highlight risky assumptions.",
+    );
+
+    const listProjects = await request(app.server).get("/api/projects").set("Cookie", cookie);
+    expect(listProjects.status).toBe(200);
+    expect(listProjects.body[0].aiContext).toBe(updateProject.body.aiContext);
   });
 
   /*
@@ -1212,6 +1281,15 @@ describe("team management API", () => {
     expect(migration).toContain("ADD COLUMN \"parentTaskId\" TEXT");
     expect(migration).toContain("ON DELETE SET NULL");
     expect(migration).toContain("Task_parentTaskId_not_self_check");
+  });
+
+  it("adds nullable project AI context in a production-safe migration", () => {
+    const migration = readFileSync(
+      new URL("../../prisma/migrations/20260501180000_project_ai_context/migration.sql", import.meta.url),
+      "utf8",
+    );
+
+    expect(migration).toContain('ADD COLUMN "aiContext" TEXT');
   });
 
   it("rejects unauthenticated access", async () => {
