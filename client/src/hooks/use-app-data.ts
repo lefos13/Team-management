@@ -4,7 +4,10 @@ import type {
   DashboardFilters,
   MemberInput,
   ProjectDetailDTO,
+  ProjectInvitationDTO,
   ProjectInput,
+  ProjectListDTO,
+  ProjectPermission,
   ProjectSummaryDTO,
   TaskAttachmentDTO,
   TaskDTO,
@@ -33,7 +36,7 @@ export function useProjects() {
   return useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const response = await api.get<ProjectSummaryDTO[]>("/projects");
+      const response = await api.get<ProjectListDTO>("/projects");
       return response.data;
     },
   });
@@ -45,6 +48,17 @@ export function useProjectDetail(projectId: string | null) {
     enabled: Boolean(projectId),
     queryFn: async () => {
       const response = await api.get<ProjectDetailDTO>(`/projects/${projectId}`);
+      return response.data;
+    },
+  });
+}
+
+export function useProjectInvitations(projectId: string | null) {
+  return useQuery({
+    queryKey: ["project-invitations", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const response = await api.get<ProjectInvitationDTO[]>(`/projects/${projectId}/invitations`);
       return response.data;
     },
   });
@@ -174,6 +188,36 @@ export function useDeleteProject() {
       await api.delete(`/projects/${id}`);
     },
     onSuccess: async () => {
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
+export function useSendProjectInvitation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectId, memberId, permission }: { projectId: string; memberId: string; permission: ProjectPermission }) => {
+      const response = await api.post<ProjectInvitationDTO>(`/projects/${projectId}/invitations`, { memberId, permission });
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["project-invitations", variables.projectId] });
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
+export function useRevokeProjectInvitation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectId, invitationId }: { projectId: string; invitationId: string }) => {
+      const response = await api.post<ProjectInvitationDTO>(`/projects/${projectId}/invitations/${invitationId}/revoke`);
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["project-invitations", variables.projectId] });
       await invalidateCoreQueries(queryClient);
     },
   });

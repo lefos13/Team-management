@@ -6,6 +6,7 @@ import { Navigate, BrowserRouter, Route, Routes, useLocation } from "react-route
 
 import { AppShellLayout } from "./layouts/AppShellLayout";
 import { CalendarPage } from "./pages/CalendarPage";
+import { AcceptProjectInvitationPage } from "./pages/AcceptProjectInvitationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -112,6 +113,7 @@ export function App() {
         <Route path="/" element={<RequireAuth />}>
           <Route index element={<DashboardPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/invitations/accept" element={<AcceptProjectInvitationPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tasks/:taskId" element={<TaskDetailPage />} />

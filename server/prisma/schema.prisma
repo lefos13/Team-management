@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProjectPermission {
+  preview_own_tasks
+  preview_all_tasks
+  edit_own_tasks
+  edit_all_tasks
+  admin
+}
+
+enum ProjectAccessStatus {
+  invited
+  active
+  revoked
+}
+
 model User {
   id                 String                   @id @default(cuid())
   email              String                   @unique
@@ -20,6 +34,10 @@ model User {
   projects           Project[]
   teamMembers        TeamMember[]
   tasks              Task[]
+  projectAccesses    ProjectAccess[]     @relation("ProjectAccessUser")
+  ownedAccesses      ProjectAccess[]     @relation("ProjectAccessOwner")
+  ownedInvitations   ProjectInvitation[] @relation("ProjectInvitationOwner")
+  acceptedInvitations ProjectInvitation[] @relation("ProjectInvitationAcceptedBy")
 }
 
 model Session {
@@ -61,6 +79,8 @@ model Project {
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   projectMembers ProjectMember[]
+  projectAccesses ProjectAccess[]
+  invitations    ProjectInvitation[]
   tasks          Task[]
 
   @@index([userId])
@@ -80,6 +100,8 @@ model TeamMember {
   projectMembers ProjectMember[]
   tasks          Task[]
   taskAssignees  TaskAssignee[]
+  invitations    ProjectInvitation[]
+  projectAccesses ProjectAccess[]
 
   @@unique([userId, email])
   @@index([userId])
@@ -92,6 +114,49 @@ model ProjectMember {
   teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
 
   @@id([projectId, teamMemberId])
+}
+
+model ProjectAccess {
+  id             String              @id @default(cuid())
+  projectId      String
+  ownerUserId    String
+  userId         String
+  teamMemberId   String?
+  permission     ProjectPermission
+  status         ProjectAccessStatus @default(invited)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerUser      User                @relation("ProjectAccessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  user           User                @relation("ProjectAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  teamMember     TeamMember?         @relation(fields: [teamMemberId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, userId])
+  @@index([ownerUserId, userId, status])
+  @@index([projectId, status])
+}
+
+model ProjectInvitation {
+  id               String            @id @default(cuid())
+  projectId        String
+  ownerUserId      String
+  teamMemberId     String
+  inviteEmail      String
+  permission       ProjectPermission
+  tokenHash        String            @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  revokedAt        DateTime?
+  acceptedByUserId String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerUser        User              @relation("ProjectInvitationOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  teamMember       TeamMember        @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  acceptedByUser   User?             @relation("ProjectInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, inviteEmail, revokedAt, acceptedAt])
+  @@index([ownerUserId, inviteEmail])
 }
 
 model TaskAssignee {

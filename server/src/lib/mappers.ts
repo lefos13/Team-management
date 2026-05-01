@@ -3,7 +3,9 @@ import type {
   TaskAttachmentDTO,
   CalendarEventDTO,
   ProjectDetailDTO,
+  ProjectListDTO,
   ProjectSummaryDTO,
+  SharedProjectSummaryDTO,
   TaskDTO,
   TeamMemberDTO,
   UserDTO,
@@ -47,6 +49,37 @@ export function mapProjectSummary(
   };
 }
 
+export function mapSharedProjectSummary(
+  project: Project & {
+    _count: {
+      projectMembers: number;
+      tasks: number;
+    };
+    access: {
+      permission: SharedProjectSummaryDTO["permission"];
+      status: SharedProjectSummaryDTO["accessStatus"];
+      ownerEmail: string;
+    };
+  },
+): SharedProjectSummaryDTO {
+  return {
+    ...mapProjectSummary(project),
+    permission: project.access.permission,
+    accessStatus: project.access.status,
+    masterOwnerEmail: project.access.ownerEmail,
+  };
+}
+
+export function mapProjectList(input: {
+  ownedProjects: Parameters<typeof mapProjectSummary>[0][];
+  sharedProjects: Parameters<typeof mapSharedProjectSummary>[0][];
+}): ProjectListDTO {
+  return {
+    ownedProjects: input.ownedProjects.map(mapProjectSummary),
+    sharedProjects: input.sharedProjects.map(mapSharedProjectSummary),
+  };
+}
+
 export function mapProjectDetail(
   project: Project & {
     projectMembers: Array<{ teamMemberId: string }>;
@@ -57,10 +90,16 @@ export function mapProjectDetail(
     };
   },
 ): ProjectDetailDTO {
+  /*
+  Project details now include access metadata by contract, so the shared mapper
+  returns safe defaults that route handlers can override for invited users.
+  */
   return {
     ...mapProjectSummary(project),
     memberIds: project.projectMembers.map((member) => member.teamMemberId),
     tasks: project.tasks.map((task) => task.id),
+    isMasterOwner: true,
+    permission: "admin",
   };
 }
 

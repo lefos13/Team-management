@@ -15,6 +15,15 @@ type OtpEmailOptions = {
   footer: string;
 };
 
+type InvitationEmailOptions = {
+  recipientEmail: string;
+  projectName: string;
+  inviterEmail: string;
+  permissionLabel: string;
+  acceptUrl: string;
+  expiresAt: Date;
+};
+
 function getTransporter(): nodemailer.Transporter {
   if (transporter) {
     return transporter;
@@ -146,5 +155,43 @@ export async function sendPasswordResetEmail(email: string, otp: string): Promis
       expiryMinutes: config.OTP_EXPIRY_MINUTES,
       footer: "If you did not request a password reset, keep your current password and ignore this email.",
     }),
+  });
+}
+
+/*
+Keep invitation copy in the same mail module so provider behavior and message
+formatting remain consistent with existing auth and notification emails.
+*/
+export async function sendProjectInvitationEmail(options: InvitationEmailOptions): Promise<void> {
+  const config = getConfig();
+  const mailer = getTransporter();
+  const expiryText = options.expiresAt.toISOString();
+
+  await mailer.sendMail({
+    from: config.EMAIL_FROM,
+    to: options.recipientEmail,
+    replyTo: config.EMAIL_REPLY_TO,
+    subject: `Project invitation: ${options.projectName}`,
+    text: [
+      `You were invited by ${options.inviterEmail} to access project "${options.projectName}".`,
+      `Permission: ${options.permissionLabel}.`,
+      `Accept invitation: ${options.acceptUrl}`,
+      `Expires at: ${expiryText}`,
+    ].join("\n"),
+    html: `
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#eef5f1;color:#132238;font-family:Arial,Helvetica,sans-serif;">
+    <div style="padding:32px 16px;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe8e5;border-radius:18px;padding:30px;">
+        <h1 style="margin:0 0 16px;font-size:28px;line-height:1.15;">Project invitation</h1>
+        <p style="margin:0 0 14px;font-size:16px;line-height:1.6;">${options.inviterEmail} invited you to access <strong>${options.projectName}</strong>.</p>
+        <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Permission: <strong>${options.permissionLabel}</strong></p>
+        <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">Expires at: ${expiryText}</p>
+        <a href="${options.acceptUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#10263d;color:#ffffff;text-decoration:none;font-weight:700;">Accept invitation</a>
+      </div>
+    </div>
+  </body>
+</html>`,
   });
 }

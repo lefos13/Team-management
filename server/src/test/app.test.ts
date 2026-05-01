@@ -295,7 +295,8 @@ describe("team management API", () => {
 
     const betaProjects = await request(app.server).get("/api/projects").set("Cookie", betaCookie);
     expect(betaProjects.status).toBe(200);
-    expect(betaProjects.body).toHaveLength(0);
+    expect(betaProjects.body.ownedProjects).toHaveLength(0);
+    expect(betaProjects.body.sharedProjects).toHaveLength(0);
 
     const betaTasks = await request(app.server).get("/api/tasks").set("Cookie", betaCookie);
     expect(betaTasks.status).toBe(200);
@@ -386,7 +387,7 @@ describe("team management API", () => {
 
     const listProjects = await request(app.server).get("/api/projects").set("Cookie", cookie);
     expect(listProjects.status).toBe(200);
-    expect(listProjects.body[0].aiContext).toBe(updateProject.body.aiContext);
+    expect(listProjects.body.ownedProjects[0].aiContext).toBe(updateProject.body.aiContext);
   });
 
   /*

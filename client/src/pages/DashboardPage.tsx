@@ -219,7 +219,7 @@ export function DashboardPage() {
   const dashboard = dashboardQuery.data;
   const events = calendarQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
-  const projects = projectsQuery.data ?? [];
+  const projects = [...(projectsQuery.data?.ownedProjects ?? []), ...(projectsQuery.data?.sharedProjects ?? [])];
 
   if (!dashboard) {
     return null;

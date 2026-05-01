@@ -34,6 +34,13 @@ import {
   writeAttachmentFile,
 } from "../lib/task-attachments.js";
 import { requireCurrentUser } from "../lib/request-user.js";
+import {
+  canEditAnyTask,
+  canEditOwnTask,
+  canPreviewAnyTask,
+  canPreviewOwnTask,
+  getAccessContext,
+} from "../lib/project-access.js";
 
 const taskIdParamsSchema = z.object({
   id: z.string().min(1),
@@ -242,7 +249,7 @@ top-level task in the same project, and tasks that already own subtasks cannot
 be moved under another parent because that would create nested grandchildren.
 */
 async function validateParentTask(
-  userId: string,
+  ownerUserId: string,
   projectId: string,
   parentTaskId: string | null,
   currentTaskId?: string,
@@ -257,12 +264,12 @@ async function validateParentTask(
 
   const [parentTask, childCount] = await Promise.all([
     prisma.task.findFirst({
-      where: { id: parentTaskId, userId },
+      where: { id: parentTaskId, userId: ownerUserId },
       select: { id: true, projectId: true, parentTaskId: true },
     }),
     currentTaskId
       ? prisma.task.count({
-          where: { parentTaskId: currentTaskId, userId },
+          where: { parentTaskId: currentTaskId, userId: ownerUserId },
         })
       : Promise.resolve(0),
   ]);
@@ -520,9 +527,9 @@ async function finalizeTaskRestore(task: Pick<TaskDetails, "archive">) {
   await deleteStorageKey(task.archive.storageKey);
 }
 
-async function getTaskForUser(userId: string, taskId: string) {
+async function getTaskForUser(currentUserId: string, taskId: string, requireEdit = false) {
   const task = await prisma.task.findFirst({
-    where: { id: taskId, userId },
+    where: { id: taskId },
     include: taskDetailsInclude,
   });
 
@@ -530,7 +537,19 @@ async function getTaskForUser(userId: string, taskId: string) {
     throw notFound("Task");
   }
 
-  return task;
+  const access = await getAccessContext(task.projectId, currentUserId);
+  const isOwnTask = Boolean(access.teamMemberId && task.taskAssignees.some((assignment) => assignment.teamMemberId === access.teamMemberId));
+  if (requireEdit) {
+    if (access.isMasterOwner || canEditAnyTask(access.permission) || (canEditOwnTask(access.permission) && isOwnTask)) {
+      return task;
+    }
+    throw badRequest("You do not have permission to edit this task.");
+  }
+  if (access.isMasterOwner || canPreviewAnyTask(access.permission) || (canPreviewOwnTask(access.permission) && isOwnTask)) {
+    return task;
+  }
+  throw notFound("Task");
+
 }
 
 async function buildTasksWorkbook(tasks: ExportTask[]) {
@@ -630,9 +649,13 @@ type ImportProjectMember = {
   email: string;
 };
 
-async function getProjectForImport(userId: string, projectId: string) {
+async function getProjectForImport(currentUserId: string, projectId: string) {
+  const access = await getAccessContext(projectId, currentUserId);
+  if (!access.isMasterOwner && !canEditAnyTask(access.permission)) {
+    throw badRequest("You do not have permission to import tasks for this project.");
+  }
   const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
+    where: { id: projectId, userId: access.ownerUserId },
     include: {
       projectMembers: {
         include: {
@@ -654,6 +677,7 @@ async function getProjectForImport(userId: string, projectId: string) {
   }
 
   return {
+    ownerUserId: access.ownerUserId,
     ...project,
     assignableMembers: project.projectMembers
       .map((membership) => membership.teamMember)
@@ -785,7 +809,7 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
   const membersByEmail = new Map(project.assignableMembers.map((member) => [member.email.toLowerCase(), member]));
   const existingTopLevelTasks = await prisma.task.findMany({
     where: {
-      userId,
+      userId: project.ownerUserId,
       projectId,
       parentTaskId: null,
     },
@@ -914,9 +938,31 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO[]> => {
       const user = requireCurrentUser(request);
       const query = taskFiltersSchema.parse(request.query);
+      const accesses = await prisma.projectAccess.findMany({
+        where: { userId: user.id, status: "active" },
+        select: { projectId: true, permission: true, teamMemberId: true },
+      });
+      const allProjectIds = new Set<string>();
+      const ownTaskScopes: Array<{ projectId: string; teamMemberId: string }> = [];
+      for (const access of accesses) {
+        if (canPreviewAnyTask(access.permission) || canEditAnyTask(access.permission)) {
+          allProjectIds.add(access.projectId);
+          continue;
+        }
+        if (access.teamMemberId && canPreviewOwnTask(access.permission)) {
+          ownTaskScopes.push({ projectId: access.projectId, teamMemberId: access.teamMemberId });
+        }
+      }
       const tasks = await prisma.task.findMany({
         where: {
-          userId: user.id,
+          OR: [
+            { userId: user.id },
+            ...(allProjectIds.size > 0 ? [{ projectId: { in: Array.from(allProjectIds) } }] : []),
+            ...ownTaskScopes.map((scope) => ({
+              projectId: scope.projectId,
+              taskAssignees: { some: { teamMemberId: scope.teamMemberId } },
+            })),
+          ],
           ...buildTaskWhere(query),
         },
         include: taskDetailsInclude,
@@ -938,9 +984,17 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = requireCurrentUser(request);
       const query = taskExportFiltersSchema.parse(request.query);
+      const accesses = await prisma.projectAccess.findMany({
+        where: { userId: user.id, status: "active" },
+        select: { projectId: true, permission: true },
+      });
+      const exportedSharedProjects = accesses.filter((access) => canPreviewAnyTask(access.permission)).map((access) => access.projectId);
       const tasks = await prisma.task.findMany({
         where: {
-          userId: user.id,
+          OR: [
+            { userId: user.id },
+            ...(exportedSharedProjects.length > 0 ? [{ projectId: { in: exportedSharedProjects } }] : []),
+          ],
           ...buildTaskWhere(query),
         },
         include: {
@@ -1009,12 +1063,12 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskImportResultDTO> => {
       const user = requireCurrentUser(request);
       const params = projectTaskImportParamsSchema.parse(request.params);
-      await getProjectForImport(user.id, params.projectId);
+      const project = await getProjectForImport(user.id, params.projectId);
       const importFile = (request as FastifyRequest & { taskImportFile: TaskImportFile }).taskImportFile;
       const parsedRows = await parseTaskImportWorkbook(user.id, params.projectId, importFile.buffer);
       const existingTasks = await prisma.task.findMany({
         where: {
-          userId: user.id,
+          userId: project.ownerUserId,
           projectId: params.projectId,
         },
         select: {
@@ -1092,7 +1146,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
 
             const createdTask = await tx.task.create({
               data: {
-                userId: user.id,
+                userId: project.ownerUserId,
                 title: row.title,
                 description: normalizeOptionalText(row.description),
                 notes: normalizeOptionalText(row.notes),
@@ -1142,13 +1196,17 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO> => {
       const user = requireCurrentUser(request);
       const body = taskInputSchema.parse(request.body);
+      const access = await getAccessContext(body.projectId, user.id);
+      if (!access.isMasterOwner && !canEditAnyTask(access.permission)) {
+        throw badRequest("You do not have permission to create tasks for this project.");
+      }
       const assigneeIds = normalizeAssigneeIds(body);
-      const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId));
-      await ensureAssignable(user.id, body.projectId, assigneeIds);
+      const parentTaskId = await validateParentTask(access.ownerUserId, body.projectId, normalizeOptionalId(body.parentTaskId));
+      await ensureAssignable(access.ownerUserId, body.projectId, assigneeIds);
 
       const task = await prisma.task.create({
         data: {
-          userId: user.id,
+          userId: access.ownerUserId,
           title: body.title,
           description: normalizeOptionalText(body.description),
           notes: normalizeOptionalText(body.notes),
@@ -1188,10 +1246,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const params = taskIdParamsSchema.parse(request.params);
       const body = taskInputSchema.parse(request.body);
       const assigneeIds = normalizeAssigneeIds(body);
-      const existingTask = await getTaskForUser(user.id, params.id);
-
-      const parentTaskId = await validateParentTask(user.id, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
-      await ensureAssignable(user.id, body.projectId, assigneeIds);
+      const existingTask = await getTaskForUser(user.id, params.id, true);
+      const access = await getAccessContext(existingTask.projectId, user.id);
+      const parentTaskId = await validateParentTask(access.ownerUserId, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
+      await ensureAssignable(access.ownerUserId, body.projectId, assigneeIds);
       const archivePreparation = body.status === "done" && existingTask.status !== "done" ? await prepareTaskArchive(existingTask) : null;
       if (body.status !== "done" && existingTask.status === "done") {
         await prepareTaskRestore(existingTask);
@@ -1199,7 +1257,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const childTasks = body.status === "done" && !existingTask.parentTaskId
         ? await prisma.task.findMany({
             where: {
-              userId: user.id,
+              userId: access.ownerUserId,
               parentTaskId: params.id,
               status: { not: "done" },
             },
@@ -1303,7 +1361,8 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
       const body = taskStatusUpdateSchema.parse(request.body);
-      const task = await getTaskForUser(user.id, params.id);
+      const task = await getTaskForUser(user.id, params.id, true);
+      const access = await getAccessContext(task.projectId, user.id);
       const archivePreparation = body.status === "done" && task.status !== "done" ? await prepareTaskArchive(task) : null;
       if (body.status !== "done" && task.status === "done") {
         await prepareTaskRestore(task);
@@ -1311,7 +1370,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const childTasks = body.status === "done" && !task.parentTaskId
         ? await prisma.task.findMany({
             where: {
-              userId: user.id,
+              userId: access.ownerUserId,
               parentTaskId: params.id,
               status: { not: "done" },
             },
@@ -1395,7 +1454,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO> => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
-      const task = await getTaskForUser(user.id, params.id);
+      const task = await getTaskForUser(user.id, params.id, true);
 
       return mapTask(task);
     },
@@ -1496,7 +1555,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = requireCurrentUser(request);
       const params = taskAttachmentParamsSchema.parse(request.params);
-      const task = await getTaskForUser(user.id, params.taskId);
+      const task = await getTaskForUser(user.id, params.taskId, true);
       const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
 
       if (!attachment) {
@@ -1618,7 +1677,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
-      await getTaskForUser(user.id, params.id);
+      await getTaskForUser(user.id, params.id, true);
 
       await prisma.task.delete({
         where: { id: params.id },

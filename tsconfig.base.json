@@ -12,7 +12,10 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "baseUrl": "."
+    "resolveJsonModule": true
+    /*
+    The repo only uses package imports and relative paths, so removing baseUrl
+    avoids the TypeScript deprecation without changing module resolution.
+    */
   }
 }

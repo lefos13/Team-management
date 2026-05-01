@@ -9,6 +9,7 @@ export const taskStatusLabels = {
   done: "Done",
 } as const satisfies Record<(typeof taskStatusValues)[number], string>;
 export const projectStatusValues = ["active", "on_hold", "completed"] as const;
+export const projectPermissionValues = ["preview_own_tasks", "preview_all_tasks", "edit_own_tasks", "edit_all_tasks", "admin"] as const;
 export const authStatusValues = [
   "verification_required",
   "verified",
@@ -18,6 +19,7 @@ export const authStatusValues = [
 
 export const taskStatusSchema = z.enum(taskStatusValues);
 export const projectStatusSchema = z.enum(projectStatusValues);
+export const projectPermissionSchema = z.enum(projectPermissionValues);
 export const authStatusSchema = z.enum(authStatusValues);
 
 export const loginInputSchema = z.object({
@@ -57,6 +59,19 @@ export const projectInputSchema = z.object({
   status: projectStatusSchema,
   color: z.string().trim().regex(/^#([0-9a-fA-F]{6})$/).optional().or(z.literal("")),
   memberIds: z.array(z.string().min(1)).default([]),
+});
+
+export const sendProjectInvitationInputSchema = z.object({
+  memberId: z.string().min(1),
+  permission: projectPermissionSchema,
+});
+
+export const updateProjectAccessPermissionInputSchema = z.object({
+  permission: projectPermissionSchema,
+});
+
+export const acceptProjectInvitationInputSchema = z.object({
+  token: z.string().trim().min(16),
 });
 
 export const memberInputSchema = z.object({
@@ -199,9 +214,35 @@ export const projectSummarySchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+export const sharedProjectSummarySchema = projectSummarySchema.extend({
+  permission: projectPermissionSchema,
+  masterOwnerEmail: z.string().email(),
+  accessStatus: z.enum(["active", "invited", "revoked"]),
+});
+
+export const projectListSchema = z.object({
+  ownedProjects: z.array(projectSummarySchema),
+  sharedProjects: z.array(sharedProjectSummarySchema),
+});
+
 export const projectDetailSchema = projectSummarySchema.extend({
   memberIds: z.array(z.string()),
   tasks: z.array(z.string()),
+  isMasterOwner: z.boolean().default(true),
+  permission: projectPermissionSchema.default("admin"),
+  masterOwnerEmail: z.string().email().optional(),
+});
+
+export const projectInvitationSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  memberId: z.string(),
+  inviteEmail: z.string().email(),
+  permission: projectPermissionSchema,
+  expiresAt: z.string().datetime(),
+  acceptedAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
 });
 
 export const memberSchema = z.object({
@@ -282,6 +323,7 @@ export const dashboardSchema = z.object({
 
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export type ProjectStatus = z.infer<typeof projectStatusSchema>;
+export type ProjectPermission = z.infer<typeof projectPermissionSchema>;
 export type AuthStatus = z.infer<typeof authStatusSchema>;
 export type LoginInput = z.infer<typeof loginInputSchema>;
 export type RegisterInput = z.infer<typeof registerInputSchema>;
@@ -290,6 +332,9 @@ export type ResendVerificationInput = z.infer<typeof resendVerificationInputSche
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetInputSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 export type ProjectInput = z.infer<typeof projectInputSchema>;
+export type SendProjectInvitationInput = z.infer<typeof sendProjectInvitationInputSchema>;
+export type UpdateProjectAccessPermissionInput = z.infer<typeof updateProjectAccessPermissionInputSchema>;
+export type AcceptProjectInvitationInput = z.infer<typeof acceptProjectInvitationInputSchema>;
 export type MemberInput = z.infer<typeof memberInputSchema>;
 export type TaskInput = z.infer<typeof taskInputSchema>;
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
@@ -305,7 +350,10 @@ export type UserDTO = z.infer<typeof userSchema>;
 export type AuthActionResponseDTO = z.infer<typeof authActionResponseSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ProjectSummaryDTO = z.infer<typeof projectSummarySchema>;
+export type SharedProjectSummaryDTO = z.infer<typeof sharedProjectSummarySchema>;
+export type ProjectListDTO = z.infer<typeof projectListSchema>;
 export type ProjectDetailDTO = z.infer<typeof projectDetailSchema>;
+export type ProjectInvitationDTO = z.infer<typeof projectInvitationSchema>;
 export type TeamMemberDTO = z.infer<typeof memberSchema>;
 export type TaskDTO = z.infer<typeof taskSchema>;
 export type CalendarEventDTO = z.infer<typeof calendarEventSchema>;

@@ -30,7 +30,7 @@ export function MembersPage() {
     [editingMemberId, membersQuery.data],
   );
 
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.ownedProjects ?? [];
   const members = membersQuery.data ?? [];
   const { page, setPage, totalPages, paginatedItems: paginatedMembers } = usePagination(members, 6);
 

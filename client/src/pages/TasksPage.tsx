@@ -278,7 +278,7 @@ export function TasksPage() {
     }
   }, [searchParams, setSearchParams, tasksQuery.data]);
 
-  const projects = projectsQuery.data ?? [];
+  const projects = [...(projectsQuery.data?.ownedProjects ?? []), ...(projectsQuery.data?.sharedProjects ?? [])];
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const { visibleTasks, subtasksByParent } = useMemo(() => {
