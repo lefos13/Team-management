@@ -245,9 +245,17 @@ export function ProjectsPage() {
                   </Group>
                 </Stack>
               </Stack>
-              <Stack gap={2} className="projects-shared-footer">
-                <Text>Master Owner</Text>
-                <Text fw={700}>{project.masterOwnerEmail}</Text>
+              <Stack gap={8} className="projects-shared-footer">
+                <Group justify="space-between" gap="sm" wrap="nowrap" className="projects-shared-permission-row">
+                  <Text>Your permission</Text>
+                  <Badge color="blue" variant="filled" className="projects-shared-permission-badge">
+                    {projectPermissionLabels[project.permission]}
+                  </Badge>
+                </Group>
+                <Stack gap={2}>
+                  <Text>Master Owner</Text>
+                  <Text fw={700}>{project.masterOwnerEmail}</Text>
+                </Stack>
               </Stack>
             </Card>
           ))}

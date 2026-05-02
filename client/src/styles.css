@@ -471,6 +471,26 @@ scan access context and manage permissions without leaving the page.
   font-size: 0.9rem;
 }
 
+.projects-shared-permission-row {
+  min-width: 0;
+}
+
+.projects-shared-permission-row > p {
+  flex: 0 0 auto;
+  color: #253345;
+  font-weight: 800;
+}
+
+.projects-shared-permission-badge {
+  max-width: 58%;
+  flex: 0 1 auto;
+}
+
+.projects-shared-permission-badge .mantine-Badge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .projects-card-actions .mantine-ActionIcon-root {
   width: 38px;
   height: 38px;
