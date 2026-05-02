@@ -145,13 +145,13 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         taskCount,
         overdueCount,
       },
-      overdueTasks: overdueTasks.map(mapTask),
-      upcomingTasks: upcomingTasks.map(mapTask),
+      overdueTasks: overdueTasks.map((task) => mapTask(task)),
+      upcomingTasks: upcomingTasks.map((task) => mapTask(task)),
       recentCompletions: {
         from: completedFrom.toISOString(),
         to: completedTo.toISOString(),
         count: recentCompletedCount,
-        tasks: recentCompletedTasks.map(mapTask),
+        tasks: recentCompletedTasks.map((task) => mapTask(task)),
       },
       tasksByStatus,
     };

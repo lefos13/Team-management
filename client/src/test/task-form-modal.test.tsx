@@ -46,6 +46,7 @@ function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
     attachments: [],
     attachmentArchive: null,
     attachmentsPreviewAvailable: true,
+    canEdit: true,
     createdAt: "2030-05-01T08:00:00.000Z",
     updatedAt: "2030-05-01T08:00:00.000Z",
     ...overrides,

@@ -246,16 +246,19 @@ export function TaskDetailPage() {
             value={notes}
             onChange={(event) => setNotes(event.currentTarget.value)}
             placeholder="Add internal notes for this task."
+            readOnly={!task.canEdit}
           />
-          <Group justify="end">
-            <Button
-              loading={updateTask.isPending}
-              disabled={notes === (task.notes ?? "")}
-              onClick={() => void handleSaveNotes()}
-            >
-              Save notes
-            </Button>
-          </Group>
+          {task.canEdit ? (
+            <Group justify="end">
+              <Button
+                loading={updateTask.isPending}
+                disabled={notes === (task.notes ?? "")}
+                onClick={() => void handleSaveNotes()}
+              >
+                Save notes
+              </Button>
+            </Group>
+          ) : null}
         </Stack>
       </Paper>
 

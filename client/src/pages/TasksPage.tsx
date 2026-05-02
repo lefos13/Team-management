@@ -144,19 +144,21 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, on
       <Table.Td>
         <Group gap="sm">
           <TaskStatusBadge status={task.status} />
-          <Select
-            size="xs"
-            w={150}
-            value={task.status}
-            data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
-            onChange={(value) => {
-              if (!value || value === task.status) {
-                return;
-              }
+          {task.canEdit ? (
+            <Select
+              size="xs"
+              w={150}
+              value={task.status}
+              data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+              onChange={(value) => {
+                if (!value || value === task.status) {
+                  return;
+                }
 
-              onStatusChange(task, value as TaskDTO["status"]);
-            }}
-          />
+                onStatusChange(task, value as TaskDTO["status"]);
+              }}
+            />
+          ) : null}
         </Group>
       </Table.Td>
       <Table.Td>
@@ -173,12 +175,16 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, on
           <ActionIcon variant="light" onClick={() => onPreview(task.id)}>
             <IconEye size={16} />
           </ActionIcon>
-          <ActionIcon variant="light" onClick={() => onEdit(task.id)}>
-            <IconEdit size={16} />
-          </ActionIcon>
-          <ActionIcon color="red" variant="light" loading={deletePending} onClick={() => onDelete(task.id)}>
-            <IconTrash size={16} />
-          </ActionIcon>
+          {task.canEdit ? (
+            <>
+              <ActionIcon variant="light" onClick={() => onEdit(task.id)}>
+                <IconEdit size={16} />
+              </ActionIcon>
+              <ActionIcon color="red" variant="light" loading={deletePending} onClick={() => onDelete(task.id)}>
+                <IconTrash size={16} />
+              </ActionIcon>
+            </>
+          ) : null}
         </Group>
       </Table.Td>
     </>
@@ -271,14 +277,22 @@ export function TasksPage() {
 
     const matchingTask = tasksQuery.data.find((task) => task.id === taskId);
     if (matchingTask) {
-      setEditingTaskId(taskId);
-      setOpened(true);
+      if (matchingTask.canEdit) {
+        setEditingTaskId(taskId);
+        setOpened(true);
+      } else {
+        navigate(`/tasks/${taskId}`);
+      }
       searchParams.delete("taskId");
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, tasksQuery.data]);
+  }, [navigate, searchParams, setSearchParams, tasksQuery.data]);
 
+  const writableSharedProjects =
+    projectsQuery.data?.sharedProjects.filter((project) => project.permission === "edit_all_tasks" || project.permission === "admin") ?? [];
+  const taskWritableProjects = [...(projectsQuery.data?.ownedProjects ?? []), ...writableSharedProjects];
   const projects = [...(projectsQuery.data?.ownedProjects ?? []), ...(projectsQuery.data?.sharedProjects ?? [])];
+  const canCreateTasks = taskWritableProjects.length > 0;
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const { visibleTasks, subtasksByParent } = useMemo(() => {
@@ -451,18 +465,24 @@ export function TasksPage() {
         description="Assign work, filter the workload, and adjust statuses without leaving the manager workspace."
         action={
           <Group gap="sm">
-            <Button
-              variant="light"
-              leftSection={<IconUpload size={16} />}
-              onClick={() => {
-                setImportProjectId(filters.projectId ?? projects[0]?.id ?? null);
-                setImportFile(null);
-                setImportResult(null);
-                setImportOpened(true);
-              }}
-            >
-              Import
-            </Button>
+            {canCreateTasks ? (
+              <Button
+                variant="light"
+                leftSection={<IconUpload size={16} />}
+                onClick={() => {
+                  setImportProjectId(
+                    taskWritableProjects.some((project) => project.id === filters.projectId)
+                      ? (filters.projectId ?? null)
+                      : (taskWritableProjects[0]?.id ?? null),
+                  );
+                  setImportFile(null);
+                  setImportResult(null);
+                  setImportOpened(true);
+                }}
+              >
+                Import
+              </Button>
+            ) : null}
             <Button
               variant="light"
               leftSection={<IconDownload size={16} />}
@@ -478,15 +498,17 @@ export function TasksPage() {
             >
               Export
             </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => {
-                setEditingTaskId(null);
-                setOpened(true);
-              }}
-            >
-              New task
-            </Button>
+            {canCreateTasks ? (
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={() => {
+                  setEditingTaskId(null);
+                  setOpened(true);
+                }}
+              >
+                New task
+              </Button>
+            ) : null}
           </Group>
         }
       />
@@ -602,7 +624,7 @@ export function TasksPage() {
       </Group>
 
       <TaskFormModal
-        projects={projects}
+        projects={editingTaskId ? projects : taskWritableProjects}
         members={members}
         tasks={tasks}
         opened={opened}
@@ -744,7 +766,7 @@ export function TasksPage() {
             label="Project"
             description="Tasks are imported into this project only."
             value={importProjectId}
-            data={projects.map((project) => ({ value: project.id, label: project.name }))}
+            data={taskWritableProjects.map((project) => ({ value: project.id, label: project.name }))}
             onChange={(value) => {
               setImportProjectId(value);
               setImportResult(null);

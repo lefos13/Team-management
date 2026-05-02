@@ -13,6 +13,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/api";
 
+function replaceAccountCache(queryClient: ReturnType<typeof useQueryClient>, user: UserDTO | null) {
+  queryClient.clear();
+  queryClient.setQueryData(["session"], user);
+}
+
 export async function getCurrentUser(): Promise<UserDTO | null> {
   try {
     const response = await api.get<UserDTO>("/auth/me");
@@ -31,7 +36,7 @@ export function useLogin() {
       return response.data;
     },
     onSuccess: (user) => {
-      queryClient.setQueryData(["session"], user);
+      replaceAccountCache(queryClient, user);
     },
   });
 }
@@ -93,7 +98,7 @@ export function useLogout() {
       await api.post("/auth/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["session"], null);
+      replaceAccountCache(queryClient, null);
     },
   });
 }

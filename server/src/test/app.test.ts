@@ -323,6 +323,86 @@ describe("team management API", () => {
   });
 
   /*
+  Invited task reads must use preview permission while edit-only actions remain
+  blocked, otherwise read-only project members cannot open task detail pages.
+  */
+  it("lets invited preview members open tasks without edit controls", async () => {
+    await register("owner-preview@example.com", "password123");
+    await verify("owner-preview@example.com");
+    const ownerLogin = await login("owner-preview@example.com", "password123");
+    const ownerCookie = ownerLogin.headers["set-cookie"]?.[0] as string;
+
+    await register("invited-preview@example.com", "password123");
+    await verify("invited-preview@example.com");
+    const invitedLogin = await login("invited-preview@example.com", "password123");
+    const invitedCookie = invitedLogin.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", ownerCookie)
+      .send({
+        name: "Invited Preview",
+        role: "Reviewer",
+        email: "invited-preview@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", ownerCookie)
+      .send({
+        name: "Preview permissions",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    const task = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", ownerCookie)
+      .send({
+        title: "Read-only task",
+        description: "Can be previewed by the invited member.",
+        status: "todo",
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    const invitedUser = await prisma.user.findUniqueOrThrow({ where: { email: "invited-preview@example.com" } });
+    await prisma.projectAccess.create({
+      data: {
+        projectId: project.body.id,
+        ownerUserId: ownerLogin.body.id,
+        userId: invitedUser.id,
+        teamMemberId: member.body.id,
+        permission: "preview_own_tasks",
+        status: "active",
+      },
+    });
+
+    const listedTasks = await request(app.server).get("/api/tasks").set("Cookie", invitedCookie);
+    expect(listedTasks.status).toBe(200);
+    expect(listedTasks.body).toEqual([
+      expect.objectContaining({ id: task.body.id, canEdit: false }),
+    ]);
+
+    const taskDetail = await request(app.server).get(`/api/tasks/${task.body.id}`).set("Cookie", invitedCookie);
+    expect(taskDetail.status).toBe(200);
+    expect(taskDetail.body).toEqual(expect.objectContaining({ id: task.body.id, canEdit: false }));
+
+    const statusUpdate = await request(app.server)
+      .patch(`/api/tasks/${task.body.id}/status`)
+      .set("Cookie", invitedCookie)
+      .send({ status: "done" });
+    expect(statusUpdate.status).toBe(400);
+  });
+
+  /*
   Exercise project reads and writes with agent context so the new field stays
   aligned across create, detail fetch, update, and list responses.
   */

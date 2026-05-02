@@ -280,6 +280,7 @@ export const taskSchema = z.object({
   attachments: z.array(taskAttachmentSchema),
   attachmentArchive: taskAttachmentArchiveSchema.nullable(),
   attachmentsPreviewAvailable: z.boolean(),
+  canEdit: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

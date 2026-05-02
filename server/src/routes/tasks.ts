@@ -1,5 +1,5 @@
 /* Enforce that tasks belong to valid project-member pairs so the calendar and workload views stay coherent. */
-import type { TaskDTO, TaskImportResultDTO } from "@team-management/shared";
+import type { ProjectPermission, TaskDTO, TaskImportResultDTO } from "@team-management/shared";
 import {
   taskExportFiltersSchema,
   taskFiltersSchema,
@@ -549,7 +549,14 @@ async function getTaskForUser(currentUserId: string, taskId: string, requireEdit
     return task;
   }
   throw notFound("Task");
+}
 
+function canEditTaskForAccess(
+  task: Pick<TaskDetails, "taskAssignees">,
+  access: { isMasterOwner: boolean; permission: ProjectPermission; teamMemberId: string | null },
+) {
+  const isOwnTask = Boolean(access.teamMemberId && task.taskAssignees.some((assignment) => assignment.teamMemberId === access.teamMemberId));
+  return access.isMasterOwner || canEditAnyTask(access.permission) || (canEditOwnTask(access.permission) && isOwnTask);
 }
 
 async function buildTasksWorkbook(tasks: ExportTask[]) {
@@ -969,7 +976,17 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: [{ deadline: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       });
 
-      return tasks.map(mapTask);
+      /*
+      List responses carry per-task edit capability so invited users can still
+      preview allowed work while the client hides controls the API would reject.
+      */
+      const accessByProjectId = new Map(accesses.map((access) => [access.projectId, access]));
+      return tasks.map((task) => {
+        const access = accessByProjectId.get(task.projectId);
+        return mapTask(task, {
+          canEdit: task.userId === user.id || (access ? canEditTaskForAccess(task, { ...access, isMasterOwner: false }) : false),
+        });
+      });
     },
   );
 
@@ -1454,9 +1471,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO> => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
-      const task = await getTaskForUser(user.id, params.id, true);
+      const task = await getTaskForUser(user.id, params.id);
+      const access = await getAccessContext(task.projectId, user.id);
 
-      return mapTask(task);
+      return mapTask(task, { canEdit: canEditTaskForAccess(task, access) });
     },
   );
 
@@ -1471,7 +1489,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<TaskDTO> => {
       const user = requireCurrentUser(request);
       const params = taskIdParamsSchema.parse(request.params);
-      const task = await getTaskForUser(user.id, params.id);
+      const task = await getTaskForUser(user.id, params.id, true);
 
       if (task.status === "done") {
         throw badRequest("Done tasks can only expose the task archive. Reopen the task to manage attachments.");
@@ -1555,7 +1573,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = requireCurrentUser(request);
       const params = taskAttachmentParamsSchema.parse(request.params);
-      const task = await getTaskForUser(user.id, params.taskId, true);
+      const task = await getTaskForUser(user.id, params.taskId);
       const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
 
       if (!attachment) {
@@ -1661,7 +1679,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       });
       await deleteStorageKey(attachment.storageKey);
 
-      const updatedTask = await getTaskForUser(user.id, params.taskId);
+      const updatedTask = await getTaskForUser(user.id, params.taskId, true);
       return mapTask(updatedTask);
     },
   );
