@@ -99,7 +99,7 @@ export function mapProjectDetail(
     memberIds: project.projectMembers.map((member) => member.teamMemberId),
     tasks: project.tasks.map((task) => task.id),
     isMasterOwner: true,
-    permission: "admin",
+    permission: "edit_all_tasks",
   };
 }
 

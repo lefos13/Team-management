@@ -11,6 +11,7 @@ import type {
 } from "@team-management/shared";
 import {
   acceptProjectInvitationInputSchema,
+  projectPermissionLabels,
   projectInputSchema,
   sendProjectInvitationInputSchema,
   updateProjectAccessPermissionInputSchema,
@@ -46,14 +47,7 @@ function normalizeOptionalText(value?: string): string | null {
 }
 
 function permissionLabel(permission: ProjectPermission): string {
-  const labels: Record<ProjectPermission, string> = {
-    preview_own_tasks: "Preview own tasks",
-    preview_all_tasks: "Preview all tasks",
-    edit_own_tasks: "Preview/Edit own tasks",
-    edit_all_tasks: "Preview/Edit all tasks",
-    admin: "Admin",
-  };
-  return labels[permission];
+  return projectPermissionLabels[permission];
 }
 
 function hashInvitationToken(token: string) {

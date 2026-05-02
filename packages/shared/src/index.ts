@@ -9,7 +9,13 @@ export const taskStatusLabels = {
   done: "Done",
 } as const satisfies Record<(typeof taskStatusValues)[number], string>;
 export const projectStatusValues = ["active", "on_hold", "completed"] as const;
-export const projectPermissionValues = ["preview_own_tasks", "preview_all_tasks", "edit_own_tasks", "edit_all_tasks", "admin"] as const;
+export const projectPermissionValues = ["preview_own_tasks", "preview_all_tasks", "edit_own_tasks", "edit_all_tasks"] as const;
+export const projectPermissionLabels = {
+  preview_own_tasks: "View own tasks",
+  preview_all_tasks: "View all tasks",
+  edit_own_tasks: "Edit own tasks",
+  edit_all_tasks: "Edit all tasks",
+} as const satisfies Record<(typeof projectPermissionValues)[number], string>;
 export const authStatusValues = [
   "verification_required",
   "verified",
@@ -229,7 +235,7 @@ export const projectDetailSchema = projectSummarySchema.extend({
   memberIds: z.array(z.string()),
   tasks: z.array(z.string()),
   isMasterOwner: z.boolean().default(true),
-  permission: projectPermissionSchema.default("admin"),
+  permission: projectPermissionSchema.default("edit_all_tasks"),
   masterOwnerEmail: z.string().email().optional(),
 });
 

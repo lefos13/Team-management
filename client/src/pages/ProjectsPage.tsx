@@ -5,7 +5,7 @@ permission management scoped to the selected owned project.
 import { ActionIcon, Avatar, Badge, Button, Card, Divider, Group, Loader, Modal, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconClipboardList, IconEdit, IconMail, IconPlus, IconTrash, IconUsers } from "@tabler/icons-react";
-import { projectPermissionValues, type ProjectInvitationDTO, type ProjectPermission } from "@team-management/shared";
+import { projectPermissionLabels, projectPermissionValues, type ProjectInvitationDTO, type ProjectPermission } from "@team-management/shared";
 import { useMemo, useState } from "react";
 
 import { CompactPagination } from "../components/CompactPagination";
@@ -228,7 +228,9 @@ export function ProjectsPage() {
                   <Text fw={800} className="projects-card-title">{project.name}</Text>
                 </Group>
                 <Text className="projects-card-description">{project.description || "No description provided."}</Text>
-                <Badge color="blue" variant="light" className="projects-permission-badge">Invited: {project.permission}</Badge>
+                <Badge color="blue" variant="light" className="projects-permission-badge">
+                  Invited: {projectPermissionLabels[project.permission]}
+                </Badge>
                 <Stack gap={20} mt="auto">
                   <ProjectStatusBadge status={project.status} />
                   <Group gap={26} className="projects-card-metrics">
@@ -338,7 +340,7 @@ export function ProjectsPage() {
                         <Select
                           className="projects-permission-select"
                           value={permission}
-                          data={projectPermissionValues.map((value) => ({ value, label: value }))}
+                          data={projectPermissionValues.map((value) => ({ value, label: projectPermissionLabels[value] }))}
                           onChange={(value) => {
                             if (!value) {
                               return;

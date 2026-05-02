@@ -289,7 +289,7 @@ export function TasksPage() {
   }, [navigate, searchParams, setSearchParams, tasksQuery.data]);
 
   const writableSharedProjects =
-    projectsQuery.data?.sharedProjects.filter((project) => project.permission === "edit_all_tasks" || project.permission === "admin") ?? [];
+    projectsQuery.data?.sharedProjects.filter((project) => project.permission === "edit_all_tasks") ?? [];
   const taskWritableProjects = [...(projectsQuery.data?.ownedProjects ?? []), ...writableSharedProjects];
   const projects = [...(projectsQuery.data?.ownedProjects ?? []), ...(projectsQuery.data?.sharedProjects ?? [])];
   const canCreateTasks = taskWritableProjects.length > 0;

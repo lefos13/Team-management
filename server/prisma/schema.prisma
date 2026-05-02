@@ -12,7 +12,6 @@ enum ProjectPermission {
   preview_all_tasks
   edit_own_tasks
   edit_all_tasks
-  admin
 }
 
 enum ProjectAccessStatus {

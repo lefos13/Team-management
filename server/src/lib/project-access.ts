@@ -32,7 +32,7 @@ export async function getAccessContext(projectId: string, currentUserId: string)
       ownerUserId: project.userId,
       currentUserId,
       isMasterOwner: true,
-      permission: "admin",
+      permission: "edit_all_tasks",
       teamMemberId: null,
     };
   }
@@ -65,11 +65,11 @@ export async function getAccessContext(projectId: string, currentUserId: string)
 }
 
 export function canPreviewAnyTask(permission: ProjectPermission) {
-  return permission === "preview_all_tasks" || permission === "edit_all_tasks" || permission === "admin";
+  return permission === "preview_all_tasks" || permission === "edit_all_tasks";
 }
 
 export function canEditAnyTask(permission: ProjectPermission) {
-  return permission === "edit_all_tasks" || permission === "admin";
+  return permission === "edit_all_tasks";
 }
 
 export function canEditOwnTask(permission: ProjectPermission) {
@@ -81,7 +81,7 @@ export function canPreviewOwnTask(permission: ProjectPermission) {
 }
 
 export function assertCanManageMembers(context: AccessContext) {
-  if (context.isMasterOwner || context.permission === "admin") {
+  if (context.isMasterOwner) {
     return;
   }
 
