@@ -281,7 +281,7 @@ export function ProjectsPage() {
         opened={Boolean(invitationProjectId)}
         onClose={() => setInvitationProjectId(null)}
         title="Manage invitations"
-        size="xl"
+        size={1180}
         centered
         classNames={{
           content: "projects-invitations-modal",
@@ -305,7 +305,7 @@ export function ProjectsPage() {
                   <Table.Th>Member</Table.Th>
                   <Table.Th>Status</Table.Th>
                   <Table.Th>Permission</Table.Th>
-                  <Table.Th>Actions</Table.Th>
+                  <Table.Th className="projects-invitations-actions-heading">Actions</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -347,8 +347,8 @@ export function ProjectsPage() {
                           }}
                         />
                       </Table.Td>
-                      <Table.Td>
-                        <Group justify="end" gap={10} wrap="nowrap">
+                      <Table.Td className="projects-invitations-actions-cell">
+                        <Group justify="end" gap={8} wrap="wrap" className="projects-invitations-actions">
                           <Button
                             className="projects-permission-action"
                             variant="outline"

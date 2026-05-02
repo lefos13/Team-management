@@ -483,6 +483,8 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-invitations-modal {
+  width: min(1180px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   border-radius: 8px;
   box-shadow: 0 28px 80px rgba(15, 35, 56, 0.24);
 }
@@ -529,7 +531,8 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-invitations-table {
-  min-width: 760px;
+  min-width: 1010px;
+  table-layout: fixed;
 }
 
 .projects-invitations-table th {
@@ -540,12 +543,39 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-invitations-table td {
-  padding: 12px 20px;
+  padding: 12px 16px;
   border-top: 1px solid rgba(15, 35, 56, 0.08);
+}
+
+.projects-invitations-table th:first-child {
+  width: 31%;
+}
+
+.projects-invitations-table th:nth-child(2) {
+  width: 14%;
+}
+
+.projects-invitations-table th:nth-child(3) {
+  width: 23%;
+}
+
+.projects-invitations-table th:nth-child(4) {
+  width: 32%;
+}
+
+.projects-invitations-actions-heading,
+.projects-invitations-actions-cell {
+  text-align: right;
 }
 
 .projects-member-cell {
   min-width: 0;
+}
+
+.projects-member-cell p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .projects-member-cell p:first-child {
@@ -566,13 +596,20 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-permission-select {
-  min-width: 220px;
+  min-width: 0;
+  width: 100%;
+}
+
+.projects-invitations-actions {
+  min-width: 0;
 }
 
 .projects-permission-action {
-  min-width: 136px;
-  height: 36px;
+  min-width: 124px;
+  height: 34px;
+  padding-inline: 12px;
   border-radius: 6px;
+  font-size: 0.78rem;
   font-weight: 800;
 }
 
