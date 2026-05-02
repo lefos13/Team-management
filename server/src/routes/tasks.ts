@@ -559,6 +559,16 @@ function canEditTaskForAccess(
   return access.isMasterOwner || canEditAnyTask(access.permission) || (canEditOwnTask(access.permission) && isOwnTask);
 }
 
+function canManageTaskAssignees(access: { isMasterOwner: boolean; permission: ProjectPermission }) {
+  return access.isMasterOwner || canEditAnyTask(access.permission);
+}
+
+function haveSameAssignees(left: string[], right: string[]) {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return leftSet.size === rightSet.size && [...leftSet].every((value) => rightSet.has(value));
+}
+
 async function buildTasksWorkbook(tasks: ExportTask[]) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Team Management";
@@ -983,8 +993,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const accessByProjectId = new Map(accesses.map((access) => [access.projectId, access]));
       return tasks.map((task) => {
         const access = accessByProjectId.get(task.projectId);
+        const sharedAccess = access ? { ...access, isMasterOwner: false } : null;
         return mapTask(task, {
-          canEdit: task.userId === user.id || (access ? canEditTaskForAccess(task, { ...access, isMasterOwner: false }) : false),
+          canEdit: task.userId === user.id || (sharedAccess ? canEditTaskForAccess(task, sharedAccess) : false),
+          canManageAssignees: task.userId === user.id || (sharedAccess ? canManageTaskAssignees(sharedAccess) : false),
         });
       });
     },
@@ -1265,6 +1277,12 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const assigneeIds = normalizeAssigneeIds(body);
       const existingTask = await getTaskForUser(user.id, params.id, true);
       const access = await getAccessContext(existingTask.projectId, user.id);
+      const existingAssigneeIds = existingTask.taskAssignees.length > 0
+        ? existingTask.taskAssignees.map((assignment) => assignment.teamMemberId)
+        : [existingTask.assigneeId];
+      if (!canManageTaskAssignees(access) && !haveSameAssignees(assigneeIds, existingAssigneeIds)) {
+        throw badRequest("You do not have permission to change task assignees.");
+      }
       const parentTaskId = await validateParentTask(access.ownerUserId, body.projectId, normalizeOptionalId(body.parentTaskId), params.id);
       await ensureAssignable(access.ownerUserId, body.projectId, assigneeIds);
       const archivePreparation = body.status === "done" && existingTask.status !== "done" ? await prepareTaskArchive(existingTask) : null;
@@ -1361,7 +1379,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         await finalizeTaskRestore(existingTask);
       }
 
-      return mapTask(task);
+      return mapTask(task, { canManageAssignees: canManageTaskAssignees(access) });
     },
   );
 
@@ -1456,7 +1474,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         await finalizeTaskRestore(task);
       }
 
-      return mapTask(updatedTask);
+      return mapTask(updatedTask, { canManageAssignees: canManageTaskAssignees(access) });
     },
   );
 
@@ -1474,7 +1492,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const task = await getTaskForUser(user.id, params.id);
       const access = await getAccessContext(task.projectId, user.id);
 
-      return mapTask(task, { canEdit: canEditTaskForAccess(task, access) });
+      return mapTask(task, { canEdit: canEditTaskForAccess(task, access), canManageAssignees: canManageTaskAssignees(access) });
     },
   );
 

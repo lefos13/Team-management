@@ -19,8 +19,10 @@ import {
   useProjectDetail,
   useProjectInvitations,
   useProjects,
+  useRevokeProjectAccess,
   useRevokeProjectInvitation,
   useSendProjectInvitation,
+  useUpdateProjectAccessPermission,
   useUpdateProject,
 } from "../hooks/use-app-data";
 import { usePagination } from "../hooks/use-pagination";
@@ -40,6 +42,8 @@ export function ProjectsPage() {
   const deleteProject = useDeleteProject();
   const sendInvitation = useSendProjectInvitation();
   const revokeInvitation = useRevokeProjectInvitation();
+  const updateProjectAccessPermission = useUpdateProjectAccessPermission();
+  const revokeProjectAccess = useRevokeProjectAccess();
 
   const ownedProjects = projectsQuery.data?.ownedProjects ?? [];
   const sharedProjects = projectsQuery.data?.sharedProjects ?? [];
@@ -239,10 +243,11 @@ export function ProjectsPage() {
             <Table.Tbody>
               {invitationProjectMembers.map((member) => {
                 const invitation = invitationByMember.get(member.id);
-                const isAccepted = Boolean(invitation?.acceptedAt);
+                const isAccessRevoked = invitation?.accessStatus === "revoked";
+                const isAccepted = Boolean(invitation?.acceptedAt && invitation?.accessStatus === "active");
                 const isRevoked = Boolean(invitation?.revokedAt);
                 const permission = permissionByMember[member.id] ?? invitation?.permission ?? "preview_own_tasks";
-                const statusLabel = isAccepted ? "Accepted" : isRevoked ? "Revoked" : invitation ? "Pending" : "Not invited";
+                const statusLabel = isAccepted ? "Accepted" : isAccessRevoked || isRevoked ? "Revoked" : invitation ? "Pending" : "Not invited";
                 return (
                   <Table.Tr key={member.id}>
                     <Table.Td>
@@ -270,22 +275,48 @@ export function ProjectsPage() {
                       <Group justify="end">
                         <Button
                           size="xs"
-                          loading={sendInvitation.isPending}
+                          loading={sendInvitation.isPending || updateProjectAccessPermission.isPending}
                           onClick={async () => {
                             if (!invitationProjectId) {
                               return;
                             }
                             try {
+                              if (isAccepted && invitation?.accessId) {
+                                await updateProjectAccessPermission.mutateAsync({ projectId: invitationProjectId, accessId: invitation.accessId, permission });
+                                notifications.show({ color: "teal", title: "Permission updated", message: `${member.email} access was updated.` });
+                                return;
+                              }
+
                               await sendInvitation.mutateAsync({ projectId: invitationProjectId, memberId: member.id, permission });
                               notifications.show({ color: "teal", title: "Invitation sent", message: `Invitation sent to ${member.email}.` });
                             } catch (error) {
-                              notifications.show({ color: "red", title: "Unable to send invitation", message: getErrorMessage(error) });
+                              notifications.show({ color: "red", title: "Unable to update access", message: getErrorMessage(error) });
                             }
                           }}
                         >
-                          {invitation && !isAccepted && !isRevoked ? "Resend" : "Send"}
+                          {isAccepted ? "Update permission" : invitation && !isRevoked && !isAccessRevoked ? "Resend" : "Send"}
                         </Button>
-                        {invitation && !isAccepted && !isRevoked ? (
+                        {isAccepted && invitation?.accessId ? (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="red"
+                            loading={revokeProjectAccess.isPending}
+                            onClick={async () => {
+                              if (!invitationProjectId || !invitation.accessId) {
+                                return;
+                              }
+                              try {
+                                await revokeProjectAccess.mutateAsync({ projectId: invitationProjectId, accessId: invitation.accessId });
+                                notifications.show({ color: "teal", title: "Access revoked", message: `${member.email} access was revoked.` });
+                              } catch (error) {
+                                notifications.show({ color: "red", title: "Unable to revoke access", message: getErrorMessage(error) });
+                              }
+                            }}
+                          >
+                            Revoke access
+                          </Button>
+                        ) : invitation && !isAccepted && !isRevoked && !isAccessRevoked ? (
                           <Button
                             size="xs"
                             variant="light"

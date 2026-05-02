@@ -149,7 +149,7 @@ export function mapTask(
       generatedAt: Date;
     } | null;
   },
-  options: { canEdit?: boolean } = {},
+  options: { canEdit?: boolean; canManageAssignees?: boolean } = {},
 ): TaskDTO {
   const orderedAssignees = [...task.taskAssignees].sort((left, right) => {
     if (left.teamMemberId === task.assigneeId) {
@@ -203,6 +203,7 @@ export function mapTask(
     attachmentArchive,
     attachmentsPreviewAvailable: task.status !== "done",
     canEdit: options.canEdit ?? true,
+    canManageAssignees: options.canManageAssignees ?? true,
     createdAt: toIsoString(task.createdAt),
     updatedAt: toIsoString(task.updatedAt),
   };

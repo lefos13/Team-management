@@ -239,6 +239,8 @@ export const projectInvitationSchema = z.object({
   memberId: z.string(),
   inviteEmail: z.string().email(),
   permission: projectPermissionSchema,
+  accessId: z.string().nullable(),
+  accessStatus: z.enum(["active", "invited", "revoked"]).nullable(),
   expiresAt: z.string().datetime(),
   acceptedAt: z.string().datetime().nullable(),
   revokedAt: z.string().datetime().nullable(),
@@ -281,6 +283,7 @@ export const taskSchema = z.object({
   attachmentArchive: taskAttachmentArchiveSchema.nullable(),
   attachmentsPreviewAvailable: z.boolean(),
   canEdit: z.boolean(),
+  canManageAssignees: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

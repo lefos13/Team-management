@@ -374,7 +374,7 @@ describe("team management API", () => {
       });
 
     const invitedUser = await prisma.user.findUniqueOrThrow({ where: { email: "invited-preview@example.com" } });
-    await prisma.projectAccess.create({
+    const projectAccess = await prisma.projectAccess.create({
       data: {
         projectId: project.body.id,
         ownerUserId: ownerLogin.body.id,
@@ -400,6 +400,27 @@ describe("team management API", () => {
       .set("Cookie", invitedCookie)
       .send({ status: "done" });
     expect(statusUpdate.status).toBe(400);
+
+    const updateAccess = await request(app.server)
+      .patch(`/api/projects/${project.body.id}/access/${projectAccess.id}/permission`)
+      .set("Cookie", ownerCookie)
+      .send({ permission: "edit_own_tasks" });
+    expect(updateAccess.status).toBe(200);
+    expect(updateAccess.body.permission).toBe("edit_own_tasks");
+
+    const sharedBeforeRevoke = await request(app.server).get("/api/projects").set("Cookie", invitedCookie);
+    expect(sharedBeforeRevoke.body.sharedProjects).toEqual([
+      expect.objectContaining({ id: project.body.id, permission: "edit_own_tasks" }),
+    ]);
+
+    const revokeAccess = await request(app.server)
+      .post(`/api/projects/${project.body.id}/access/${projectAccess.id}/revoke`)
+      .set("Cookie", ownerCookie);
+    expect(revokeAccess.status).toBe(200);
+    expect(revokeAccess.body.status).toBe("revoked");
+
+    const sharedAfterRevoke = await request(app.server).get("/api/projects").set("Cookie", invitedCookie);
+    expect(sharedAfterRevoke.body.sharedProjects).toHaveLength(0);
   });
 
   /*

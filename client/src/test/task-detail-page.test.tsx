@@ -64,6 +64,7 @@ function buildTask(overrides: Partial<TaskDTO> = {}): TaskDTO {
     attachmentArchive: null,
     attachmentsPreviewAvailable: true,
     canEdit: true,
+    canManageAssignees: true,
     createdAt: "2030-05-01T08:00:00.000Z",
     updatedAt: "2030-05-01T08:00:00.000Z",
     ...overrides,

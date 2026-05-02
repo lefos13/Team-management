@@ -83,6 +83,10 @@ function mapInvitation(invitation: {
   teamMemberId: string;
   inviteEmail: string;
   permission: ProjectPermission;
+  access?: {
+    id: string;
+    status: "active" | "invited" | "revoked";
+  } | null;
   expiresAt: Date;
   acceptedAt: Date | null;
   revokedAt: Date | null;
@@ -94,6 +98,8 @@ function mapInvitation(invitation: {
     memberId: invitation.teamMemberId,
     inviteEmail: invitation.inviteEmail,
     permission: invitation.permission,
+    accessId: invitation.access?.id ?? null,
+    accessStatus: invitation.access?.status ?? null,
     expiresAt: invitation.expiresAt.toISOString(),
     acceptedAt: invitation.acceptedAt?.toISOString() ?? null,
     revokedAt: invitation.revokedAt?.toISOString() ?? null,
@@ -279,12 +285,26 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
       const access = await getAccessContext(params.id, user.id);
       assertMasterOwner(access);
 
-      const invitations = await prisma.projectInvitation.findMany({
-        where: { projectId: params.id },
-        orderBy: { createdAt: "desc" },
-      });
+      const [invitations, accesses] = await Promise.all([
+        prisma.projectInvitation.findMany({
+          where: { projectId: params.id },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.projectAccess.findMany({
+          where: { projectId: params.id },
+          select: { id: true, teamMemberId: true, permission: true, status: true },
+        }),
+      ]);
+      const accessByMemberId = new Map(accesses.filter((item) => item.teamMemberId).map((item) => [item.teamMemberId!, item]));
 
-      return invitations.map(mapInvitation);
+      return invitations.map((invitation) => {
+        const activeAccess = accessByMemberId.get(invitation.teamMemberId);
+        return mapInvitation({
+          ...invitation,
+          permission: activeAccess?.permission ?? invitation.permission,
+          access: activeAccess ? { id: activeAccess.id, status: activeAccess.status } : null,
+        });
+      });
     },
   );
 
@@ -362,6 +382,29 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return prisma.projectAccess.update({ where: { id: params.accessId }, data: { permission: body.permission } });
+    },
+  );
+
+  app.post(
+    "/projects/:id/access/:accessId/revoke",
+    { preHandler: fastify.authenticate, schema: { params: projectAccessParamsSchema } },
+    async (request) => {
+      const user = requireCurrentUser(request);
+      const params = projectAccessParamsSchema.parse(request.params);
+      const context = await getAccessContext(params.id, user.id);
+      assertMasterOwner(context);
+
+      const access = await prisma.projectAccess.findFirst({ where: { id: params.accessId, projectId: params.id } });
+      if (!access) {
+        throw notFound("Project access");
+      }
+
+      /*
+      Revoking accepted access changes only the server-side access row. The
+      original invitation remains historical, while shared-project visibility
+      stops because project lists only include active access.
+      */
+      return prisma.projectAccess.update({ where: { id: params.accessId }, data: { status: "revoked" } });
     },
   );
 

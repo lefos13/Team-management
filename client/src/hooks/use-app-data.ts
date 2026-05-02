@@ -223,6 +223,34 @@ export function useRevokeProjectInvitation() {
   });
 }
 
+export function useUpdateProjectAccessPermission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectId, accessId, permission }: { projectId: string; accessId: string; permission: ProjectPermission }) => {
+      await api.patch(`/projects/${projectId}/access/${accessId}/permission`, { permission });
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["project-invitations", variables.projectId] });
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
+export function useRevokeProjectAccess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectId, accessId }: { projectId: string; accessId: string }) => {
+      await api.post(`/projects/${projectId}/access/${accessId}/revoke`);
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["project-invitations", variables.projectId] });
+      await invalidateCoreQueries(queryClient);
+    },
+  });
+}
+
 export function useCreateMember() {
   const queryClient = useQueryClient();
 

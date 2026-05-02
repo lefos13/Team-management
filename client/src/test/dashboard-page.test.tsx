@@ -29,6 +29,7 @@ const completedTask = {
   attachmentArchive: null,
   attachmentsPreviewAvailable: false,
   canEdit: true,
+  canManageAssignees: true,
   createdAt: "2029-04-01T08:00:00.000Z",
   updatedAt: "2029-04-03T12:30:00.000Z",
 } satisfies TaskDTO;

@@ -27,6 +27,7 @@ function task(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "stat
     attachmentArchive: null,
     attachmentsPreviewAvailable: overrides.status !== "done",
     canEdit: true,
+    canManageAssignees: true,
     createdAt: "2030-05-01T08:00:00.000Z",
     updatedAt: "2030-05-01T08:00:00.000Z",
     ...overrides,

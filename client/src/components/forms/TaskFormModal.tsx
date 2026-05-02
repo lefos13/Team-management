@@ -140,22 +140,34 @@ export function TaskFormModal({
   const selectedProjectId = form.watch("projectId");
   const selectedAssigneeIds = form.watch("assigneeIds");
   const selectedParentTaskId = form.watch("parentTaskId");
-  const assignableMembers = members.filter(
-    (member) => member.active && member.projectIds.includes(selectedProjectId),
-  );
+  const canManageAssignees = !task || task.canManageAssignees;
+  const currentAssigneeOptions = (task?.assigneeIds ?? []).map((memberId, index) => ({
+    id: memberId,
+    name: task?.assigneeNames[index] ?? task?.assigneeName ?? memberId,
+    active: true,
+    projectIds: [task?.projectId ?? selectedProjectId],
+  }));
+  const assignableMembers = [
+    ...members.filter((member) => member.active && member.projectIds.includes(selectedProjectId)),
+    ...currentAssigneeOptions.filter((assignee) => !members.some((member) => member.id === assignee.id)),
+  ];
   const taskHasSubtasks = Boolean(task && tasks.some((candidate) => candidate.parentTaskId === task.id));
   const parentOptions = tasks
     .filter((candidate) => candidate.projectId === selectedProjectId && !candidate.parentTaskId && candidate.id !== task?.id)
     .map((candidate) => ({ value: candidate.id, label: candidate.title }));
 
   useEffect(() => {
+    if (!canManageAssignees) {
+      return;
+    }
+
     const assignableIds = new Set(assignableMembers.map((member) => member.id));
     const nextAssigneeIds = selectedAssigneeIds.filter((memberId) => assignableIds.has(memberId));
 
     if (nextAssigneeIds.length !== selectedAssigneeIds.length) {
       form.setValue("assigneeIds", nextAssigneeIds, { shouldValidate: true });
     }
-  }, [assignableMembers, form, selectedAssigneeIds]);
+  }, [assignableMembers, canManageAssignees, form, selectedAssigneeIds]);
 
   useEffect(() => {
     const parentIds = new Set(parentOptions.map((option) => option.value));
@@ -229,6 +241,7 @@ export function TaskFormModal({
                 value={field.value}
                 onChange={(value) => field.onChange(value ?? "")}
                 error={form.formState.errors.projectId?.message}
+                disabled={Boolean(task && !task.canManageAssignees)}
               />
             )}
           />
@@ -242,7 +255,7 @@ export function TaskFormModal({
                 value={field.value}
                 onChange={field.onChange}
                 error={form.formState.errors.assigneeIds?.message}
-                disabled={!selectedProjectId}
+                disabled={!selectedProjectId || !canManageAssignees}
                 searchable
               />
             )}

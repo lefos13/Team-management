@@ -1,6 +1,7 @@
 /* Verify the task modal switches attachment controls by task status and blocks oversize uploads before the request is sent. */
 import { MantineProvider } from "@mantine/core";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ProjectSummaryDTO, TaskDTO, TeamMemberDTO } from "@team-management/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -47,6 +48,7 @@ function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
     attachmentArchive: null,
     attachmentsPreviewAvailable: true,
     canEdit: true,
+    canManageAssignees: true,
     createdAt: "2030-05-01T08:00:00.000Z",
     updatedAt: "2030-05-01T08:00:00.000Z",
     ...overrides,
@@ -54,6 +56,7 @@ function task(overrides: Partial<TaskDTO> = {}): TaskDTO {
 }
 
 function renderModal(currentTask: TaskDTO | null) {
+  const onSubmit = vi.fn();
   return render(
     <MantineProvider>
       <TaskFormModal
@@ -65,7 +68,7 @@ function renderModal(currentTask: TaskDTO | null) {
         task={currentTask}
         tasks={currentTask ? [currentTask] : []}
         onClose={vi.fn()}
-        onSubmit={vi.fn()}
+        onSubmit={onSubmit}
         onUploadAttachments={vi.fn().mockResolvedValue(undefined)}
         onDeleteAttachment={vi.fn().mockResolvedValue(undefined)}
         onDownloadAttachment={vi.fn().mockResolvedValue(undefined)}
@@ -136,5 +139,34 @@ describe("TaskFormModal attachments", () => {
     });
 
     expect(validateAttachmentFiles([largeFile])).toBe("huge.bin exceeds the 10 MB limit.");
+  });
+
+  it("keeps existing assignees visible but locked when assignment management is not allowed", async () => {
+    const user = userEvent.setup();
+    render(
+      <MantineProvider>
+        <TaskFormModal
+          projects={[...projects]}
+          members={[]}
+          opened
+          pending={false}
+          attachmentPending={false}
+          task={task({ canManageAssignees: false })}
+          tasks={[task({ canManageAssignees: false })]}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+          onUploadAttachments={vi.fn().mockResolvedValue(undefined)}
+          onDeleteAttachment={vi.fn().mockResolvedValue(undefined)}
+          onDownloadAttachment={vi.fn().mockResolvedValue(undefined)}
+          onDownloadAttachmentArchive={vi.fn().mockResolvedValue(undefined)}
+          onPreviewAttachment={vi.fn().mockResolvedValue(undefined)}
+        />
+      </MantineProvider>,
+    );
+
+    expect(screen.getAllByText("Ada Manager").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("Assignees").some((element) => element.hasAttribute("disabled"))).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save task" }));
+    expect(screen.queryByText("At least one assignee is required.")).not.toBeInTheDocument();
   });
 });
