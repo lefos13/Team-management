@@ -267,58 +267,30 @@ export function DashboardPage() {
         ))}
       </SimpleGrid>
 
-      <Grid gutter="lg">
-        <Grid.Col span={{ base: 12, xl: 8 }}>
-          <Paper className="dashboard-panel dashboard-overview-panel" radius="md" p="lg" withBorder>
-            <Group justify="space-between" mb="md">
-              <Stack gap={2}>
-                <Text fw={900} fz="lg">
-                  Tasks Overview
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Paginated by status so every column stays stable.
-                </Text>
-              </Stack>
-              <ThemeIcon color="teal" variant="light">
-                <IconFolder size={18} />
-              </ThemeIcon>
-            </Group>
-            <SimpleGrid cols={{ base: 1, md: 2, xl: 5 }} spacing="sm">
-              {taskStatusValues.map((status) => (
-                <TaskColumn key={status} status={status} tasks={tasks.filter((task) => task.status === status)} />
-              ))}
-            </SimpleGrid>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, xl: 4 }}>
-          <Paper className="dashboard-panel dashboard-overview-panel" radius="md" p="lg" withBorder>
-            <Group justify="space-between" mb="md">
-              <Text fw={900} fz="lg">
-                Calendar
-              </Text>
-              <Text size="sm" c="dimmed">
-                {dayjs().format("MMM YYYY")}
-              </Text>
-            </Group>
-            <FullCalendar
-              plugins={[dayGridPlugin]}
-              initialView="dayGridMonth"
-              height={360}
-              dayMaxEventRows={2}
-              events={events.map((event) => ({
-                id: event.id,
-                title: event.title,
-                start: event.start ?? event.date,
-                end: event.end ?? event.date,
-                color: event.overdue ? "#C92A2A" : "#16A98B",
-              }))}
-              eventClick={(info) => {
-                navigate(`/tasks/${info.event.id}`);
-              }}
-            />
-          </Paper>
-        </Grid.Col>
-      </Grid>
+      {/*
+      Give the status columns the full dashboard width so pagination controls
+      and task titles fit before lower-priority calendar content appears.
+      */}
+      <Paper className="dashboard-panel dashboard-overview-panel" radius="md" p="lg" withBorder>
+        <Group justify="space-between" mb="md">
+          <Stack gap={2}>
+            <Text fw={900} fz="lg">
+              Tasks Overview
+            </Text>
+            <Text size="sm" c="dimmed">
+              Paginated by status so every column stays stable.
+            </Text>
+          </Stack>
+          <ThemeIcon color="teal" variant="light">
+            <IconFolder size={18} />
+          </ThemeIcon>
+        </Group>
+        <SimpleGrid cols={{ base: 1, md: 2, lg: 3, xl: 5 }} spacing="sm">
+          {taskStatusValues.map((status) => (
+            <TaskColumn key={status} status={status} tasks={tasks.filter((task) => task.status === status)} />
+          ))}
+        </SimpleGrid>
+      </Paper>
 
       <Grid gutter="lg">
         <Grid.Col span={{ base: 12, xl: 4 }}>
@@ -410,6 +382,33 @@ export function DashboardPage() {
           </Paper>
         </Grid.Col>
       </Grid>
+
+      <Paper className="dashboard-panel dashboard-calendar-panel" radius="md" p="lg" withBorder>
+        <Group justify="space-between" mb="md">
+          <Text fw={900} fz="lg">
+            Calendar
+          </Text>
+          <Text size="sm" c="dimmed">
+            {dayjs().format("MMM YYYY")}
+          </Text>
+        </Group>
+        <FullCalendar
+          plugins={[dayGridPlugin]}
+          initialView="dayGridMonth"
+          height={420}
+          dayMaxEventRows={2}
+          events={events.map((event) => ({
+            id: event.id,
+            title: event.title,
+            start: event.start ?? event.date,
+            end: event.end ?? event.date,
+            color: event.overdue ? "#C92A2A" : "#16A98B",
+          }))}
+          eventClick={(info) => {
+            navigate(`/tasks/${info.event.id}`);
+          }}
+        />
+      </Paper>
     </Stack>
   );
 }
