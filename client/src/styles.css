@@ -390,7 +390,7 @@ scan access context and manage permissions without leaving the page.
 }
 
 .paginated-card-grid.projects-card-grid .projects-card {
-  height: 288px;
+  min-height: 320px;
 }
 
 .projects-card {
@@ -418,7 +418,9 @@ scan access context and manage permissions without leaving the page.
   height: 24px;
   flex: 0 0 24px;
   border-radius: 4px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(15, 35, 56, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+    0 1px 3px rgba(15, 35, 56, 0.16);
 }
 
 .projects-card-title {
@@ -440,11 +442,6 @@ scan access context and manage permissions without leaving the page.
   line-height: 1.32;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.projects-permission-badge {
-  width: fit-content;
-  max-width: 100%;
 }
 
 .projects-card-metrics {

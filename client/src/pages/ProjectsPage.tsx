@@ -2,10 +2,38 @@
 Split owned and shared projects into a visual portfolio view while keeping
 permission management scoped to the selected owned project.
 */
-import { ActionIcon, Avatar, Badge, Button, Card, Divider, Group, Loader, Modal, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  Group,
+  Loader,
+  Modal,
+  Select,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconClipboardList, IconEdit, IconMail, IconPlus, IconTrash, IconUsers } from "@tabler/icons-react";
-import { projectPermissionLabels, projectPermissionValues, type ProjectInvitationDTO, type ProjectPermission } from "@team-management/shared";
+import {
+  IconClipboardList,
+  IconEdit,
+  IconMail,
+  IconPlus,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react";
+import {
+  projectPermissionLabels,
+  projectPermissionValues,
+  type ProjectInvitationDTO,
+  type ProjectPermission,
+} from "@team-management/shared";
 import { useMemo, useState } from "react";
 
 import { CompactPagination } from "../components/CompactPagination";
@@ -54,8 +82,12 @@ function getInvitationStatusColor(status: string) {
 export function ProjectsPage() {
   const [opened, setOpened] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [invitationProjectId, setInvitationProjectId] = useState<string | null>(null);
-  const [permissionByMember, setPermissionByMember] = useState<Record<string, ProjectPermission>>({});
+  const [invitationProjectId, setInvitationProjectId] = useState<string | null>(
+    null,
+  );
+  const [permissionByMember, setPermissionByMember] = useState<
+    Record<string, ProjectPermission>
+  >({});
   const projectsQuery = useProjects();
   const membersQuery = useMembers();
   const projectDetailQuery = useProjectDetail(editingProjectId);
@@ -72,7 +104,8 @@ export function ProjectsPage() {
   const sharedProjects = projectsQuery.data?.sharedProjects ?? [];
 
   const editableProject = useMemo(() => {
-    const project = ownedProjects.find((item) => item.id === editingProjectId) ?? null;
+    const project =
+      ownedProjects.find((item) => item.id === editingProjectId) ?? null;
     if (!project) {
       return null;
     }
@@ -82,11 +115,21 @@ export function ProjectsPage() {
       aiContext: projectDetailQuery.data?.aiContext ?? project.aiContext,
       memberIds: projectDetailQuery.data?.memberIds ?? [],
     };
-  }, [editingProjectId, ownedProjects, projectDetailQuery.data?.aiContext, projectDetailQuery.data?.memberIds]);
+  }, [
+    editingProjectId,
+    ownedProjects,
+    projectDetailQuery.data?.aiContext,
+    projectDetailQuery.data?.memberIds,
+  ]);
 
   const members = membersQuery.data ?? [];
-  const invitationProjectMembers = members.filter((member) => invitationProjectId ? member.projectIds.includes(invitationProjectId) : false);
-  const invitationProject = ownedProjects.find((project) => project.id === invitationProjectId) ?? null;
+  const invitationProjectMembers = members.filter((member) =>
+    invitationProjectId
+      ? member.projectIds.includes(invitationProjectId)
+      : false,
+  );
+  const invitationProject =
+    ownedProjects.find((project) => project.id === invitationProjectId) ?? null;
   const invitationByMember = useMemo(() => {
     const map = new Map<string, ProjectInvitationDTO>();
     for (const invitation of invitationsQuery.data ?? []) {
@@ -96,7 +139,12 @@ export function ProjectsPage() {
     }
     return map;
   }, [invitationsQuery.data]);
-  const { page, setPage, totalPages, paginatedItems: paginatedOwned } = usePagination(ownedProjects, 6);
+  const {
+    page,
+    setPage,
+    totalPages,
+    paginatedItems: paginatedOwned,
+  } = usePagination(ownedProjects, 6);
 
   if (projectsQuery.isLoading || membersQuery.isLoading) {
     return <Loader />;
@@ -104,11 +152,18 @@ export function ProjectsPage() {
 
   return (
     <Stack gap={34} className="projects-page">
-      <Group justify="space-between" align="start" className="projects-page-header">
+      <Group
+        justify="space-between"
+        align="start"
+        className="projects-page-header"
+      >
         <Stack gap={6}>
-          <Title order={1} className="projects-page-title">Projects</Title>
+          <Title order={1} className="projects-page-title">
+            Projects
+          </Title>
           <Text className="projects-page-description">
-            Owned portfolio projects and shared projects are separated for clear access context.
+            Owned portfolio projects and shared projects are separated for clear
+            access context.
           </Text>
         </Stack>
         <div className="projects-page-action">
@@ -129,23 +184,46 @@ export function ProjectsPage() {
 
       <Stack gap={18} className="projects-section">
         <Group gap="sm" align="center">
-          <Title order={2} className="projects-section-title">My Projects (Master Owner)</Title>
-          <Badge color="teal" variant="light">Full control</Badge>
+          <Title order={2} className="projects-section-title">
+            My Projects (Master Owner)
+          </Title>
+          <Badge color="teal" variant="light">
+            Full control
+          </Badge>
         </Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} className="paginated-card-grid projects-card-grid">
+        <SimpleGrid
+          cols={{ base: 1, sm: 2, lg: 3, xl: 4 }}
+          className="paginated-card-grid projects-card-grid"
+        >
           {paginatedOwned.map((project) => {
-            const projectMembers = members.filter((member) => member.projectIds.includes(project.id));
+            const projectMembers = members.filter((member) =>
+              member.projectIds.includes(project.id),
+            );
             const visibleMembers = projectMembers.slice(0, 3);
-            const hiddenMemberCount = Math.max(project.memberCount - visibleMembers.length, 0);
+            const hiddenMemberCount = Math.max(
+              project.memberCount - visibleMembers.length,
+              0,
+            );
 
             return (
-              <Card key={project.id} withBorder className="content-card projects-card projects-owned-card">
+              <Card
+                key={project.id}
+                withBorder
+                className="content-card projects-card projects-owned-card"
+              >
                 <Stack gap={14} className="projects-card-body">
                   <Group gap="sm" align="center" wrap="nowrap">
-                    <div className="project-swatch projects-card-swatch" style={{ background: project.color ?? "#16A98B" }} />
-                    <Text fw={800} className="projects-card-title">{project.name}</Text>
+                    <div
+                      className="project-swatch projects-card-swatch"
+                      style={{ background: project.color ?? "#16A98B" }}
+                    />
+                    <Text fw={800} className="projects-card-title">
+                      {project.name}
+                    </Text>
                   </Group>
-                  <Text className="projects-card-description">{project.description || "No description provided."}</Text>
+                  <Text className="projects-card-description">
+                    {project.description || "No description provided."}
+                  </Text>
                   <Stack gap={20} mt="auto">
                     <ProjectStatusBadge status={project.status} />
                     <Group gap={26} className="projects-card-metrics">
@@ -163,16 +241,31 @@ export function ProjectsPage() {
                 <Group justify="space-between" className="projects-card-footer">
                   <Avatar.Group spacing="xs">
                     {visibleMembers.map((member, index) => (
-                      <Avatar key={member.id} size={32} color={avatarColors[index % avatarColors.length]} radius="xl">
+                      <Avatar
+                        key={member.id}
+                        size={32}
+                        color={avatarColors[index % avatarColors.length]}
+                        radius="xl"
+                      >
                         {getInitials(member.name, member.email)}
                       </Avatar>
                     ))}
                     {hiddenMemberCount > 0 ? (
-                      <Avatar size={32} color="gray" radius="xl">+{hiddenMemberCount}</Avatar>
+                      <Avatar size={32} color="gray" radius="xl">
+                        +{hiddenMemberCount}
+                      </Avatar>
                     ) : null}
                   </Avatar.Group>
                   <Group gap={16} className="projects-card-actions">
-                    <ActionIcon variant="subtle" color="dark" aria-label={`Edit ${project.name}`} onClick={() => { setEditingProjectId(project.id); setOpened(true); }}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="dark"
+                      aria-label={`Edit ${project.name}`}
+                      onClick={() => {
+                        setEditingProjectId(project.id);
+                        setOpened(true);
+                      }}
+                    >
                       <IconEdit size={24} stroke={1.8} />
                     </ActionIcon>
                     <ActionIcon
@@ -195,7 +288,11 @@ export function ProjectsPage() {
                         try {
                           await deleteProject.mutateAsync(project.id);
                         } catch (error) {
-                          notifications.show({ color: "red", title: "Unable to delete project", message: getErrorMessage(error) });
+                          notifications.show({
+                            color: "red",
+                            title: "Unable to delete project",
+                            message: getErrorMessage(error),
+                          });
                         }
                       }}
                     >
@@ -208,7 +305,13 @@ export function ProjectsPage() {
           })}
         </SimpleGrid>
         <Group className="page-pagination-slot" justify="center">
-          {totalPages > 1 ? <CompactPagination total={totalPages} value={page} onChange={setPage} /> : null}
+          {totalPages > 1 ? (
+            <CompactPagination
+              total={totalPages}
+              value={page}
+              onChange={setPage}
+            />
+          ) : null}
         </Group>
       </Stack>
 
@@ -216,21 +319,36 @@ export function ProjectsPage() {
 
       <Stack gap={18} className="projects-section">
         <Group gap="sm" align="center">
-          <Title order={2} className="projects-section-title">Shared With Me (Invited Member)</Title>
-          <Badge color="blue" variant="light">Permission based</Badge>
+          <Title order={2} className="projects-section-title">
+            Shared With Me (Invited Member)
+          </Title>
+          <Badge color="blue" variant="light">
+            Permission based
+          </Badge>
         </Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} className="paginated-card-grid projects-card-grid">
+        <SimpleGrid
+          cols={{ base: 1, sm: 2, lg: 3, xl: 4 }}
+          className="paginated-card-grid projects-card-grid"
+        >
           {sharedProjects.map((project) => (
-            <Card key={project.id} withBorder className="content-card projects-card projects-shared-card">
+            <Card
+              key={project.id}
+              withBorder
+              className="content-card projects-card projects-shared-card"
+            >
               <Stack gap={14} className="projects-card-body">
                 <Group gap="sm" align="center" wrap="nowrap">
-                  <div className="project-swatch projects-card-swatch" style={{ background: project.color ?? "#16A98B" }} />
-                  <Text fw={800} className="projects-card-title">{project.name}</Text>
+                  <div
+                    className="project-swatch projects-card-swatch"
+                    style={{ background: project.color ?? "#16A98B" }}
+                  />
+                  <Text fw={800} className="projects-card-title">
+                    {project.name}
+                  </Text>
                 </Group>
-                <Text className="projects-card-description">{project.description || "No description provided."}</Text>
-                <Badge color="blue" variant="light" className="projects-permission-badge">
-                  Invited: {projectPermissionLabels[project.permission]}
-                </Badge>
+                <Text className="projects-card-description">
+                  {project.description || "No description provided."}
+                </Text>
                 <Stack gap={20} mt="auto">
                   <ProjectStatusBadge status={project.status} />
                   <Group gap={26} className="projects-card-metrics">
@@ -246,9 +364,18 @@ export function ProjectsPage() {
                 </Stack>
               </Stack>
               <Stack gap={8} className="projects-shared-footer">
-                <Group justify="space-between" gap="sm" wrap="nowrap" className="projects-shared-permission-row">
+                <Group
+                  justify="space-between"
+                  gap="sm"
+                  wrap="nowrap"
+                  className="projects-shared-permission-row"
+                >
                   <Text>Your permission</Text>
-                  <Badge color="blue" variant="filled" className="projects-shared-permission-badge">
+                  <Badge
+                    color="blue"
+                    variant="filled"
+                    className="projects-shared-permission-badge"
+                  >
                     {projectPermissionLabels[project.permission]}
                   </Badge>
                 </Group>
@@ -265,19 +392,30 @@ export function ProjectsPage() {
       <ProjectFormModal
         members={members}
         opened={opened}
-        pending={createProject.isPending || updateProject.isPending || projectDetailQuery.isFetching}
+        pending={
+          createProject.isPending ||
+          updateProject.isPending ||
+          projectDetailQuery.isFetching
+        }
         project={editableProject}
         onClose={() => setOpened(false)}
         onSubmit={async (values) => {
           try {
             if (editingProjectId) {
-              await updateProject.mutateAsync({ id: editingProjectId, payload: values });
+              await updateProject.mutateAsync({
+                id: editingProjectId,
+                payload: values,
+              });
             } else {
               await createProject.mutateAsync(values);
             }
             setOpened(false);
           } catch (error) {
-            notifications.show({ color: "red", title: "Unable to save project", message: getErrorMessage(error) });
+            notifications.show({
+              color: "red",
+              title: "Unable to save project",
+              message: getErrorMessage(error),
+            });
           }
         }}
       />
@@ -303,10 +441,12 @@ export function ProjectsPage() {
       >
         <Stack gap={24}>
           <Text className="projects-modal-description">
-            Project access invitations can be sent with explicit permissions and managed here.
+            Project access invitations can be sent with explicit permissions and
+            managed here.
           </Text>
           <Text className="projects-modal-project">
-            Project: <span>{invitationProject?.name ?? "Selected project"}</span>
+            Project:{" "}
+            <span>{invitationProject?.name ?? "Selected project"}</span>
           </Text>
           <div className="projects-invitations-table-shell">
             <Table verticalSpacing={0} className="projects-invitations-table">
@@ -315,22 +455,41 @@ export function ProjectsPage() {
                   <Table.Th>Member</Table.Th>
                   <Table.Th>Status</Table.Th>
                   <Table.Th>Permission</Table.Th>
-                  <Table.Th className="projects-invitations-actions-heading">Actions</Table.Th>
+                  <Table.Th className="projects-invitations-actions-heading">
+                    Actions
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {invitationProjectMembers.map((member, index) => {
                   const invitation = invitationByMember.get(member.id);
-                  const isAccessRevoked = invitation?.accessStatus === "revoked";
-                  const isAccepted = Boolean(invitation?.acceptedAt && invitation?.accessStatus === "active");
+                  const isAccessRevoked =
+                    invitation?.accessStatus === "revoked";
+                  const isAccepted = Boolean(
+                    invitation?.acceptedAt &&
+                    invitation?.accessStatus === "active",
+                  );
                   const isRevoked = Boolean(invitation?.revokedAt);
-                  const permission = permissionByMember[member.id] ?? invitation?.permission ?? "preview_own_tasks";
-                  const statusLabel = isAccepted ? "Accepted" : isAccessRevoked || isRevoked ? "Revoked" : invitation ? "Pending" : "Not invited";
+                  const permission =
+                    permissionByMember[member.id] ??
+                    invitation?.permission ??
+                    "preview_own_tasks";
+                  const statusLabel = isAccepted
+                    ? "Accepted"
+                    : isAccessRevoked || isRevoked
+                      ? "Revoked"
+                      : invitation
+                        ? "Pending"
+                        : "Not invited";
                   return (
                     <Table.Tr key={member.id}>
                       <Table.Td>
                         <Group gap={12} wrap="nowrap">
-                          <Avatar size={40} color={avatarColors[index % avatarColors.length]} radius="xl">
+                          <Avatar
+                            size={40}
+                            color={avatarColors[index % avatarColors.length]}
+                            radius="xl"
+                          >
                             {getInitials(member.name, member.email)}
                           </Avatar>
                           <Stack gap={2} className="projects-member-cell">
@@ -340,7 +499,11 @@ export function ProjectsPage() {
                         </Group>
                       </Table.Td>
                       <Table.Td>
-                        <Badge color={getInvitationStatusColor(statusLabel)} variant="light" className="projects-invitation-status">
+                        <Badge
+                          color={getInvitationStatusColor(statusLabel)}
+                          variant="light"
+                          className="projects-invitation-status"
+                        >
                           {statusLabel}
                         </Badge>
                       </Table.Td>
@@ -348,41 +511,81 @@ export function ProjectsPage() {
                         <Select
                           className="projects-permission-select"
                           value={permission}
-                          data={projectPermissionValues.map((value) => ({ value, label: projectPermissionLabels[value] }))}
+                          data={projectPermissionValues.map((value) => ({
+                            value,
+                            label: projectPermissionLabels[value],
+                          }))}
                           onChange={(value) => {
                             if (!value) {
                               return;
                             }
-                            setPermissionByMember((current) => ({ ...current, [member.id]: value as ProjectPermission }));
+                            setPermissionByMember((current) => ({
+                              ...current,
+                              [member.id]: value as ProjectPermission,
+                            }));
                           }}
                         />
                       </Table.Td>
                       <Table.Td className="projects-invitations-actions-cell">
-                        <Group justify="end" gap={8} wrap="wrap" className="projects-invitations-actions">
+                        <Group
+                          justify="end"
+                          gap={8}
+                          wrap="wrap"
+                          className="projects-invitations-actions"
+                        >
                           <Button
                             className="projects-permission-action"
                             variant="outline"
                             color={isAccepted ? "teal" : "blue"}
-                            loading={sendInvitation.isPending || updateProjectAccessPermission.isPending}
+                            loading={
+                              sendInvitation.isPending ||
+                              updateProjectAccessPermission.isPending
+                            }
                             onClick={async () => {
                               if (!invitationProjectId) {
                                 return;
                               }
                               try {
                                 if (isAccepted && invitation?.accessId) {
-                                  await updateProjectAccessPermission.mutateAsync({ projectId: invitationProjectId, accessId: invitation.accessId, permission });
-                                  notifications.show({ color: "teal", title: "Permission updated", message: `${member.email} access was updated.` });
+                                  await updateProjectAccessPermission.mutateAsync(
+                                    {
+                                      projectId: invitationProjectId,
+                                      accessId: invitation.accessId,
+                                      permission,
+                                    },
+                                  );
+                                  notifications.show({
+                                    color: "teal",
+                                    title: "Permission updated",
+                                    message: `${member.email} access was updated.`,
+                                  });
                                   return;
                                 }
 
-                                await sendInvitation.mutateAsync({ projectId: invitationProjectId, memberId: member.id, permission });
-                                notifications.show({ color: "teal", title: "Invitation sent", message: `Invitation sent to ${member.email}.` });
+                                await sendInvitation.mutateAsync({
+                                  projectId: invitationProjectId,
+                                  memberId: member.id,
+                                  permission,
+                                });
+                                notifications.show({
+                                  color: "teal",
+                                  title: "Invitation sent",
+                                  message: `Invitation sent to ${member.email}.`,
+                                });
                               } catch (error) {
-                                notifications.show({ color: "red", title: "Unable to update access", message: getErrorMessage(error) });
+                                notifications.show({
+                                  color: "red",
+                                  title: "Unable to update access",
+                                  message: getErrorMessage(error),
+                                });
                               }
                             }}
                           >
-                            {isAccepted ? "Update permission" : invitation && !isRevoked && !isAccessRevoked ? "Resend" : "Send"}
+                            {isAccepted
+                              ? "Update permission"
+                              : invitation && !isRevoked && !isAccessRevoked
+                                ? "Resend"
+                                : "Send"}
                           </Button>
                           {isAccepted && invitation?.accessId ? (
                             <Button
@@ -391,20 +594,37 @@ export function ProjectsPage() {
                               color="red"
                               loading={revokeProjectAccess.isPending}
                               onClick={async () => {
-                                if (!invitationProjectId || !invitation.accessId) {
+                                if (
+                                  !invitationProjectId ||
+                                  !invitation.accessId
+                                ) {
                                   return;
                                 }
                                 try {
-                                  await revokeProjectAccess.mutateAsync({ projectId: invitationProjectId, accessId: invitation.accessId });
-                                  notifications.show({ color: "teal", title: "Access revoked", message: `${member.email} access was revoked.` });
+                                  await revokeProjectAccess.mutateAsync({
+                                    projectId: invitationProjectId,
+                                    accessId: invitation.accessId,
+                                  });
+                                  notifications.show({
+                                    color: "teal",
+                                    title: "Access revoked",
+                                    message: `${member.email} access was revoked.`,
+                                  });
                                 } catch (error) {
-                                  notifications.show({ color: "red", title: "Unable to revoke access", message: getErrorMessage(error) });
+                                  notifications.show({
+                                    color: "red",
+                                    title: "Unable to revoke access",
+                                    message: getErrorMessage(error),
+                                  });
                                 }
                               }}
                             >
                               Revoke access
                             </Button>
-                          ) : invitation && !isAccepted && !isRevoked && !isAccessRevoked ? (
+                          ) : invitation &&
+                            !isAccepted &&
+                            !isRevoked &&
+                            !isAccessRevoked ? (
                             <Button
                               className="projects-permission-action"
                               variant="outline"
@@ -415,10 +635,21 @@ export function ProjectsPage() {
                                   return;
                                 }
                                 try {
-                                  await revokeInvitation.mutateAsync({ projectId: invitationProjectId, invitationId: invitation.id });
-                                  notifications.show({ color: "teal", title: "Invitation revoked", message: `${member.email} invitation was revoked.` });
+                                  await revokeInvitation.mutateAsync({
+                                    projectId: invitationProjectId,
+                                    invitationId: invitation.id,
+                                  });
+                                  notifications.show({
+                                    color: "teal",
+                                    title: "Invitation revoked",
+                                    message: `${member.email} invitation was revoked.`,
+                                  });
                                 } catch (error) {
-                                  notifications.show({ color: "red", title: "Unable to revoke invitation", message: getErrorMessage(error) });
+                                  notifications.show({
+                                    color: "red",
+                                    title: "Unable to revoke invitation",
+                                    message: getErrorMessage(error),
+                                  });
                                 }
                               }}
                             >
@@ -434,7 +665,11 @@ export function ProjectsPage() {
             </Table>
           </div>
           <Group justify="end">
-            <Button variant="default" className="projects-modal-close-button" onClick={() => setInvitationProjectId(null)}>
+            <Button
+              variant="default"
+              className="projects-modal-close-button"
+              onClick={() => setInvitationProjectId(null)}
+            >
               Close
             </Button>
           </Group>
