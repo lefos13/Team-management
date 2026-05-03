@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { legalDocumentVersion } from "@team-management/shared";
+import { legalDocumentVersion, projectAiContextMaxLength, projectInputSchema } from "@team-management/shared";
 
 import { createApp } from "../app.js";
 import { getConfig } from "../config.js";
@@ -525,22 +525,31 @@ describe("team management API", () => {
         projectIds: [],
       });
 
+    /*
+    Use content larger than the previous short validation cap so repository
+    guidance files can be pasted into project context without rejection.
+    */
+    const largeAiContext = [
+      "# Agent Guidelines",
+      "All architecture, database schema, and code changes must stay aligned with deploy/production/deploy.sh.",
+      "Keep Prisma migrations backward compatible and preserve existing production data.",
+    ].join("\n").repeat(40);
+    expect(largeAiContext.length).toBeGreaterThan(4000);
+
     const createProject = await request(app.server)
       .post("/api/projects")
       .set("Cookie", cookie)
       .send({
         name: "Agent rollout",
         description: "Coordinate automation across teams.",
-        aiContext: "This project uses staged releases, shared terminology, and strict customer-impact review.",
+        aiContext: largeAiContext,
         status: "active",
         color: "#16A98B",
         memberIds: [member.body.id],
       });
 
     expect(createProject.status).toBe(200);
-    expect(createProject.body.aiContext).toBe(
-      "This project uses staged releases, shared terminology, and strict customer-impact review.",
-    );
+    expect(createProject.body.aiContext).toBe(largeAiContext);
 
     const detailProject = await request(app.server)
       .get(`/api/projects/${createProject.body.id}`)
@@ -569,6 +578,25 @@ describe("team management API", () => {
     const listProjects = await request(app.server).get("/api/projects").set("Cookie", cookie);
     expect(listProjects.status).toBe(200);
     expect(listProjects.body.ownedProjects[0].aiContext).toBe(updateProject.body.aiContext);
+  });
+
+  /*
+  Keep the oversized context guard explicit so abuse protection stays far above
+  normal project guidance documents but still has a deterministic boundary.
+  */
+  it("rejects only oversized project AI context payloads", () => {
+    const maxLengthAiContext = "a".repeat(projectAiContextMaxLength);
+    const oversizedAiContext = `${maxLengthAiContext}a`;
+    const baseProject = {
+      name: "Large context",
+      description: "",
+      status: "active",
+      color: "#16A98B",
+      memberIds: [],
+    };
+
+    expect(projectInputSchema.safeParse({ ...baseProject, aiContext: maxLengthAiContext }).success).toBe(true);
+    expect(projectInputSchema.safeParse({ ...baseProject, aiContext: oversizedAiContext }).success).toBe(false);
   });
 
   /*

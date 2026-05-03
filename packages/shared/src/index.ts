@@ -28,6 +28,11 @@ export const taskStatusSchema = z.enum(taskStatusValues);
 export const projectStatusSchema = z.enum(projectStatusValues);
 export const projectPermissionSchema = z.enum(projectPermissionValues);
 export const authStatusSchema = z.enum(authStatusValues);
+/*
+Project AI context is intended to hold copied repository or agent guidance, so
+the guard is sized for large documents while still rejecting abusive payloads.
+*/
+export const projectAiContextMaxLength = 1_000_000;
 
 export const loginInputSchema = z.object({
   email: z.string().email(),
@@ -65,7 +70,7 @@ export const resetPasswordInputSchema = z.object({
 export const projectInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
-  aiContext: z.string().trim().max(4000).optional().or(z.literal("")),
+  aiContext: z.string().trim().max(projectAiContextMaxLength).optional().or(z.literal("")),
   status: projectStatusSchema,
   color: z.string().trim().regex(/^#([0-9a-fA-F]{6})$/).optional().or(z.literal("")),
   memberIds: z.array(z.string().min(1)).default([]),
