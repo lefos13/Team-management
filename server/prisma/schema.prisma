@@ -26,6 +26,12 @@ model User {
   passwordHash       String
   emailVerified      Boolean                  @default(false)
   emailVerifiedAt    DateTime?
+  termsAcceptedAt    DateTime?
+  termsVersion       String?
+  privacyAcceptedAt  DateTime?
+  privacyVersion     String?
+  legalAcceptedIp    String?
+  legalAcceptedUserAgent String?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   sessions           Session[]

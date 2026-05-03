@@ -1,6 +1,7 @@
 /* Keep registration, verification, and login in one module so account lifecycle rules stay explicit and consistent. */
 import type { AuthActionResponseDTO, UserDTO } from "@team-management/shared";
 import {
+  legalDocumentVersion,
   loginInputSchema,
   requestPasswordResetInputSchema,
   registerInputSchema,
@@ -8,7 +9,7 @@ import {
   resendVerificationInputSchema,
   verifyEmailInputSchema,
 } from "@team-management/shared";
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 
 import { getConfig } from "../config.js";
 import { prisma } from "../db.js";
@@ -97,6 +98,24 @@ async function validateOtpToken(userId: string, purpose: string, otp: string, ma
   return token;
 }
 
+/*
+Store a compact legal acceptance snapshot on registration so the required
+Terms and Privacy agreement can be proven without adding a separate audit table.
+*/
+function getLegalAcceptanceData(request: FastifyRequest) {
+  const acceptedAt = new Date();
+  const userAgent = request.headers["user-agent"];
+
+  return {
+    termsAcceptedAt: acceptedAt,
+    termsVersion: legalDocumentVersion,
+    privacyAcceptedAt: acceptedAt,
+    privacyVersion: legalDocumentVersion,
+    legalAcceptedIp: request.ip,
+    legalAcceptedUserAgent: Array.isArray(userAgent) ? userAgent.join(", ") : typeof userAgent === "string" ? userAgent : null,
+  };
+}
+
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider();
   const config = getConfig();
@@ -119,17 +138,20 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const passwordHash = await hashPassword(password);
+      const legalAcceptanceData = getLegalAcceptanceData(request);
       const user = existingUser
         ? await prisma.user.update({
             where: { id: existingUser.id },
             data: {
               passwordHash,
+              ...legalAcceptanceData,
             },
           })
         : await prisma.user.create({
             data: {
               email,
               passwordHash,
+              ...legalAcceptanceData,
             },
           });
 

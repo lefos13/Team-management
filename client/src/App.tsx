@@ -4,11 +4,13 @@ import { Center, Loader } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
+import { CookieBanner } from "./components/CookieBanner";
 import { AppShellLayout } from "./layouts/AppShellLayout";
 import { CalendarPage } from "./pages/CalendarPage";
 import { AcceptProjectInvitationPage } from "./pages/AcceptProjectInvitationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { LegalPage } from "./pages/LegalPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MembersPage } from "./pages/MembersPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
@@ -69,7 +71,11 @@ function PublicOnlyRoute({ children }: { children: ReactElement }) {
 export function App() {
   return (
     <BrowserRouter basename={routerBase}>
+      <CookieBanner />
       <Routes>
+        <Route path="/terms" element={<LegalPage kind="terms" />} />
+        <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+        <Route path="/cookies" element={<LegalPage kind="cookies" />} />
         <Route
           path="/login"
           element={

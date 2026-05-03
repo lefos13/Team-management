@@ -13,7 +13,12 @@ export function RegisterPage() {
 
   async function handleSubmit(values: RegisterFormValues) {
     try {
-      const response = await registerMutation.mutateAsync(values);
+      const response = await registerMutation.mutateAsync({
+        email: values.email,
+        password: values.password,
+        acceptedTerms: true,
+        legalVersion: values.legalVersion,
+      });
       notifications.show({
         color: "teal",
         title: "Verification required",

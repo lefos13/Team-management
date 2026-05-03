@@ -242,6 +242,18 @@ export function AuthLandingPage({
             </Paper>
           </Box>
         </SimpleGrid>
+
+        <Group justify="center" gap="lg" className="legal-footer">
+          <Anchor component={Link} to="/terms" size="sm" c="dimmed">
+            Terms
+          </Anchor>
+          <Anchor component={Link} to="/privacy" size="sm" c="dimmed">
+            Privacy
+          </Anchor>
+          <Anchor component={Link} to="/cookies" size="sm" c="dimmed">
+            Cookies
+          </Anchor>
+        </Group>
       </Container>
 
       <Modal

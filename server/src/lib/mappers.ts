@@ -22,6 +22,12 @@ export function mapUser(user: User): UserDTO {
     email: user.email,
     emailVerified: user.emailVerified,
     emailVerifiedAt: user.emailVerifiedAt ? toIsoString(user.emailVerifiedAt) : null,
+    termsAcceptedAt: user.termsAcceptedAt ? toIsoString(user.termsAcceptedAt) : null,
+    termsVersion: user.termsVersion,
+    privacyAcceptedAt: user.privacyAcceptedAt ? toIsoString(user.privacyAcceptedAt) : null,
+    privacyVersion: user.privacyVersion,
+    legalAcceptedIp: user.legalAcceptedIp,
+    legalAcceptedUserAgent: user.legalAcceptedUserAgent,
     createdAt: toIsoString(user.createdAt),
     updatedAt: toIsoString(user.updatedAt),
   };

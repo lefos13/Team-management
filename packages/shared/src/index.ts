@@ -22,6 +22,7 @@ export const authStatusValues = [
   "password_reset_requested",
   "password_reset",
 ] as const;
+export const legalDocumentVersion = "2026-05-03";
 
 export const taskStatusSchema = z.enum(taskStatusValues);
 export const projectStatusSchema = z.enum(projectStatusValues);
@@ -33,7 +34,10 @@ export const loginInputSchema = z.object({
   password: z.string().min(8),
 });
 
-export const registerInputSchema = loginInputSchema;
+export const registerInputSchema = loginInputSchema.extend({
+  acceptedTerms: z.literal(true),
+  legalVersion: z.literal(legalDocumentVersion),
+});
 
 export const verifyEmailInputSchema = z.object({
   email: z.string().email(),
@@ -189,6 +193,12 @@ export const userSchema = z.object({
   email: z.string().email(),
   emailVerified: z.boolean(),
   emailVerifiedAt: z.string().datetime().nullable(),
+  termsAcceptedAt: z.string().datetime().nullable(),
+  termsVersion: z.string().nullable(),
+  privacyAcceptedAt: z.string().datetime().nullable(),
+  privacyVersion: z.string().nullable(),
+  legalAcceptedIp: z.string().nullable(),
+  legalAcceptedUserAgent: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

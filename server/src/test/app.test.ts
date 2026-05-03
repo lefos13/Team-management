@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { legalDocumentVersion } from "@team-management/shared";
 
 import { createApp } from "../app.js";
 import { getConfig } from "../config.js";
@@ -36,8 +37,10 @@ describe("team management API", () => {
     await rm(getConfig().ATTACHMENTS_DIR, { recursive: true, force: true });
   });
 
-  async function register(email: string, password: string) {
-    return request(app.server).post("/api/auth/register").send({ email, password });
+  async function register(email: string, password: string, overrides: Record<string, unknown> = {}) {
+    return request(app.server)
+      .post("/api/auth/register")
+      .send({ email, password, acceptedTerms: true, legalVersion: legalDocumentVersion, ...overrides });
   }
 
   async function verify(email: string, otp = "123456") {
@@ -115,6 +118,83 @@ describe("team management API", () => {
     expect(meResponse.status).toBe(200);
     expect(meResponse.body.email).toBe("owner@example.com");
     expect(meResponse.body.emailVerified).toBe(true);
+    expect(meResponse.body.termsVersion).toBe(legalDocumentVersion);
+    expect(meResponse.body.privacyVersion).toBe(legalDocumentVersion);
+    expect(meResponse.body.termsAcceptedAt).toBeTruthy();
+  });
+
+  /*
+  Registration is the legal gate for public accounts, so the API must reject
+  clients that bypass the UI checkbox and must refresh metadata while an email
+  is still pending verification.
+  */
+  it("requires and stores legal acceptance during registration", async () => {
+    const missingAcceptanceResponse = await request(app.server).post("/api/auth/register").send({
+      email: "legal@example.com",
+      password: "password123",
+    });
+    expect(missingAcceptanceResponse.status).toBe(400);
+
+    const acceptedResponse = await request(app.server)
+      .post("/api/auth/register")
+      .set("User-Agent", "initial-browser")
+      .send({
+        email: "legal@example.com",
+        password: "password123",
+        acceptedTerms: true,
+        legalVersion: legalDocumentVersion,
+      });
+    expect(acceptedResponse.status).toBe(200);
+
+    const firstUser = await prisma.user.findUniqueOrThrow({ where: { email: "legal@example.com" } });
+    expect(firstUser.termsVersion).toBe(legalDocumentVersion);
+    expect(firstUser.privacyVersion).toBe(legalDocumentVersion);
+    expect(firstUser.termsAcceptedAt).toBeTruthy();
+    expect(firstUser.legalAcceptedUserAgent).toBe("initial-browser");
+
+    const retryResponse = await request(app.server)
+      .post("/api/auth/register")
+      .set("User-Agent", "retry-browser")
+      .send({
+        email: "legal@example.com",
+        password: "updated-password",
+        acceptedTerms: true,
+        legalVersion: legalDocumentVersion,
+      });
+    expect(retryResponse.status).toBe(200);
+
+    const retriedUser = await prisma.user.findUniqueOrThrow({ where: { email: "legal@example.com" } });
+    expect(retriedUser.legalAcceptedUserAgent).toBe("retry-browser");
+
+    await verify("legal@example.com");
+    const oldPasswordLogin = await request(app.server).post("/api/auth/login").send({
+      email: "legal@example.com",
+      password: "password123",
+    });
+    expect(oldPasswordLogin.status).toBe(401);
+
+    const newPasswordLogin = await login("legal@example.com", "updated-password");
+    expect(newPasswordLogin.status).toBe(200);
+  });
+
+  it("allows existing verified users with no stored legal metadata to sign in", async () => {
+    await register("legacy@example.com", "password123");
+    await verify("legacy@example.com");
+    await prisma.user.update({
+      where: { email: "legacy@example.com" },
+      data: {
+        termsAcceptedAt: null,
+        termsVersion: null,
+        privacyAcceptedAt: null,
+        privacyVersion: null,
+        legalAcceptedIp: null,
+        legalAcceptedUserAgent: null,
+      },
+    });
+
+    const loginResponse = await login("legacy@example.com", "password123");
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body.termsAcceptedAt).toBeNull();
   });
 
   it("rejects invalid verification codes and supports resend", async () => {
