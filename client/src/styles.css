@@ -347,7 +347,12 @@ plain content panels instead of dashboard chrome or marketing-style sections.
 .legal-page {
   min-height: 100vh;
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.96) 0%, rgba(236, 247, 244, 0.88) 52%, rgba(247, 250, 246, 0.98) 100%),
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(236, 247, 244, 0.88) 52%,
+      rgba(247, 250, 246, 0.98) 100%
+    ),
     linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
 }
 
@@ -420,7 +425,7 @@ scan access context and manage permissions without leaving the page.
 }
 
 .paginated-card-grid.projects-card-grid .projects-card {
-  min-height: 320px;
+  min-height: 350px;
 }
 
 .projects-card {
@@ -466,7 +471,6 @@ scan access context and manage permissions without leaving the page.
 .projects-card-description {
   display: -webkit-box;
   min-height: 48px;
-  overflow: hidden;
   color: #4e5968;
   font-weight: 650;
   line-height: 1.32;
