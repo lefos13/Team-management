@@ -2,6 +2,7 @@ import type {
   CalendarEventDTO,
   DashboardDTO,
   DashboardFilters,
+  MemberDeleteResultDTO,
   MemberInput,
   ProjectDetailDTO,
   ProjectInvitationDTO,
@@ -279,12 +280,12 @@ export function useUpdateMember() {
   });
 }
 
-export function useArchiveMember() {
+export function useDeleteMember() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await api.delete<TeamMemberDTO>(`/members/${id}`);
+      const response = await api.delete<MemberDeleteResultDTO>(`/members/${id}`);
       return response.data;
     },
     onSuccess: async () => {

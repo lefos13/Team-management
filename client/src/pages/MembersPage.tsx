@@ -1,18 +1,12 @@
 import { ActionIcon, Button, Card, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArchive, IconEdit, IconPlus } from "@tabler/icons-react";
+import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "../components/PageHeader";
 import { CompactPagination } from "../components/CompactPagination";
 import { MemberFormModal } from "../components/forms/MemberFormModal";
-import {
-  useArchiveMember,
-  useCreateMember,
-  useMembers,
-  useProjects,
-  useUpdateMember,
-} from "../hooks/use-app-data";
+import { useCreateMember, useDeleteMember, useMembers, useProjects, useUpdateMember } from "../hooks/use-app-data";
 import { getErrorMessage } from "../lib/api";
 import { usePagination } from "../hooks/use-pagination";
 
@@ -23,7 +17,7 @@ export function MembersPage() {
   const membersQuery = useMembers();
   const createMember = useCreateMember();
   const updateMember = useUpdateMember();
-  const archiveMember = useArchiveMember();
+  const deleteMember = useDeleteMember();
 
   const editingMember = useMemo(
     () => membersQuery.data?.find((member) => member.id === editingMemberId) ?? null,
@@ -77,21 +71,21 @@ export function MembersPage() {
                   </ActionIcon>
                   <ActionIcon
                     variant="light"
-                    color="yellow"
-                    loading={archiveMember.isPending}
+                    color="red"
+                    loading={deleteMember.isPending}
                     onClick={async () => {
                       try {
-                        await archiveMember.mutateAsync(member.id);
+                        await deleteMember.mutateAsync(member.id);
                       } catch (error) {
                         notifications.show({
                           color: "red",
-                          title: "Unable to archive member",
+                          title: "Unable to delete member",
                           message: getErrorMessage(error),
                         });
                       }
                     }}
                   >
-                    <IconArchive size={16} />
+                    <IconTrash size={16} />
                   </ActionIcon>
                 </Group>
               </Group>

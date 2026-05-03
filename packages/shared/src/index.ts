@@ -282,6 +282,14 @@ export const memberSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+export const memberDeleteResultSchema = z.object({
+  id: z.string(),
+  deleted: z.literal(true),
+  unassignedTaskCount: z.number().int().nonnegative(),
+  reassignedPrimaryTaskCount: z.number().int().nonnegative(),
+  removedProjectCount: z.number().int().nonnegative(),
+});
+
 export const taskSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -293,12 +301,12 @@ export const taskSchema = z.object({
   startDate: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),
   projectId: z.string(),
-  assigneeId: z.string(),
+  assigneeId: z.string().nullable(),
   assigneeIds: z.array(z.string()),
   parentTaskId: z.string().nullable(),
   parentTaskTitle: z.string().nullable(),
   projectName: z.string(),
-  assigneeName: z.string(),
+  assigneeName: z.string().nullable(),
   assigneeNames: z.array(z.string()),
   attachments: z.array(taskAttachmentSchema),
   attachmentArchive: taskAttachmentArchiveSchema.nullable(),
@@ -317,7 +325,7 @@ export const calendarEventSchema = z.object({
   end: z.string().datetime().nullable(),
   taskId: z.string(),
   projectId: z.string(),
-  assigneeId: z.string(),
+  assigneeId: z.string().nullable(),
   assigneeIds: z.array(z.string()),
   status: taskStatusSchema,
   overdue: z.boolean(),
@@ -380,6 +388,7 @@ export type ProjectListDTO = z.infer<typeof projectListSchema>;
 export type ProjectDetailDTO = z.infer<typeof projectDetailSchema>;
 export type ProjectInvitationDTO = z.infer<typeof projectInvitationSchema>;
 export type TeamMemberDTO = z.infer<typeof memberSchema>;
+export type MemberDeleteResultDTO = z.infer<typeof memberDeleteResultSchema>;
 export type TaskDTO = z.infer<typeof taskSchema>;
 export type CalendarEventDTO = z.infer<typeof calendarEventSchema>;
 export type DashboardDTO = z.infer<typeof dashboardSchema>;

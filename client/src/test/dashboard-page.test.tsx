@@ -50,4 +50,19 @@ describe("PaginatedTaskStack", () => {
     expect(screen.getByText(`Done ${formatDateTime(completedTask.completedAt)}`)).toBeInTheDocument();
     expect(screen.queryByText(formatDateTime(completedTask.deadline))).not.toBeInTheDocument();
   });
+
+  it("shows unassigned when a task has no remaining assignees", () => {
+    render(
+      <MantineProvider>
+        <PaginatedTaskStack
+          tasks={[{ ...completedTask, assigneeId: null, assigneeIds: [], assigneeName: null, assigneeNames: [] }]}
+          empty="No completed tasks in this range."
+          datePrefix="Done"
+          getTaskDate={(task) => task.completedAt}
+        />
+      </MantineProvider>,
+    );
+
+    expect(screen.getByText("Unassigned - Operations")).toBeInTheDocument();
+  });
 });

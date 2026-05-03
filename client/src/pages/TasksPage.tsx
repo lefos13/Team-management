@@ -66,6 +66,10 @@ function isActiveTaskStatus(status: TaskDTO["status"]) {
   return status !== "done";
 }
 
+function formatTaskAssignees(task: Pick<TaskDTO, "assigneeName" | "assigneeNames">) {
+  return task.assigneeNames.length > 0 ? task.assigneeNames.join(", ") : task.assigneeName ?? "Unassigned";
+}
+
 export function buildVisibleTaskHierarchy(tasks: TaskDTO[], statusFilter?: TaskFilters["status"]) {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const grouped = new Map<string, TaskDTO[]>();
@@ -140,7 +144,7 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, on
         </Stack>
       </Table.Td>
       <Table.Td>{task.projectName}</Table.Td>
-      <Table.Td>{task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}</Table.Td>
+      <Table.Td>{formatTaskAssignees(task)}</Table.Td>
       <Table.Td>
         <Group gap="sm">
           <TaskStatusBadge status={task.status} />
@@ -322,7 +326,7 @@ function TaskMobileCard({
         ) : null}
 
         <SimpleTaskMeta label="Project" value={task.projectName} />
-        <SimpleTaskMeta label="Assignee" value={task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName} />
+        <SimpleTaskMeta label="Assignee" value={formatTaskAssignees(task)} />
         <SimpleTaskMeta label="Deadline" value={task.deadline ? formatDateTime(task.deadline) : "No deadline"} />
         {task.completedAt ? <SimpleTaskMeta label="Done" value={formatDateTime(task.completedAt)} /> : null}
         {task.attachments.length > 0 ? (
@@ -414,7 +418,7 @@ function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPrevi
                 }}
               />
             ) : null}
-            <SimpleTaskMeta label="Assignee" value={subtask.assigneeNames?.length ? subtask.assigneeNames.join(", ") : subtask.assigneeName} />
+            <SimpleTaskMeta label="Assignee" value={formatTaskAssignees(subtask)} />
             <SimpleTaskMeta label="Deadline" value={subtask.deadline ? formatDateTime(subtask.deadline) : "No deadline"} />
           </Stack>
         </div>

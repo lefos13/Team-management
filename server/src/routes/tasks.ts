@@ -429,7 +429,7 @@ function formatAssigneeNames(task: ExportTask): string {
       return left.teamMember.name.localeCompare(right.teamMember.name);
     })
     .map((assignment) => assignment.teamMember.name);
-  return (names.length > 0 ? names : [task.assignee.name]).join(", ");
+  return names.length > 0 ? names.join(", ") : "Unassigned";
 }
 
 /*
@@ -1119,7 +1119,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
             task.title,
             task.taskAssignees.length > 0
               ? task.taskAssignees.map((assignment) => assignment.teamMemberId)
-              : [task.assigneeId],
+              : [],
             task.deadline,
           ),
         ),
@@ -1279,7 +1279,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const access = await getAccessContext(existingTask.projectId, user.id);
       const existingAssigneeIds = existingTask.taskAssignees.length > 0
         ? existingTask.taskAssignees.map((assignment) => assignment.teamMemberId)
-        : [existingTask.assigneeId];
+        : existingTask.assigneeId ? [existingTask.assigneeId] : [];
       if (!canManageTaskAssignees(access) && !haveSameAssignees(assigneeIds, existingAssigneeIds)) {
         throw badRequest("You do not have permission to change task assignees.");
       }

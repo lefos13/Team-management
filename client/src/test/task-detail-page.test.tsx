@@ -175,4 +175,10 @@ describe("TaskDetailPage", () => {
       expect(writeTextMock).not.toHaveBeenCalledWith(expect.stringContaining("Assignees:"));
     });
   });
+
+  it("shows unassigned when deleted members leave no assignees", () => {
+    renderPage(buildTask({ assigneeId: null, assigneeIds: [], assigneeName: null, assigneeNames: [] }));
+
+    expect(screen.getByText("Unassigned")).toBeInTheDocument();
+  });
 });

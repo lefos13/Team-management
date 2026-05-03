@@ -1,5 +1,5 @@
-/* Maintain team members as manager-owned records while preserving task history when someone becomes inactive. */
-import type { TeamMemberDTO } from "@team-management/shared";
+/* Maintain manager-owned member records while preserving tasks when a member is deleted. */
+import type { MemberDeleteResultDTO, TeamMemberDTO } from "@team-management/shared";
 import { memberInputSchema } from "@team-management/shared";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
@@ -174,35 +174,74 @@ export const memberRoutes: FastifyPluginAsync = async (fastify) => {
         params: memberIdParamsSchema,
       },
     },
-    async (request): Promise<TeamMemberDTO> => {
+    async (request): Promise<MemberDeleteResultDTO> => {
       const user = requireCurrentUser(request);
       const params = memberIdParamsSchema.parse(request.params);
-      const member = await prisma.teamMember.findFirst({
-        where: { id: params.id, userId: user.id },
-      });
 
-      if (!member) {
-        throw notFound("Member");
-      }
-
-      const updatedMember = await prisma.teamMember.update({
-        where: { id: params.id },
-        data: { active: false },
-        include: {
-          projectMembers: {
-            select: { projectId: true },
-          },
-          taskAssignees: {
-            select: {
-              task: {
-                select: { status: true },
-              },
+      return prisma.$transaction(async (tx) => {
+        const member = await tx.teamMember.findFirst({
+          where: { id: params.id, userId: user.id },
+          include: {
+            projectMembers: {
+              select: { projectId: true },
             },
           },
-        },
-      });
+        });
 
-      return mapMember(updatedMember);
+        if (!member) {
+          throw notFound("Member");
+        }
+
+        const primaryTasks = await tx.task.findMany({
+          where: { userId: user.id, assigneeId: params.id },
+          select: {
+            id: true,
+            taskAssignees: {
+              where: {
+                teamMemberId: { not: params.id },
+              },
+              select: { teamMemberId: true },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        });
+
+        /*
+        Primary assignment is kept as a legacy compatibility column, so tasks
+        that point at the deleted member are moved to another remaining
+        assignee before the member row and join rows are removed.
+        */
+        for (const task of primaryTasks) {
+          await tx.task.update({
+            where: { id: task.id },
+            data: { assigneeId: task.taskAssignees[0]?.teamMemberId ?? null },
+          });
+        }
+
+        await tx.taskAssignee.deleteMany({
+          where: { teamMemberId: params.id },
+        });
+        await tx.projectAccess.deleteMany({
+          where: { ownerUserId: user.id, teamMemberId: params.id },
+        });
+        await tx.projectInvitation.deleteMany({
+          where: { ownerUserId: user.id, teamMemberId: params.id },
+        });
+        const removedProjects = await tx.projectMember.deleteMany({
+          where: { teamMemberId: params.id },
+        });
+        await tx.teamMember.delete({
+          where: { id: params.id },
+        });
+
+        return {
+          id: params.id,
+          deleted: true,
+          unassignedTaskCount: primaryTasks.filter((task) => task.taskAssignees.length === 0).length,
+          reassignedPrimaryTaskCount: primaryTasks.filter((task) => task.taskAssignees.length > 0).length,
+          removedProjectCount: removedProjects.count,
+        };
+      });
     },
   );
 };

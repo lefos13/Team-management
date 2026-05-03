@@ -121,7 +121,7 @@ export function TaskDetailPage() {
           deadline: currentTask.deadline ?? "",
           startDate: currentTask.startDate ?? "",
           projectId: currentTask.projectId,
-          assigneeId: currentTask.assigneeId,
+          assigneeId: currentTask.assigneeId ?? undefined,
           assigneeIds: currentTask.assigneeIds,
           parentTaskId: currentTask.parentTaskId,
         },
@@ -198,7 +198,7 @@ export function TaskDetailPage() {
             </Stack>
             <Stack gap={4}>
               <Text size="sm" fw={700}>Assignees</Text>
-              <Text size="sm" c="dimmed">{task.assigneeNames.join(", ")}</Text>
+              <Text size="sm" c="dimmed">{task.assigneeNames.length > 0 ? task.assigneeNames.join(", ") : "Unassigned"}</Text>
             </Stack>
             <Stack gap={4}>
               <Text size="sm" fw={700}>Start date</Text>

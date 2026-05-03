@@ -396,6 +396,9 @@ describe("team management API", () => {
 
     expect(betaMemberUpdate.status).toBe(404);
 
+    const betaMemberDelete = await request(app.server).delete(`/api/members/${alphaMember.body.id}`).set("Cookie", betaCookie);
+    expect(betaMemberDelete.status).toBe(404);
+
     const betaDashboard = await request(app.server).get("/api/dashboard").set("Cookie", betaCookie);
     expect(betaDashboard.status).toBe(200);
     expect(betaDashboard.body.stats.projectCount).toBe(0);
@@ -732,6 +735,153 @@ describe("team management API", () => {
     const nonDefectTasks = await request(app.server).get("/api/tasks?isDefect=false").set("Cookie", cookie);
     expect(nonDefectTasks.status).toBe(200);
     expect(nonDefectTasks.body).toHaveLength(0);
+  });
+
+  /*
+  Member deletion removes assignment links while preserving task rows, so the
+  primary assignee compatibility column must either promote another remaining
+  assignee or become null when no assignees remain.
+  */
+  it("deletes members while preserving and safely unassigning their tasks", async () => {
+    await register("delete-member@example.com", "password123");
+    await verify("delete-member@example.com");
+    const loginResponse = await login("delete-member@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const primaryMember = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Primary Member",
+        role: "Developer",
+        email: "primary@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const secondaryMember = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Secondary Member",
+        role: "Reviewer",
+        email: "secondary@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const stablePrimaryMember = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Stable Primary",
+        role: "Lead",
+        email: "stable@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Deletion safety",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [primaryMember.body.id, secondaryMember.body.id, stablePrimaryMember.body.id],
+      });
+
+    const soloTask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Solo assignment",
+        description: "",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: primaryMember.body.id,
+      });
+    const promotedTask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Promote another assignee",
+        description: "",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: primaryMember.body.id,
+        assigneeIds: [primaryMember.body.id, secondaryMember.body.id],
+      });
+    const nonPrimaryTask = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Remove non-primary assignee",
+        description: "",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: stablePrimaryMember.body.id,
+        assigneeIds: [stablePrimaryMember.body.id, primaryMember.body.id],
+      });
+
+    expect(soloTask.status).toBe(200);
+    expect(promotedTask.status).toBe(200);
+    expect(nonPrimaryTask.status).toBe(200);
+
+    const deleted = await request(app.server).delete(`/api/members/${primaryMember.body.id}`).set("Cookie", cookie);
+
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toEqual({
+      id: primaryMember.body.id,
+      deleted: true,
+      unassignedTaskCount: 1,
+      reassignedPrimaryTaskCount: 1,
+      removedProjectCount: 1,
+    });
+
+    const tasks = await request(app.server).get("/api/tasks").set("Cookie", cookie);
+    expect(tasks.status).toBe(200);
+
+    const solo = tasks.body.find((task: { id: string }) => task.id === soloTask.body.id);
+    const promoted = tasks.body.find((task: { id: string }) => task.id === promotedTask.body.id);
+    const nonPrimary = tasks.body.find((task: { id: string }) => task.id === nonPrimaryTask.body.id);
+
+    expect(solo).toEqual(expect.objectContaining({ assigneeId: null, assigneeName: null, assigneeIds: [], assigneeNames: [] }));
+    expect(promoted).toEqual(
+      expect.objectContaining({
+        assigneeId: secondaryMember.body.id,
+        assigneeIds: [secondaryMember.body.id],
+        assigneeNames: ["Secondary Member"],
+      }),
+    );
+    expect(nonPrimary).toEqual(
+      expect.objectContaining({
+        assigneeId: stablePrimaryMember.body.id,
+        assigneeIds: [stablePrimaryMember.body.id],
+        assigneeNames: ["Stable Primary"],
+      }),
+    );
+
+    const members = await request(app.server).get("/api/members").set("Cookie", cookie);
+    expect(members.status).toBe(200);
+    expect(members.body.map((member: { id: string }) => member.id)).not.toContain(primaryMember.body.id);
+
+    const filteredByDeletedMember = await request(app.server)
+      .get(`/api/tasks?assigneeId=${primaryMember.body.id}`)
+      .set("Cookie", cookie);
+    expect(filteredByDeletedMember.status).toBe(200);
+    expect(filteredByDeletedMember.body).toHaveLength(0);
   });
 
   /*
@@ -1480,6 +1630,18 @@ describe("team management API", () => {
     expect(migration).toContain("CREATE TABLE \"TaskAssignee\"");
     expect(migration).toContain("SELECT \"id\", \"assigneeId\"");
     expect(migration).toContain("Task_primary_assignee_sync_trigger");
+  });
+
+  it("makes task assignees nullable for member deletion in a production-safe migration", () => {
+    const migration = readFileSync(
+      new URL("../../prisma/migrations/20260503143000_nullable_task_assignees/migration.sql", import.meta.url),
+      "utf8",
+    );
+
+    expect(migration).toContain("ALTER TABLE \"Task\" ALTER COLUMN \"assigneeId\" DROP NOT NULL");
+    expect(migration).toContain("ON DELETE SET NULL");
+    expect(migration).toContain("ON DELETE CASCADE");
+    expect(migration).toContain("IF NEW.\"assigneeId\" IS NOT NULL THEN");
   });
 
   it("adds nullable task hierarchy links in a production-safe migration", () => {

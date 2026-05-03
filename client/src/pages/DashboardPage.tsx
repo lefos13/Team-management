@@ -46,6 +46,10 @@ function completionRangeForPreset(preset: "today" | "three-days" | "week") {
   };
 }
 
+function formatTaskAssignees(task: Pick<TaskDTO, "assigneeName" | "assigneeNames">) {
+  return task.assigneeNames.length > 0 ? task.assigneeNames.join(", ") : task.assigneeName ?? "Unassigned";
+}
+
 function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskDTO[] }) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(tasks, 4);
 
@@ -76,7 +80,7 @@ function TaskColumn({ status, tasks }: { status: TaskDTO["status"]; tasks: TaskD
                     {task.isDefect ? <DefectBadge /> : null}
                   </Group>
                   <Text size="xs" c="dimmed" lineClamp={1}>
-                    {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName}
+                    {formatTaskAssignees(task)}
                   </Text>
                   <Text size="xs" c={task.status === "blocked" ? "red" : "dimmed"}>
                     {task.deadline ? formatDate(task.deadline) : "No deadline"}
@@ -129,7 +133,7 @@ export function PaginatedTaskStack({
                     {task.title}
                   </Text>
                   <Text size="xs" c="dimmed" lineClamp={1}>
-                    {task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName} - {task.projectName}
+                    {formatTaskAssignees(task)} - {task.projectName}
                   </Text>
                   <Text size="xs" c="dimmed">
                     {datePrefix ? `${datePrefix} ` : null}

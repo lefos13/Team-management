@@ -137,7 +137,7 @@ export function mapMember(
 export function mapTask(
   task: Task & {
     project: { name: string };
-    assignee: { name: string };
+    assignee: { name: string } | null;
     parentTask?: { title: string } | null;
     taskAssignees: Array<{ teamMemberId: string; teamMember: { name: string } }>;
     attachments: Array<{
@@ -199,12 +199,12 @@ export function mapTask(
     completedAt: task.completedAt ? toIsoString(task.completedAt) : null,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
-    assigneeIds: assigneeIds.length > 0 ? assigneeIds : [task.assigneeId],
+    assigneeIds,
     parentTaskId: task.parentTaskId,
     parentTaskTitle: task.parentTask?.title ?? null,
     projectName: task.project.name,
-    assigneeName: task.assignee.name,
-    assigneeNames: assigneeNames.length > 0 ? assigneeNames : [task.assignee.name],
+    assigneeName: task.assignee?.name ?? null,
+    assigneeNames,
     attachments,
     attachmentArchive,
     attachmentsPreviewAvailable: task.status !== "done",
@@ -236,8 +236,7 @@ export function mapCalendarEvent(
     taskId: task.id,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
-    assigneeIds:
-      task.taskAssignees.length > 0 ? task.taskAssignees.map((assignment) => assignment.teamMemberId) : [task.assigneeId],
+    assigneeIds: task.taskAssignees.map((assignment) => assignment.teamMemberId),
     status: task.status as CalendarEventDTO["status"],
     overdue,
   };
