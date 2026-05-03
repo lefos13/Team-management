@@ -305,7 +305,6 @@ side by side on desktop and every horizontal pixel belongs to task content.
 }
 
 .paginated-card-grid .content-card {
-  height: 220px;
   overflow: hidden;
 }
 
@@ -637,6 +636,19 @@ scan access context and manage permissions without leaving the page.
   font-weight: 800;
 }
 
+.tasks-mobile-list {
+  display: none;
+}
+
+.task-mobile-title,
+.task-mobile-card-copy,
+.task-mobile-meta-value,
+.task-attachment-name,
+.member-card-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .fc .fc-toolbar-title {
   font-size: 1.05rem;
 }
@@ -653,6 +665,303 @@ scan access context and manage permissions without leaving the page.
 }
 
 @media (max-width: 48em) {
+  /*
+  Mobile views trade wide desktop density for stacked, scan-first content. The
+  rules stay scoped to page classes so desktop tables, cards, and calendars keep
+  their existing production layout.
+  */
+  .shell-header {
+    height: 64px;
+  }
+
+  .shell-header-content {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .shell-header-title {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .shell-header-title h3 {
+    max-width: 38vw;
+    overflow: hidden;
+    font-size: 1.05rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell-account-actions {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .shell-account-actions .mantine-Avatar-root {
+    display: none;
+  }
+
+  .shell-account-actions .mantine-Button-root {
+    min-width: 40px;
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .shell-account-actions .mantine-Button-label {
+    display: none;
+  }
+
+  .shell-navbar {
+    width: min(86vw, 270px);
+  }
+
+  .page-header,
+  .dashboard-page-header {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .page-header-copy {
+    min-width: 0;
+  }
+
+  .page-header-copy h2 {
+    font-size: 1.55rem;
+    line-height: 1.15;
+  }
+
+  .page-header-copy p {
+    font-size: 0.94rem;
+    line-height: 1.35;
+  }
+
+  .page-header-action,
+  .page-header-action > *,
+  .page-action-group,
+  .page-action-group .mantine-Button-root {
+    width: 100%;
+  }
+
+  .page-action-group {
+    gap: 8px;
+  }
+
+  .content-card,
+  .stat-card,
+  .overdue-card,
+  .dashboard-stat-card,
+  .dashboard-panel,
+  .task-detail-panel,
+  .tasks-filter-panel,
+  .tasks-table-panel,
+  .calendar-page-panel {
+    border-radius: 8px;
+  }
+
+  .dashboard-stat-card {
+    padding: 14px;
+  }
+
+  .dashboard-stat-card .mantine-ThemeIcon-root {
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+  }
+
+  .dashboard-stat-card .mantine-Text-root:last-child {
+    font-size: 1.55rem;
+  }
+
+  .dashboard-panel,
+  .dashboard-overview-panel,
+  .dashboard-summary-panel,
+  .dashboard-bottom-panel,
+  .dashboard-calendar-panel {
+    height: auto;
+    min-height: 0;
+    padding: 14px;
+    overflow: visible;
+  }
+
+  .dashboard-overview-panel {
+    max-height: none;
+  }
+
+  .dashboard-kanban-column {
+    height: auto;
+    min-height: 0;
+    padding: 10px;
+  }
+
+  .dashboard-task-list {
+    height: auto;
+    /* max-height: 248px; */
+    overflow: hidden;
+  }
+
+  .dashboard-task-card {
+    height: auto;
+    min-height: 58px;
+    flex: initial;
+    padding: 8px;
+  }
+
+  .compact-list-row {
+    height: auto;
+    min-height: 68px;
+    flex: initial;
+  }
+
+  .fixed-pagination-content {
+    gap: 8px;
+  }
+
+  .fixed-pagination-slot,
+  .page-pagination-slot {
+    min-height: 34px;
+    height: auto;
+    flex-basis: auto;
+  }
+
+  .dashboard-projects-table,
+  .dashboard-projects-table tbody,
+  .dashboard-projects-table tr,
+  .dashboard-projects-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .dashboard-projects-table thead {
+    display: none;
+  }
+
+  .dashboard-projects-table tr {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(15, 35, 56, 0.08);
+  }
+
+  .dashboard-projects-table td {
+    padding: 6px 0;
+    border: 0;
+  }
+
+  .dashboard-projects-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: #6b7585;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .dashboard-calendar-panel .fc,
+  .calendar-page-panel .fc {
+    font-size: 0.82rem;
+  }
+
+  .fc .fc-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fc .fc-toolbar-chunk {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 1rem;
+  }
+
+  .fc .fc-button {
+    padding: 5px 9px;
+    font-size: 0.78rem;
+  }
+
+  .fc .fc-daygrid-day-number {
+    padding: 3px;
+    font-size: 0.75rem;
+  }
+
+  .fc .fc-event {
+    font-size: 0.68rem;
+  }
+
+  .tasks-filter-panel {
+    padding: 14px;
+  }
+
+  .tasks-table-panel {
+    display: none;
+  }
+
+  .tasks-mobile-list {
+    display: flex;
+  }
+
+  .task-mobile-card {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(15, 35, 56, 0.1);
+    box-shadow: 0 12px 28px rgba(15, 35, 56, 0.06);
+  }
+
+  .task-mobile-card-copy {
+    flex: 1;
+  }
+
+  .task-mobile-title {
+    line-height: 1.25;
+  }
+
+  .task-mobile-actions {
+    flex: 0 0 auto;
+  }
+
+  .task-mobile-status-select {
+    width: 100%;
+  }
+
+  .task-mobile-meta-row {
+    align-items: flex-start;
+    padding-top: 8px;
+    border-top: 1px solid rgba(15, 35, 56, 0.07);
+  }
+
+  .task-mobile-meta-row p:first-child {
+    flex: 0 0 78px;
+    text-transform: uppercase;
+  }
+
+  .task-mobile-meta-value {
+    flex: 1;
+  }
+
+  .task-mobile-subtasks {
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px solid rgba(15, 35, 56, 0.08);
+    border-radius: 8px;
+    background: #f8fafc;
+  }
+
+  .task-mobile-subtask-card {
+    padding: 10px;
+    border-bottom: 1px solid rgba(15, 35, 56, 0.08);
+  }
+
+  .task-mobile-subtask-card:last-of-type {
+    border-bottom: 0;
+  }
+
+  .projects-page {
+    gap: 22px;
+  }
+
   .landing-nav {
     align-items: flex-start;
     gap: 18px;
@@ -673,6 +982,7 @@ scan access context and manage permissions without leaving the page.
 
   .projects-page-header {
     align-items: stretch;
+    gap: 14px;
   }
 
   .projects-page-action,
@@ -684,21 +994,140 @@ scan access context and manage permissions without leaving the page.
     font-size: 2rem;
   }
 
+  .projects-page-description {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+
+  .projects-section-title {
+    font-size: 1.12rem;
+  }
+
+  .projects-card-grid {
+    gap: 14px;
+  }
+
   .paginated-card-grid.projects-card-grid .projects-card {
     height: auto;
     min-height: 288px;
   }
 
+  .projects-card-body {
+    padding: 16px;
+  }
+
+  .projects-card-description {
+    min-height: auto;
+  }
+
+  .projects-card-metrics {
+    gap: 14px;
+    font-size: 0.88rem;
+  }
+
   .projects-card-footer {
     align-items: flex-start;
+    flex-direction: column;
     gap: 12px;
+    min-height: 0;
+    padding: 12px 16px;
+  }
+
+  .projects-card-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .projects-shared-footer {
+    min-height: 0;
+    padding: 12px 16px;
+  }
+
+  .projects-shared-permission-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .projects-shared-permission-badge {
+    max-width: 100%;
+  }
+
+  .projects-invitations-modal {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
   }
 
   .projects-invitations-modal-header {
-    padding: 22px 20px 0;
+    padding: 18px 16px 0;
   }
 
   .projects-invitations-modal-body {
-    padding: 8px 20px 24px;
+    padding: 8px 16px 20px;
+  }
+
+  .projects-invitations-table {
+    min-width: 760px;
+  }
+
+  .projects-invitations-table th,
+  .projects-invitations-table td {
+    padding: 10px 12px;
+  }
+
+  .projects-permission-action {
+    min-width: 104px;
+  }
+
+  .member-card {
+    padding: 14px;
+  }
+
+  .member-card-header,
+  .member-card-stats {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .member-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .member-card-projects,
+  .member-card-notes {
+    overflow-wrap: anywhere;
+  }
+
+  .task-detail-actions,
+  .task-detail-actions .mantine-Button-root,
+  .task-detail-badges {
+    width: 100%;
+  }
+
+  .task-attachment-row,
+  .task-form-attachment-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .task-attachment-actions,
+  .task-form-attachment-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .task-form-modal,
+  .project-form-modal,
+  .member-form-modal {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+  }
+
+  .task-form-modal-body,
+  .project-form-modal-body,
+  .member-form-modal-body {
+    padding-inline: 16px;
   }
 }

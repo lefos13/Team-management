@@ -9,12 +9,12 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <Group justify="space-between" align="end">
-      <Stack gap={4}>
+    <Group justify="space-between" align="end" className="page-header">
+      <Stack gap={4} className="page-header-copy">
         <Title order={2}>{title}</Title>
         <Text c="dimmed">{description}</Text>
       </Stack>
-      {action}
+      {action ? <div className="page-header-action">{action}</div> : null}
     </Group>
   );
 }

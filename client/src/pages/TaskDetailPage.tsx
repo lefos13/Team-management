@@ -180,13 +180,13 @@ export function TaskDetailPage() {
         }
       />
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="task-detail-panel">
         <Stack gap="md">
-          <Group gap="sm">
+          <Group gap="sm" className="task-detail-badges">
             <TaskStatusBadge status={task.status} />
             {task.isDefect ? <DefectBadge /> : null}
           </Group>
-          <Group>
+          <Group className="task-detail-actions">
             <Button variant="light" leftSection={<IconFileText size={16} />} onClick={() => void handleCopyAgentPrompt()}>
               Copy AI prompt
             </Button>
@@ -225,7 +225,7 @@ export function TaskDetailPage() {
         </Stack>
       </Paper>
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="task-detail-panel">
         <Stack gap="sm">
           <Group gap="xs">
             <IconFileText size={18} />
@@ -235,7 +235,7 @@ export function TaskDetailPage() {
         </Stack>
       </Paper>
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="task-detail-panel">
         <Stack gap="sm">
           <Group gap="xs">
             <IconNotes size={18} />
@@ -262,7 +262,7 @@ export function TaskDetailPage() {
         </Stack>
       </Paper>
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="task-detail-panel task-attachments-panel">
         <Stack gap="sm">
           <Text fw={800}>Attachments</Text>
           {task.status === "done" ? (
@@ -311,14 +311,14 @@ export function TaskDetailPage() {
               </SimpleGrid>
               <Stack gap="xs">
                 {task.attachments.map((attachment) => (
-                  <Group key={attachment.id} justify="space-between" wrap="nowrap">
+                  <Group key={attachment.id} justify="space-between" wrap="nowrap" className="task-attachment-row">
                     <Stack gap={0} style={{ flex: 1 }}>
-                      <Text size="sm" fw={600}>{attachment.filename}</Text>
+                      <Text size="sm" fw={600} className="task-attachment-name">{attachment.filename}</Text>
                       <Text size="xs" c="dimmed">
                         {formatAttachmentSize(attachment.sizeBytes)} • {attachment.mimeType}
                       </Text>
                     </Stack>
-                    <Group gap="xs" wrap="nowrap">
+                    <Group gap="xs" wrap="nowrap" className="task-attachment-actions">
                       <Button
                         variant="light"
                         size="xs"

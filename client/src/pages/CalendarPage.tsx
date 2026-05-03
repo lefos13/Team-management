@@ -2,6 +2,7 @@ import { Loader, Paper, Stack } from "@mantine/core";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import { useMediaQuery } from "@mantine/hooks";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
@@ -19,6 +20,7 @@ function isActiveCalendarStatus(status: string): status is keyof typeof calendar
 
 export function CalendarPage() {
   const navigate = useNavigate();
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const calendarQuery = useCalendarEvents();
 
   if (calendarQuery.isLoading) {
@@ -33,16 +35,16 @@ export function CalendarPage() {
         title="Calendar"
         description="Visualize active task deadlines and open the linked task directly for updates."
       />
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="calendar-page-panel">
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin]}
           initialView="dayGridMonth"
-          height={720}
-          dayMaxEventRows={3}
+          height={isMobile ? 440 : 720}
+          dayMaxEventRows={isMobile ? 1 : 3}
           headerToolbar={{
             left: "prev,next today",
             center: "title",
-            right: "dayGridMonth,timeGridWeek",
+            right: isMobile ? "" : "dayGridMonth,timeGridWeek",
           }}
           events={
             /*

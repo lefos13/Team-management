@@ -183,7 +183,15 @@ export function TaskFormModal({
   );
 
   return (
-    <Modal opened={opened} onClose={onClose} title={task ? "Edit task" : "New task"} centered size="lg" radius="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={task ? "Edit task" : "New task"}
+      centered
+      size="lg"
+      radius="lg"
+      classNames={{ content: "task-form-modal", body: "task-form-modal-body" }}
+    >
       <form
         onSubmit={form.handleSubmit((values) => {
           onSubmit({
@@ -365,14 +373,14 @@ export function TaskFormModal({
                         <Text size="sm" c="dimmed">No files attached yet.</Text>
                       ) : (
                         task.attachments.map((attachment) => (
-                          <Group key={attachment.id} justify="space-between" wrap="nowrap">
+                          <Group key={attachment.id} justify="space-between" wrap="nowrap" className="task-form-attachment-row">
                             <Stack gap={0} style={{ flex: 1 }}>
-                              <Text size="sm" fw={500}>{attachment.filename}</Text>
+                              <Text size="sm" fw={500} className="task-attachment-name">{attachment.filename}</Text>
                               <Text size="xs" c="dimmed">
                                 {formatAttachmentSize(attachment.sizeBytes)} • {attachment.mimeType}
                               </Text>
                             </Stack>
-                            <Group gap="xs" wrap="nowrap">
+                            <Group gap="xs" wrap="nowrap" className="task-form-attachment-actions">
                               <ActionIcon
                                 variant="light"
                                 aria-label={`Download ${attachment.filename}`}

@@ -50,7 +50,14 @@ export function MemberFormModal({
   }, [form, member]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={member ? "Edit member" : "New member"} centered radius="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={member ? "Edit member" : "New member"}
+      centered
+      radius="lg"
+      classNames={{ content: "member-form-modal", body: "member-form-modal-body" }}
+    >
       <form onSubmit={form.handleSubmit((values) => onSubmit(memberInputSchema.parse(values) as MemberInput))}>
         <Stack>
           <TextInput label="Name" {...form.register("name")} error={form.formState.errors.name?.message} />

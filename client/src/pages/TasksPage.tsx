@@ -228,6 +228,204 @@ function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onPreview, on
   );
 }
 
+type TaskMobileCardProps = TaskTableColumnsProps & {
+  expanded: boolean;
+  subtasks: TaskDTO[];
+  onToggleExpanded: () => void;
+};
+
+/*
+Mobile task cards preserve the table's management actions while collapsing
+secondary columns into short metadata rows that can wrap without page overflow.
+*/
+function TaskMobileCard({
+  task,
+  deletePending,
+  expanded,
+  subtasks,
+  onEdit,
+  onDelete,
+  onPreview,
+  onStatusChange,
+  onToggleExpanded,
+}: TaskMobileCardProps) {
+  return (
+    <Paper radius="md" p="md" withBorder className="task-mobile-card">
+      <Stack gap="sm">
+        <Group justify="space-between" align="start" wrap="nowrap">
+          <Stack gap={4} className="task-mobile-card-copy">
+            <Group gap="xs" wrap="nowrap">
+              {subtasks.length > 0 ? (
+                <ActionIcon
+                  variant="subtle"
+                  aria-label={expanded ? "Collapse subtasks" : "Expand subtasks"}
+                  onClick={onToggleExpanded}
+                >
+                  {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                </ActionIcon>
+              ) : null}
+              <Text fw={800} className="task-mobile-title">
+                {task.title}
+              </Text>
+            </Group>
+            <Text size="sm" c="dimmed" lineClamp={2}>
+              {task.description || "No description"}
+            </Text>
+            {task.parentTaskTitle ? (
+              <Text size="xs" c="dimmed">
+                Subtask of {task.parentTaskTitle}
+              </Text>
+            ) : null}
+          </Stack>
+          <Group gap="xs" wrap="nowrap" className="task-mobile-actions">
+            <ActionIcon variant="light" onClick={() => onPreview(task.id)} aria-label={`Preview ${task.title}`}>
+              <IconEye size={16} />
+            </ActionIcon>
+            {task.canEdit ? (
+              <>
+                <ActionIcon variant="light" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
+                  <IconEdit size={16} />
+                </ActionIcon>
+                <ActionIcon
+                  color="red"
+                  variant="light"
+                  loading={deletePending}
+                  onClick={() => onDelete(task.id)}
+                  aria-label={`Delete ${task.title}`}
+                >
+                  <IconTrash size={16} />
+                </ActionIcon>
+              </>
+            ) : null}
+          </Group>
+        </Group>
+
+        <Group gap="xs" wrap="wrap">
+          <TaskStatusBadge status={task.status} />
+          {task.isDefect ? <DefectBadge /> : null}
+        </Group>
+
+        {task.canEdit ? (
+          <Select
+            size="xs"
+            className="task-mobile-status-select"
+            value={task.status}
+            data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+            onChange={(value) => {
+              if (!value || value === task.status) {
+                return;
+              }
+
+              onStatusChange(task, value as TaskDTO["status"]);
+            }}
+          />
+        ) : null}
+
+        <SimpleTaskMeta label="Project" value={task.projectName} />
+        <SimpleTaskMeta label="Assignee" value={task.assigneeNames?.length ? task.assigneeNames.join(", ") : task.assigneeName} />
+        <SimpleTaskMeta label="Deadline" value={task.deadline ? formatDateTime(task.deadline) : "No deadline"} />
+        {task.completedAt ? <SimpleTaskMeta label="Done" value={formatDateTime(task.completedAt)} /> : null}
+        {task.attachments.length > 0 ? (
+          <SimpleTaskMeta
+            label="Files"
+            value={task.status === "done" ? `${task.attachments.length} archived` : `${task.attachments.length} attached`}
+          />
+        ) : null}
+
+        {subtasks.length > 0 && expanded ? (
+          <SubtaskMobilePanel
+            subtasks={subtasks}
+            deletePending={deletePending}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onPreview={onPreview}
+            onStatusChange={onStatusChange}
+          />
+        ) : null}
+      </Stack>
+    </Paper>
+  );
+}
+
+function SimpleTaskMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <Group justify="space-between" gap="sm" wrap="nowrap" className="task-mobile-meta-row">
+      <Text size="xs" c="dimmed" fw={700}>
+        {label}
+      </Text>
+      <Text size="sm" ta="right" className="task-mobile-meta-value">
+        {value}
+      </Text>
+    </Group>
+  );
+}
+
+function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onStatusChange }: SubtaskPanelProps) {
+  const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
+
+  return (
+    <Stack gap="sm" className="task-mobile-subtasks">
+      {paginatedItems.map((subtask) => (
+        <div key={subtask.id} className="task-mobile-subtask-card">
+          <Stack gap="xs">
+            <Group justify="space-between" gap="sm" wrap="nowrap">
+              <Text fw={700} size="sm" className="task-mobile-title">
+                {subtask.title}
+              </Text>
+              <Group gap={6} wrap="nowrap">
+                <ActionIcon size="sm" variant="light" onClick={() => onPreview(subtask.id)} aria-label={`Preview ${subtask.title}`}>
+                  <IconEye size={14} />
+                </ActionIcon>
+                {subtask.canEdit ? (
+                  <>
+                    <ActionIcon size="sm" variant="light" onClick={() => onEdit(subtask.id)} aria-label={`Edit ${subtask.title}`}>
+                      <IconEdit size={14} />
+                    </ActionIcon>
+                    <ActionIcon
+                      size="sm"
+                      color="red"
+                      variant="light"
+                      loading={deletePending}
+                      onClick={() => onDelete(subtask.id)}
+                      aria-label={`Delete ${subtask.title}`}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </>
+                ) : null}
+              </Group>
+            </Group>
+            <Group gap="xs" wrap="wrap">
+              <TaskStatusBadge status={subtask.status} />
+              {subtask.isDefect ? <DefectBadge /> : null}
+            </Group>
+            {subtask.canEdit ? (
+              <Select
+                size="xs"
+                className="task-mobile-status-select"
+                value={subtask.status}
+                data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+                onChange={(value) => {
+                  if (!value || value === subtask.status) {
+                    return;
+                  }
+
+                  onStatusChange(subtask, value as TaskDTO["status"]);
+                }}
+              />
+            ) : null}
+            <SimpleTaskMeta label="Assignee" value={subtask.assigneeNames?.length ? subtask.assigneeNames.join(", ") : subtask.assigneeName} />
+            <SimpleTaskMeta label="Deadline" value={subtask.deadline ? formatDateTime(subtask.deadline) : "No deadline"} />
+          </Stack>
+        </div>
+      ))}
+      <Group justify="center">
+        {totalPages > 1 ? <CompactPagination size="xs" total={totalPages} value={page} onChange={setPage} /> : null}
+      </Group>
+    </Stack>
+  );
+}
+
 export function TasksPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -464,7 +662,7 @@ export function TasksPage() {
         title="Tasks"
         description="Assign work, filter the workload, and adjust statuses without leaving the manager workspace."
         action={
-          <Group gap="sm">
+          <Group gap="sm" className="page-action-group">
             {canCreateTasks ? (
               <Button
                 variant="light"
@@ -513,7 +711,7 @@ export function TasksPage() {
         }
       />
 
-      <Paper radius="xl" p="lg" withBorder>
+      <Paper radius="xl" p="lg" withBorder className="tasks-filter-panel">
         <Grid>
           <Grid.Col span={{ base: 12, md: 3 }}>
             <Select
@@ -557,7 +755,7 @@ export function TasksPage() {
         </Grid>
       </Paper>
 
-      <Paper radius="xl" p="lg" withBorder className="paginated-table-panel">
+      <Paper radius="xl" p="lg" withBorder className="paginated-table-panel tasks-table-panel">
         <Table verticalSpacing="md">
           <Table.Thead>
             <Table.Tr>
@@ -619,6 +817,27 @@ export function TasksPage() {
           </Table.Tbody>
         </Table>
       </Paper>
+      <Stack gap="sm" className="tasks-mobile-list">
+        {paginatedTasks.map((task) => {
+          const subtasks = subtasksByParent.get(task.id) ?? [];
+          const expanded = expandedTaskIds.has(task.id);
+
+          return (
+            <TaskMobileCard
+              key={task.id}
+              task={task}
+              deletePending={deleteTask.isPending}
+              expanded={expanded}
+              subtasks={subtasks}
+              onEdit={handleEditTask}
+              onDelete={(taskId) => void handleDeleteTask(taskId)}
+              onPreview={handlePreviewTask}
+              onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
+              onToggleExpanded={() => toggleExpandedTask(task.id)}
+            />
+          );
+        })}
+      </Stack>
       <Group className="page-pagination-slot" justify="center">
         {totalPages > 1 ? <CompactPagination total={totalPages} value={page} onChange={setPage} /> : null}
       </Group>

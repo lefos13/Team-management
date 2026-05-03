@@ -25,3 +25,8 @@ Before shipping any change, confirm that:
 ## Review standard
 
 When in doubt, treat production safety as more important than convenience. A change is not ready if it works only on a fresh database or only with manual fixes outside the deploy script.
+
+## Local demo account for testing
+
+email: demo@team-management.local
+password: demo-password

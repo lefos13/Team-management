@@ -58,14 +58,14 @@ export function MembersPage() {
 
       <SimpleGrid cols={{ base: 1, md: 2 }} className="paginated-card-grid">
         {paginatedMembers.map((member) => (
-          <Card key={member.id} radius="xl" withBorder className="content-card">
+          <Card key={member.id} radius="xl" withBorder className="content-card member-card">
             <Stack gap="md">
-              <Group justify="space-between" align="start">
-                <Stack gap={4}>
+              <Group justify="space-between" align="start" className="member-card-header">
+                <Stack gap={4} className="member-card-copy">
                   <Text fw={800} fz="lg">{member.name}</Text>
                   <Text c="dimmed">{member.role} · {member.email}</Text>
                 </Stack>
-                <Group gap="xs">
+                <Group gap="xs" className="member-card-actions">
                   <ActionIcon
                     variant="light"
                     onClick={() => {
@@ -95,20 +95,20 @@ export function MembersPage() {
                   </ActionIcon>
                 </Group>
               </Group>
-              <Group justify="space-between">
+              <Group justify="space-between" className="member-card-stats">
                 <Text size="sm">{member.active ? "Active" : "Archived"}</Text>
                 <Text size="sm" c="dimmed">
                   {member.openTaskCount} open · {member.completedTaskCount} completed
                 </Text>
               </Group>
-              <Text size="sm">
+              <Text size="sm" className="member-card-projects">
                 Projects:{" "}
                 {projects
                   .filter((project) => member.projectIds.includes(project.id))
                   .map((project) => project.name)
                   .join(", ") || "No project assignment"}
               </Text>
-              <Text size="sm" c="dimmed">{member.notes || "No notes added."}</Text>
+              <Text size="sm" c="dimmed" className="member-card-notes">{member.notes || "No notes added."}</Text>
             </Stack>
           </Card>
         ))}

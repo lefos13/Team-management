@@ -36,21 +36,21 @@ export function AppShellLayout() {
 
   return (
     <AppShell
-      header={{ height: 72 }}
+      header={{ height: { base: 64, sm: 72 } }}
       navbar={{ width: 270, breakpoint: "sm", collapsed: { mobile: !opened } }}
-      padding="xl"
+      padding={{ base: "md", sm: "xl" }}
       className="app-shell"
     >
       <AppShell.Header className="shell-header">
-        <Group h="100%" px="lg" justify="space-between">
-          <Group gap="md">
+        <Group h="100%" px="lg" justify="space-between" className="shell-header-content">
+          <Group gap="md" className="shell-header-title">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" />
             <Stack gap={0}>
               <Text className="eyebrow">Team workspace</Text>
               <Title order={3}>{currentNavigation.label}</Title>
             </Stack>
           </Group>
-          <Group gap="sm">
+          <Group gap="sm" className="shell-account-actions">
             <Avatar radius="xl" color="teal">
               {sessionQuery.data?.email.slice(0, 1).toUpperCase() ?? "L"}
             </Avatar>

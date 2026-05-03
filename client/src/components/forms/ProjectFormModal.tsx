@@ -50,7 +50,14 @@ export function ProjectFormModal({
   }, [form, project]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={project ? "Edit project" : "New project"} centered radius="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={project ? "Edit project" : "New project"}
+      centered
+      radius="lg"
+      classNames={{ content: "project-form-modal", body: "project-form-modal-body" }}
+    >
       <form onSubmit={form.handleSubmit((values) => onSubmit(projectInputSchema.parse(values) as ProjectInput))}>
         <Stack>
           <TextInput label="Name" {...form.register("name")} error={form.formState.errors.name?.message} />

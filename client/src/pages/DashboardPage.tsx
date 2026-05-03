@@ -28,6 +28,7 @@ import {
 import { taskStatusLabels, taskStatusValues, type ProjectSummaryDTO, type TaskDTO } from "@team-management/shared";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMediaQuery } from "@mantine/hooks";
 
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { CompactPagination } from "../components/CompactPagination";
@@ -154,7 +155,7 @@ function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
   return (
     <Stack gap="sm" className="fixed-pagination-panel">
       <div className="fixed-pagination-content">
-      <Table verticalSpacing="sm">
+      <Table verticalSpacing="sm" className="dashboard-projects-table">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Project</Table.Th>
@@ -168,7 +169,7 @@ function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
 
             return (
               <Table.Tr key={project.id}>
-                <Table.Td>
+                <Table.Td data-label="Project">
                   <Group gap="xs" wrap="nowrap">
                     <span className="project-swatch" style={{ background: project.color ?? "#16A98B" }} />
                     <Text fw={700} size="sm" lineClamp={1}>
@@ -176,10 +177,10 @@ function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
                     </Text>
                   </Group>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td data-label="Progress">
                   <Progress value={progress} radius="xl" color="teal" />
                 </Table.Td>
-                <Table.Td>
+                <Table.Td data-label="Work">
                   <Text size="sm" c="dimmed">
                     {project.taskCount} tasks
                   </Text>
@@ -199,6 +200,7 @@ function RecentProjectsTable({ projects }: { projects: ProjectSummaryDTO[] }) {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const [completionFilters] = useState(() => completionRangeForPreset("week"));
   const dashboardQuery = useDashboard(completionFilters);
   const calendarQuery = useCalendarEvents();
@@ -230,7 +232,7 @@ export function DashboardPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="end">
+      <Group justify="space-between" align="end" className="dashboard-page-header">
         <Stack gap={4}>
           <Text className="eyebrow">Operations workspace</Text>
           <Text fw={900} fz={30}>
@@ -392,11 +394,11 @@ export function DashboardPage() {
             {dayjs().format("MMM YYYY")}
           </Text>
         </Group>
-        <FullCalendar
+          <FullCalendar
           plugins={[dayGridPlugin]}
           initialView="dayGridMonth"
-          height={420}
-          dayMaxEventRows={2}
+          height={isMobile ? 340 : 420}
+          dayMaxEventRows={isMobile ? 1 : 2}
           events={events.map((event) => ({
             id: event.id,
             title: event.title,
