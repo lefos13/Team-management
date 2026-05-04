@@ -78,10 +78,13 @@ export function AppShellLayout() {
       <AppShell.Navbar className="shell-navbar" p="md">
         <Stack gap="lg" h="100%" justify="space-between">
           <Stack gap="lg">
-            <Stack gap={2} px="sm">
-              <Text fw={900} size="lg" c="white">
-                Team Management
-              </Text>
+            <Stack gap={6} px="sm" className="shell-brand">
+              <Group gap="sm" wrap="nowrap">
+                <img className="shell-brand-logo" src="/logo.png" alt="Team Management logo" />
+                <Text fw={900} size="lg" c="white">
+                  Team Management
+                </Text>
+              </Group>
               <Text size="xs" c="blue.1">
                 Operations workspace
               </Text>

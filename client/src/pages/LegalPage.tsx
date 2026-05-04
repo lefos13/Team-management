@@ -17,7 +17,8 @@ export function LegalPage({ kind }: { kind: LegalPageKind }) {
       <Container size="md" py={{ base: "xl", md: 56 }}>
         <Stack gap="lg">
           <Group justify="space-between" align="center">
-            <Anchor component={Link} to="/" fw={800} c="dark">
+            <Anchor component={Link} to="/" fw={800} c="dark" className="site-brand-link">
+              <img className="site-brand-logo site-brand-logo-small" src="/logo.png" alt="Team Management logo" />
               Team Management
             </Anchor>
             <Button component={Link} to="/register" radius="md" variant="light">

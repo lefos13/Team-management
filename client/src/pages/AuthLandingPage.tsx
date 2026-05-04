@@ -22,7 +22,6 @@ import {
   IconChecklist,
   IconFolder,
   IconLogin2,
-  IconSparkles,
   IconUsers,
   IconUserPlus,
 } from "@tabler/icons-react";
@@ -99,10 +98,8 @@ export function AuthLandingPage({
     <main className="landing-page">
       <Container size="xl" py={{ base: "xl", md: 48 }}>
         <Group justify="space-between" align="center" className="landing-nav">
-          <Group gap="sm">
-            <ThemeIcon radius="md" size={38} variant="gradient" gradient={{ from: "teal", to: "cyan" }}>
-              <IconSparkles size={20} />
-            </ThemeIcon>
+          <Group gap="sm" className="site-brand" wrap="nowrap">
+            <img className="site-brand-logo" src="/logo.png" alt="Team Management logo" />
             <Text fw={800} size="lg">
               Team Management
             </Text>

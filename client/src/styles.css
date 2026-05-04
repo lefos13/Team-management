@@ -46,6 +46,47 @@ body {
   min-height: 44px;
 }
 
+/*
+Brand images use fixed square dimensions so the detailed MG artwork remains
+recognizable without shifting header, sidebar, or mobile navigation layouts.
+*/
+.site-brand,
+.site-brand-link {
+  min-width: 0;
+}
+
+.site-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-brand-logo,
+.shell-brand-logo {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.site-brand-logo {
+  width: 42px;
+  height: 42px;
+}
+
+.site-brand-logo-small {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.shell-brand-logo {
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
 .landing-hero {
   align-items: center;
   min-height: calc(100vh - 140px);
