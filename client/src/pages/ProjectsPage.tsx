@@ -21,6 +21,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
+  IconCalendarEvent,
   IconClipboardList,
   IconEdit,
   IconMail,
@@ -54,6 +55,7 @@ import {
 } from "../hooks/use-app-data";
 import { usePagination } from "../hooks/use-pagination";
 import { getErrorMessage } from "../lib/api";
+import { formatDate } from "../lib/dates";
 
 const avatarColors = ["teal", "grape", "blue", "orange", "gray"];
 
@@ -113,12 +115,16 @@ export function ProjectsPage() {
     return {
       ...project,
       aiContext: projectDetailQuery.data?.aiContext ?? project.aiContext,
+      goLiveDate: projectDetailQuery.data?.goLiveDate ?? project.goLiveDate,
+      phaseDates: projectDetailQuery.data?.phaseDates ?? project.phaseDates,
       memberIds: projectDetailQuery.data?.memberIds ?? [],
     };
   }, [
     editingProjectId,
     ownedProjects,
     projectDetailQuery.data?.aiContext,
+    projectDetailQuery.data?.goLiveDate,
+    projectDetailQuery.data?.phaseDates,
     projectDetailQuery.data?.memberIds,
   ]);
 
@@ -226,6 +232,22 @@ export function ProjectsPage() {
                   </Text>
                   <Stack gap={20} mt="auto">
                     <ProjectStatusBadge status={project.status} />
+                    {project.goLiveDate || project.phaseDates.length > 0 ? (
+                      <Stack gap={6} className="projects-card-markers">
+                        {project.goLiveDate ? (
+                          <Group gap={8} wrap="nowrap">
+                            <IconCalendarEvent size={17} />
+                            <Text>Go-live {formatDate(project.goLiveDate)}</Text>
+                          </Group>
+                        ) : null}
+                        {project.phaseDates[0] ? (
+                          <Group gap={8} wrap="nowrap">
+                            <IconCalendarEvent size={17} />
+                            <Text>{project.phaseDates[0].name} {formatDate(project.phaseDates[0].date)}</Text>
+                          </Group>
+                        ) : null}
+                      </Stack>
+                    ) : null}
                     <Group gap={26} className="projects-card-metrics">
                       <Group gap={8} wrap="nowrap">
                         <IconClipboardList size={19} />
@@ -351,6 +373,22 @@ export function ProjectsPage() {
                 </Text>
                 <Stack gap={20} mt="auto">
                   <ProjectStatusBadge status={project.status} />
+                  {project.goLiveDate || project.phaseDates.length > 0 ? (
+                    <Stack gap={6} className="projects-card-markers">
+                      {project.goLiveDate ? (
+                        <Group gap={8} wrap="nowrap">
+                          <IconCalendarEvent size={17} />
+                          <Text>Go-live {formatDate(project.goLiveDate)}</Text>
+                        </Group>
+                      ) : null}
+                      {project.phaseDates[0] ? (
+                        <Group gap={8} wrap="nowrap">
+                          <IconCalendarEvent size={17} />
+                          <Text>{project.phaseDates[0].name} {formatDate(project.phaseDates[0].date)}</Text>
+                        </Group>
+                      ) : null}
+                    </Stack>
+                  ) : null}
                   <Group gap={26} className="projects-card-metrics">
                     <Group gap={8} wrap="nowrap">
                       <IconClipboardList size={19} />

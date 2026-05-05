@@ -18,6 +18,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TasksPage } from "./pages/TasksPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
+import { TaskSharePreviewPage } from "./pages/TaskSharePreviewPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { getCurrentUser } from "./hooks/use-auth";
 
@@ -76,6 +77,7 @@ export function App() {
         <Route path="/terms" element={<LegalPage kind="terms" />} />
         <Route path="/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/cookies" element={<LegalPage kind="cookies" />} />
+        <Route path="/share/tasks/:token" element={<TaskSharePreviewPage />} />
         <Route
           path="/login"
           element={

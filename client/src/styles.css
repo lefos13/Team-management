@@ -374,6 +374,18 @@ side by side on desktop and every horizontal pixel belongs to task content.
   border-bottom-color: #edf2f7;
 }
 
+.project-phase-date-row {
+  align-items: flex-start;
+}
+
+.project-phase-name-input {
+  flex: 1 1 220px;
+}
+
+.project-phase-date-input {
+  flex: 0 1 220px;
+}
+
 .project-swatch {
   width: 14px;
   height: 14px;
@@ -411,6 +423,30 @@ plain content panels instead of dashboard chrome or marketing-style sections.
   width: min(520px, calc(100vw - 36px));
   background: rgba(255, 255, 255, 0.98);
   border-color: rgba(19, 34, 56, 0.14);
+}
+
+.task-share-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.96) 0%, rgba(236, 247, 244, 0.88) 52%, rgba(247, 250, 246, 0.98) 100%),
+    linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
+}
+
+.task-share-title {
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.task-share-panel {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(19, 34, 56, 0.1);
+  box-shadow: 0 16px 44px rgba(19, 34, 56, 0.06);
+}
+
+.calendar-important-marker {
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  font-weight: 900;
+  box-shadow: 0 0 0 2px rgba(201, 42, 42, 0.28);
 }
 
 /*
@@ -527,6 +563,16 @@ scan access context and manage permissions without leaving the page.
 
 .projects-card-metrics svg {
   color: #657080;
+}
+
+.projects-card-markers {
+  color: #8a4b00;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.projects-card-markers svg {
+  color: #c92a2a;
 }
 
 .projects-card-footer,
@@ -1192,6 +1238,15 @@ scan access context and manage permissions without leaving the page.
   .task-form-attachment-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .project-phase-date-row {
+    flex-wrap: wrap;
+  }
+
+  .project-phase-name-input,
+  .project-phase-date-input {
+    flex-basis: calc(100% - 44px);
   }
 
   .task-form-modal,

@@ -2,9 +2,9 @@ import type {
   TaskAttachmentArchiveDTO,
   TaskAttachmentDTO,
   CalendarEventDTO,
+  ProjectSummaryDTO,
   ProjectDetailDTO,
   ProjectListDTO,
-  ProjectSummaryDTO,
   SharedProjectSummaryDTO,
   TaskDTO,
   TeamMemberDTO,
@@ -35,6 +35,7 @@ export function mapUser(user: User): UserDTO {
 
 export function mapProjectSummary(
   project: Project & {
+    phaseDates?: Array<{ id: string; name: string; date: Date }>;
     _count: {
       projectMembers: number;
       tasks: number;
@@ -46,6 +47,12 @@ export function mapProjectSummary(
     name: project.name,
     description: project.description,
     aiContext: project.aiContext,
+    goLiveDate: project.goLiveDate ? toIsoString(project.goLiveDate) : null,
+    phaseDates: (project.phaseDates ?? []).map((phaseDate) => ({
+      id: phaseDate.id,
+      name: phaseDate.name,
+      date: toIsoString(phaseDate.date),
+    })),
     status: project.status as ProjectSummaryDTO["status"],
     color: project.color,
     memberCount: project._count.projectMembers,
@@ -57,6 +64,7 @@ export function mapProjectSummary(
 
 export function mapSharedProjectSummary(
   project: Project & {
+    phaseDates?: Array<{ id: string; name: string; date: Date }>;
     _count: {
       projectMembers: number;
       tasks: number;
@@ -88,6 +96,7 @@ export function mapProjectList(input: {
 
 export function mapProjectDetail(
   project: Project & {
+    phaseDates?: Array<{ id: string; name: string; date: Date }>;
     projectMembers: Array<{ teamMemberId: string }>;
     tasks: Array<{ id: string }>;
     _count: {
@@ -238,6 +247,54 @@ export function mapCalendarEvent(
     assigneeId: task.assigneeId,
     assigneeIds: task.taskAssignees.map((assignment) => assignment.teamMemberId),
     status: task.status as CalendarEventDTO["status"],
+    eventType: "task_deadline",
+    importance: "normal",
     overdue,
+  };
+}
+
+export function mapProjectGoLiveCalendarEvent(project: Pick<Project, "id" | "name" | "goLiveDate">): CalendarEventDTO {
+  if (!project.goLiveDate) {
+    throw new Error("Go-live calendar events require a date.");
+  }
+
+  return {
+    id: `project-go-live:${project.id}`,
+    title: `Go-live · ${project.name}`,
+    date: toIsoString(project.goLiveDate),
+    start: toIsoString(project.goLiveDate),
+    end: toIsoString(project.goLiveDate),
+    taskId: null,
+    projectId: project.id,
+    assigneeId: null,
+    assigneeIds: [],
+    status: null,
+    eventType: "project_go_live",
+    importance: "very_important",
+    overdue: project.goLiveDate.getTime() < Date.now(),
+  };
+}
+
+export function mapProjectPhaseCalendarEvent(phaseDate: {
+  id: string;
+  name: string;
+  date: Date;
+  projectId: string;
+  project: { name: string };
+}): CalendarEventDTO {
+  return {
+    id: `project-phase:${phaseDate.id}`,
+    title: `${phaseDate.name} · ${phaseDate.project.name}`,
+    date: toIsoString(phaseDate.date),
+    start: toIsoString(phaseDate.date),
+    end: toIsoString(phaseDate.date),
+    taskId: null,
+    projectId: phaseDate.projectId,
+    assigneeId: null,
+    assigneeIds: [],
+    status: null,
+    eventType: "project_phase",
+    importance: "very_important",
+    overdue: phaseDate.date.getTime() < Date.now(),
   };
 }

@@ -5,7 +5,7 @@ for done work and keeping notes out of list views.
 import type { ProjectDetailDTO, TaskDTO } from "@team-management/shared";
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowLeft, IconDownload, IconEye, IconFileText, IconNotes } from "@tabler/icons-react";
+import { IconArrowLeft, IconDownload, IconEye, IconFileText, IconNotes, IconShare } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -15,6 +15,7 @@ import {
   downloadTaskAttachment,
   downloadTaskAttachmentArchive,
   previewTaskAttachment,
+  useCreateTaskShareLink,
   useProjectDetail,
   useTaskDetail,
   useUpdateTask,
@@ -85,6 +86,7 @@ export function TaskDetailPage() {
   const taskQuery = useTaskDetail(taskId ?? null);
   const projectDetailQuery = useProjectDetail(taskQuery.data?.projectId ?? null);
   const updateTask = useUpdateTask();
+  const createTaskShareLink = useCreateTaskShareLink();
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -168,6 +170,24 @@ export function TaskDetailPage() {
     }
   }
 
+  async function handleCreateShareLink() {
+    try {
+      const shareLink = await createTaskShareLink.mutateAsync(currentTask.id);
+      await navigator.clipboard.writeText(shareLink.url);
+      notifications.show({
+        color: "teal",
+        title: "Share link copied",
+        message: "Anyone with the link can preview this task without signing in.",
+      });
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to create share link",
+        message: getErrorMessage(error, "Share link creation failed."),
+      });
+    }
+  }
+
   return (
     <Stack gap="xl">
       <PageHeader
@@ -190,6 +210,16 @@ export function TaskDetailPage() {
             <Button variant="light" leftSection={<IconFileText size={16} />} onClick={() => void handleCopyAgentPrompt()}>
               Copy AI prompt
             </Button>
+            {task.canEdit ? (
+              <Button
+                variant="light"
+                leftSection={<IconShare size={16} />}
+                loading={createTaskShareLink.isPending}
+                onClick={() => void handleCreateShareLink()}
+              >
+                Share preview
+              </Button>
+            ) : null}
           </Group>
           <SimpleGrid cols={{ base: 1, md: 2 }}>
             <Stack gap={4}>

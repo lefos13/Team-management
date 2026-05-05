@@ -34,6 +34,11 @@ the guard is sized for large documents while still rejecting abusive payloads.
 */
 export const projectAiContextMaxLength = 1_000_000;
 
+export const projectPhaseDateInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  date: z.string().datetime(),
+});
+
 export const loginInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -71,6 +76,8 @@ export const projectInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   aiContext: z.string().trim().max(projectAiContextMaxLength).optional().or(z.literal("")),
+  goLiveDate: z.string().datetime().optional().nullable().or(z.literal("")),
+  phaseDates: z.array(projectPhaseDateInputSchema).default([]),
   status: projectStatusSchema,
   color: z.string().trim().regex(/^#([0-9a-fA-F]{6})$/).optional().or(z.literal("")),
   memberIds: z.array(z.string().min(1)).default([]),
@@ -168,6 +175,13 @@ export const taskAttachmentArchiveSchema = z.object({
   generatedAt: z.string().datetime(),
 });
 
+export const taskShareLinkSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  url: z.string().url(),
+  createdAt: z.string().datetime(),
+});
+
 export const taskImportRowResultSchema = z.object({
   row: z.number().int().positive(),
   title: z.string().optional(),
@@ -227,6 +241,14 @@ export const projectSummarySchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   aiContext: z.string().nullable(),
+  goLiveDate: z.string().datetime().nullable(),
+  phaseDates: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      date: z.string().datetime(),
+    }),
+  ),
   status: projectStatusSchema,
   color: z.string().nullable(),
   memberCount: z.number().int().nonnegative(),
@@ -323,11 +345,13 @@ export const calendarEventSchema = z.object({
   date: z.string().datetime(),
   start: z.string().datetime().nullable(),
   end: z.string().datetime().nullable(),
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   projectId: z.string(),
   assigneeId: z.string().nullable(),
   assigneeIds: z.array(z.string()),
-  status: taskStatusSchema,
+  status: taskStatusSchema.nullable(),
+  eventType: z.enum(["task_deadline", "project_go_live", "project_phase"]),
+  importance: z.enum(["normal", "very_important"]),
   overdue: z.boolean(),
 });
 
@@ -365,6 +389,7 @@ export type ResendVerificationInput = z.infer<typeof resendVerificationInputSche
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetInputSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 export type ProjectInput = z.infer<typeof projectInputSchema>;
+export type ProjectPhaseDateInput = z.infer<typeof projectPhaseDateInputSchema>;
 export type SendProjectInvitationInput = z.infer<typeof sendProjectInvitationInputSchema>;
 export type UpdateProjectAccessPermissionInput = z.infer<typeof updateProjectAccessPermissionInputSchema>;
 export type AcceptProjectInvitationInput = z.infer<typeof acceptProjectInvitationInputSchema>;
@@ -377,6 +402,7 @@ export type TaskImportResultDTO = z.infer<typeof taskImportResultSchema>;
 export type TaskImportRowResultDTO = z.infer<typeof taskImportRowResultSchema>;
 export type TaskAttachmentDTO = z.infer<typeof taskAttachmentSchema>;
 export type TaskAttachmentArchiveDTO = z.infer<typeof taskAttachmentArchiveSchema>;
+export type TaskShareLinkDTO = z.infer<typeof taskShareLinkSchema>;
 export type DashboardFilters = z.infer<typeof dashboardFiltersSchema>;
 export type CalendarFilters = z.infer<typeof calendarFiltersSchema>;
 export type UserDTO = z.infer<typeof userSchema>;

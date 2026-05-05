@@ -584,6 +584,109 @@ describe("team management API", () => {
   });
 
   /*
+  Project delivery dates are calendar markers rather than tasks, so they remain
+  optional project metadata and still appear as high-importance schedule events.
+  */
+  it("stores project go-live and phase dates as important calendar markers", async () => {
+    await register("markers@example.com", "password123");
+    await verify("markers@example.com");
+    const loginResponse = await login("markers@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+    const goLiveDate = new Date("2030-06-01T09:00:00.000Z").toISOString();
+    const phaseDate = new Date("2030-05-15T09:00:00.000Z").toISOString();
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Marker launch",
+        description: "",
+        aiContext: "",
+        goLiveDate,
+        phaseDates: [{ name: "Phase 1", date: phaseDate }],
+        status: "active",
+        color: "#16A98B",
+        memberIds: [],
+      });
+
+    expect(project.status).toBe(200);
+    expect(project.body.goLiveDate).toBe(goLiveDate);
+    expect(project.body.phaseDates).toEqual([expect.objectContaining({ name: "Phase 1", date: phaseDate })]);
+
+    const calendar = await request(app.server)
+      .get(`/api/calendar/events?from=${encodeURIComponent("2030-05-01T00:00:00.000Z")}&to=${encodeURIComponent("2030-06-30T23:59:59.999Z")}`)
+      .set("Cookie", cookie);
+    expect(calendar.status).toBe(200);
+    expect(calendar.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ projectId: project.body.id, eventType: "project_phase", importance: "very_important" }),
+      expect.objectContaining({ projectId: project.body.id, eventType: "project_go_live", importance: "very_important" }),
+    ]));
+  });
+
+  /*
+  Task share links intentionally bypass login only for the linked task preview;
+  the URL stores the raw token while persistence keeps only the token hash.
+  */
+  it("creates public task share links that expose read-only task previews", async () => {
+    await register("share-owner@example.com", "password123");
+    await verify("share-owner@example.com");
+    const loginResponse = await login("share-owner@example.com", "password123");
+    const cookie = loginResponse.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", cookie)
+      .send({
+        name: "Share Owner",
+        role: "Lead",
+        email: "share-owner-member@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", cookie)
+      .send({
+        name: "Shared preview project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+    const task = await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", cookie)
+      .send({
+        title: "Preview this task",
+        description: "Visible to guests with the link.",
+        notes: "Preview notes.",
+        status: "todo",
+        isDefect: false,
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    const shareLink = await request(app.server)
+      .post(`/api/tasks/${task.body.id}/share-links`)
+      .set("Cookie", cookie);
+    expect(shareLink.status).toBe(200);
+    expect(shareLink.body.url).toContain("/share/tasks/");
+
+    const token = new URL(shareLink.body.url).pathname.split("/").pop();
+    const publicPreview = await request(app.server).get(`/api/task-shares/${token}`);
+    expect(publicPreview.status).toBe(200);
+    expect(publicPreview.body).toEqual(expect.objectContaining({
+      id: task.body.id,
+      title: "Preview this task",
+      canEdit: false,
+      canManageAssignees: false,
+    }));
+  });
+
+  /*
   Keep the oversized context guard explicit so abuse protection stays far above
   normal project guidance documents but still has a deterministic boundary.
   */

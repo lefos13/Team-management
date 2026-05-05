@@ -23,6 +23,7 @@ import {
   IconEye,
   IconFileSpreadsheet,
   IconPlus,
+  IconShare,
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
@@ -48,6 +49,7 @@ import {
   exportTasks,
   previewTaskAttachment,
   useCreateTask,
+  useCreateTaskShareLink,
   useDeleteTaskAttachment,
   useDeleteTask,
   useImportTasks,
@@ -119,10 +121,11 @@ type TaskTableColumnsProps = {
   onEdit: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onPreview: (taskId: string) => void;
+  onShare: (taskId: string) => void;
   onStatusChange: (task: TaskDTO, status: TaskDTO["status"]) => void;
 };
 
-function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, onStatusChange }: TaskTableColumnsProps) {
+function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, onShare, onStatusChange }: TaskTableColumnsProps) {
   return (
     <>
       <Table.Td>
@@ -184,6 +187,9 @@ function TaskTableColumns({ task, deletePending, onEdit, onDelete, onPreview, on
               <ActionIcon variant="light" onClick={() => onEdit(task.id)}>
                 <IconEdit size={16} />
               </ActionIcon>
+              <ActionIcon variant="light" onClick={() => onShare(task.id)}>
+                <IconShare size={16} />
+              </ActionIcon>
               <ActionIcon color="red" variant="light" loading={deletePending} onClick={() => onDelete(task.id)}>
                 <IconTrash size={16} />
               </ActionIcon>
@@ -203,7 +209,7 @@ type SubtaskPanelProps = Omit<TaskTableColumnsProps, "task"> & {
 Keep subtask paging local to each expanded parent so opening one hierarchy does
 not change the page position inside another parent task.
 */
-function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onStatusChange }: SubtaskPanelProps) {
+function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onShare, onStatusChange }: SubtaskPanelProps) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
 
   return (
@@ -219,6 +225,7 @@ function SubtaskPanel({ subtasks, deletePending, onEdit, onDelete, onPreview, on
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onPreview={onPreview}
+                onShare={onShare}
                 onStatusChange={onStatusChange}
               />
             </Table.Tr>
@@ -250,6 +257,7 @@ function TaskMobileCard({
   onEdit,
   onDelete,
   onPreview,
+  onShare,
   onStatusChange,
   onToggleExpanded,
 }: TaskMobileCardProps) {
@@ -289,6 +297,9 @@ function TaskMobileCard({
               <>
                 <ActionIcon variant="light" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
                   <IconEdit size={16} />
+                </ActionIcon>
+                <ActionIcon variant="light" onClick={() => onShare(task.id)} aria-label={`Share ${task.title}`}>
+                  <IconShare size={16} />
                 </ActionIcon>
                 <ActionIcon
                   color="red"
@@ -343,6 +354,7 @@ function TaskMobileCard({
             onEdit={onEdit}
             onDelete={onDelete}
             onPreview={onPreview}
+            onShare={onShare}
             onStatusChange={onStatusChange}
           />
         ) : null}
@@ -364,7 +376,7 @@ function SimpleTaskMeta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onStatusChange }: SubtaskPanelProps) {
+function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onShare, onStatusChange }: SubtaskPanelProps) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
 
   return (
@@ -384,6 +396,9 @@ function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPrevi
                   <>
                     <ActionIcon size="sm" variant="light" onClick={() => onEdit(subtask.id)} aria-label={`Edit ${subtask.title}`}>
                       <IconEdit size={14} />
+                    </ActionIcon>
+                    <ActionIcon size="sm" variant="light" onClick={() => onShare(subtask.id)} aria-label={`Share ${subtask.title}`}>
+                      <IconShare size={14} />
                     </ActionIcon>
                     <ActionIcon
                       size="sm"
@@ -459,6 +474,7 @@ export function TasksPage() {
   const membersQuery = useMembers();
   const tasksQuery = useTasks(taskQueryFilters);
   const createTask = useCreateTask();
+  const createTaskShareLink = useCreateTaskShareLink();
   const updateTask = useUpdateTask();
   const updateTaskStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
@@ -595,6 +611,24 @@ export function TasksPage() {
 
   function handlePreviewTask(taskId: string) {
     navigate(`/tasks/${taskId}`);
+  }
+
+  async function handleShareTask(taskId: string) {
+    try {
+      const shareLink = await createTaskShareLink.mutateAsync(taskId);
+      await navigator.clipboard.writeText(shareLink.url);
+      notifications.show({
+        color: "teal",
+        title: "Share link copied",
+        message: "Anyone with the link can preview this task without signing in.",
+      });
+    } catch (error) {
+      notifications.show({
+        color: "red",
+        title: "Unable to create share link",
+        message: getErrorMessage(error, "Share link creation failed."),
+      });
+    }
   }
 
   async function handleDeleteTask(taskId: string) {
@@ -798,6 +832,7 @@ export function TasksPage() {
                       onEdit={handleEditTask}
                       onDelete={(taskId) => void handleDeleteTask(taskId)}
                       onPreview={handlePreviewTask}
+                      onShare={(taskId) => void handleShareTask(taskId)}
                       onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
                     />
                   </Table.Tr>
@@ -810,6 +845,7 @@ export function TasksPage() {
                           onEdit={handleEditTask}
                           onDelete={(taskId) => void handleDeleteTask(taskId)}
                           onPreview={handlePreviewTask}
+                          onShare={(taskId) => void handleShareTask(taskId)}
                           onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
                         />
                       </Table.Td>
@@ -836,6 +872,7 @@ export function TasksPage() {
               onEdit={handleEditTask}
               onDelete={(taskId) => void handleDeleteTask(taskId)}
               onPreview={handlePreviewTask}
+              onShare={(taskId) => void handleShareTask(taskId)}
               onStatusChange={(nextTask, status) => void handleStatusChange(nextTask, status)}
               onToggleExpanded={() => toggleExpandedTask(task.id)}
             />

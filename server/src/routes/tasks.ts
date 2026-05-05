@@ -1,5 +1,5 @@
 /* Enforce that tasks belong to valid project-member pairs so the calendar and workload views stay coherent. */
-import type { ProjectPermission, TaskDTO, TaskImportResultDTO } from "@team-management/shared";
+import type { ProjectPermission, TaskDTO, TaskImportResultDTO, TaskShareLinkDTO } from "@team-management/shared";
 import {
   taskExportFiltersSchema,
   taskFiltersSchema,
@@ -12,10 +12,11 @@ import {
 import { Prisma } from "@prisma/client";
 import ExcelJS from "exceljs";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { getConfig } from "../config.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { mapTask } from "../lib/mappers.js";
 import {
@@ -48,6 +49,15 @@ const taskIdParamsSchema = z.object({
 
 const taskStatusUpdateSchema = z.object({
   status: taskStatusSchema,
+});
+
+const taskShareParamsSchema = z.object({
+  token: z.string().trim().min(16),
+});
+
+const taskShareAttachmentParamsSchema = z.object({
+  token: z.string().trim().min(16),
+  attachmentId: z.string().min(1),
 });
 
 const taskAttachmentParamsSchema = z.object({
@@ -193,6 +203,15 @@ function normalizeImportText(value: unknown): string {
 
 function hasXlsxSignature(buffer: Buffer): boolean {
   return buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+}
+
+function hashShareToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function buildTaskShareUrl(token: string) {
+  const clientOrigin = new URL(getConfig().CLIENT_ORIGIN).toString().replace(/\/$/, "");
+  return `${clientOrigin}/share/tasks/${encodeURIComponent(token)}`;
 }
 
 /*
@@ -549,6 +568,23 @@ async function getTaskForUser(currentUserId: string, taskId: string, requireEdit
     return task;
   }
   throw notFound("Task");
+}
+
+async function getSharedTaskByToken(token: string) {
+  const shareLink = await prisma.taskShareLink.findUnique({
+    where: { tokenHash: hashShareToken(token) },
+    include: {
+      task: {
+        include: taskDetailsInclude,
+      },
+    },
+  });
+
+  if (!shareLink || shareLink.revokedAt) {
+    throw notFound("Task share link");
+  }
+
+  return shareLink.task;
 }
 
 function canEditTaskForAccess(
@@ -943,6 +979,50 @@ async function parseTaskImportWorkbook(userId: string, projectId: string, buffer
 
 export const taskRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider();
+
+  app.get(
+    "/task-shares/:token",
+    {
+      schema: {
+        params: taskShareParamsSchema,
+      },
+    },
+    async (request): Promise<TaskDTO> => {
+      const params = taskShareParamsSchema.parse(request.params);
+      const task = await getSharedTaskByToken(params.token);
+
+      return mapTask(task, { canEdit: false, canManageAssignees: false });
+    },
+  );
+
+  app.get(
+    "/task-shares/:token/attachments/:attachmentId/preview",
+    {
+      schema: {
+        params: taskShareAttachmentParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const params = taskShareAttachmentParamsSchema.parse(request.params);
+      const task = await getSharedTaskByToken(params.token);
+      const attachment = task.attachments.find((candidate) => candidate.id === params.attachmentId);
+
+      if (!attachment) {
+        throw notFound("Attachment");
+      }
+
+      if (task.status === "done") {
+        throw badRequest("Preview is disabled after a task is done.");
+      }
+
+      if (!isPreviewableMimeType(attachment.mimeType)) {
+        throw badRequest("This attachment type cannot be previewed in the browser.");
+      }
+
+      const file = await readAttachmentFile(attachment.storageKey);
+      return reply.header("Content-Type", attachment.mimeType).send(file);
+    },
+  );
 
   app.get(
     "/tasks",
@@ -1493,6 +1573,36 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const access = await getAccessContext(task.projectId, user.id);
 
       return mapTask(task, { canEdit: canEditTaskForAccess(task, access), canManageAssignees: canManageTaskAssignees(access) });
+    },
+  );
+
+  app.post(
+    "/tasks/:id/share-links",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        params: taskIdParamsSchema,
+      },
+    },
+    async (request): Promise<TaskShareLinkDTO> => {
+      const user = requireCurrentUser(request);
+      const params = taskIdParamsSchema.parse(request.params);
+      const task = await getTaskForUser(user.id, params.id, true);
+      const token = randomBytes(32).toString("hex");
+      const shareLink = await prisma.taskShareLink.create({
+        data: {
+          taskId: task.id,
+          createdByUserId: user.id,
+          tokenHash: hashShareToken(token),
+        },
+      });
+
+      return {
+        id: shareLink.id,
+        taskId: task.id,
+        url: buildTaskShareUrl(token),
+        createdAt: shareLink.createdAt.toISOString(),
+      };
     },
   );
 

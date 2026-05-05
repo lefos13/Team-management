@@ -77,6 +77,8 @@ describe("ProjectFormModal", () => {
       name: "Operations",
       description: "Coordinate operations work.",
       aiContext: "Keep terminology aligned with the support team.",
+      goLiveDate: null,
+      phaseDates: [],
       status: "active",
       color: "#16A98B",
       memberCount: 1,

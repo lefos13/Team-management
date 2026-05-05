@@ -17,6 +17,7 @@ import type {
   TaskImportResultDTO,
   TaskImportTemplateVariant,
   TaskInput,
+  TaskShareLinkDTO,
   TeamMemberDTO,
 } from "@team-management/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -91,6 +92,18 @@ export function useTaskDetail(taskId: string | null) {
     enabled: Boolean(taskId),
     queryFn: async () => {
       const response = await api.get<TaskDTO>(`/tasks/${taskId}`);
+      return response.data;
+    },
+  });
+}
+
+export function useTaskSharePreview(token: string | null) {
+  return useQuery({
+    queryKey: ["task-share-preview", token],
+    enabled: Boolean(token),
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<TaskDTO>(`/task-shares/${token}`);
       return response.data;
     },
   });
@@ -338,6 +351,15 @@ export function useUpdateTaskStatus() {
   });
 }
 
+export function useCreateTaskShareLink() {
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const response = await api.post<TaskShareLinkDTO>(`/tasks/${taskId}/share-links`);
+      return response.data;
+    },
+  });
+}
+
 export function useDeleteTask() {
   const queryClient = useQueryClient();
 
@@ -360,6 +382,13 @@ export async function downloadTaskAttachment(taskId: string, attachmentId: strin
 
 export async function previewTaskAttachment(taskId: string, attachmentId: string) {
   const response = await api.get<Blob>(`/tasks/${taskId}/attachments/${attachmentId}/preview`, {
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function previewSharedTaskAttachment(token: string, attachmentId: string) {
+  const response = await api.get<Blob>(`/task-shares/${token}/attachments/${attachmentId}/preview`, {
     responseType: "blob",
   });
   return response.data;

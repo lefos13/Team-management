@@ -43,6 +43,7 @@ model User {
   ownedAccesses      ProjectAccess[]     @relation("ProjectAccessOwner")
   ownedInvitations   ProjectInvitation[] @relation("ProjectInvitationOwner")
   acceptedInvitations ProjectInvitation[] @relation("ProjectInvitationAcceptedBy")
+  taskShareLinks     TaskShareLink[]
 }
 
 model Session {
@@ -77,6 +78,7 @@ model Project {
   name           String
   description    String?
   aiContext      String?
+  goLiveDate     DateTime?
   status         String          @default("active")
   color          String?
   createdAt      DateTime        @default(now())
@@ -86,9 +88,24 @@ model Project {
   projectMembers ProjectMember[]
   projectAccesses ProjectAccess[]
   invitations    ProjectInvitation[]
+  phaseDates     ProjectPhaseDate[]
   tasks          Task[]
 
   @@index([userId])
+  @@index([goLiveDate])
+}
+
+model ProjectPhaseDate {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([date])
 }
 
 model TeamMember {
@@ -199,6 +216,7 @@ model Task {
   taskAssignees TaskAssignee[]
   attachments   TaskAttachment[]
   archive       TaskAttachmentArchive?
+  shareLinks    TaskShareLink[]
 
   @@index([deadline])
   @@index([completedAt])
@@ -206,6 +224,21 @@ model Task {
   @@index([projectId])
   @@index([assigneeId])
   @@index([parentTaskId])
+}
+
+model TaskShareLink {
+  id              String    @id @default(cuid())
+  taskId          String
+  createdByUserId String
+  tokenHash       String    @unique
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdByUser   User      @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, revokedAt])
+  @@index([createdByUserId])
 }
 
 model TaskAttachment {

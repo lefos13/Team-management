@@ -4,7 +4,7 @@ import { calendarFiltersSchema, dashboardFiltersSchema, taskStatusValues } from 
 import type { FastifyPluginAsync } from "fastify";
 
 import { prisma } from "../db.js";
-import { mapCalendarEvent, mapTask } from "../lib/mappers.js";
+import { mapCalendarEvent, mapProjectGoLiveCalendarEvent, mapProjectPhaseCalendarEvent, mapTask } from "../lib/mappers.js";
 import { requireCurrentUser } from "../lib/request-user.js";
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
@@ -169,35 +169,77 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     async (request): Promise<CalendarEventDTO[]> => {
       const user = requireCurrentUser(request);
       const query = calendarFiltersSchema.parse(request.query);
-      const tasks = await prisma.task.findMany({
-        /*
-        Restrict calendar output to active work so completed tasks disappear
-        from every calendar view without relying on client-side filtering.
-        */
-        where: {
-          userId: user.id,
-          status: {
-            not: "done",
-          },
-          deadline: {
-            not: null,
-            ...(query.from ? { gte: new Date(query.from) } : {}),
-            ...(query.to ? { lte: new Date(query.to) } : {}),
-          },
-        },
-        include: {
-          project: {
-            select: { name: true },
-          },
-          taskAssignees: {
-            select: { teamMemberId: true },
-            orderBy: { createdAt: "asc" },
-          },
-        },
-        orderBy: { deadline: { sort: "asc", nulls: "last" } },
+      const sharedAccesses = await prisma.projectAccess.findMany({
+        where: { userId: user.id, status: "active" },
+        select: { projectId: true },
       });
+      const visibleProjectIds = sharedAccesses.map((access) => access.projectId);
+      const [tasks, goLiveProjects, phaseDates] = await Promise.all([
+        prisma.task.findMany({
+          /*
+          Restrict calendar output to active work so completed tasks disappear
+          from every calendar view without relying on client-side filtering.
+          */
+          where: {
+            userId: user.id,
+            status: {
+              not: "done",
+            },
+            deadline: {
+              not: null,
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          },
+          include: {
+            project: {
+              select: { name: true },
+            },
+            taskAssignees: {
+              select: { teamMemberId: true },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+          orderBy: { deadline: { sort: "asc", nulls: "last" } },
+        }),
+        prisma.project.findMany({
+          where: {
+            OR: [
+              { userId: user.id },
+              ...(visibleProjectIds.length > 0 ? [{ id: { in: visibleProjectIds } }] : []),
+            ],
+            goLiveDate: {
+              not: null,
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          },
+          select: { id: true, name: true, goLiveDate: true },
+          orderBy: { goLiveDate: { sort: "asc", nulls: "last" } },
+        }),
+        prisma.projectPhaseDate.findMany({
+          where: {
+            project: {
+              OR: [
+                { userId: user.id },
+                ...(visibleProjectIds.length > 0 ? [{ id: { in: visibleProjectIds } }] : []),
+              ],
+            },
+            date: {
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          },
+          include: { project: { select: { name: true } } },
+          orderBy: [{ date: "asc" }, { name: "asc" }],
+        }),
+      ]);
 
-      return tasks.map(mapCalendarEvent);
+      return [
+        ...tasks.map(mapCalendarEvent),
+        ...goLiveProjects.map(mapProjectGoLiveCalendarEvent),
+        ...phaseDates.map(mapProjectPhaseCalendarEvent),
+      ].sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
     },
   );
 };

@@ -46,6 +46,10 @@ function normalizeOptionalText(value?: string): string | null {
   return value && value.trim() !== "" ? value.trim() : null;
 }
 
+function normalizeOptionalDate(value?: string | null): Date | null {
+  return value && value !== "" ? new Date(value) : null;
+}
+
 function permissionLabel(permission: ProjectPermission): string {
   return projectPermissionLabels[permission];
 }
@@ -112,6 +116,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
         where: { userId: user.id },
         include: {
           _count: { select: { projectMembers: true, tasks: true } },
+          phaseDates: { orderBy: [{ date: "asc" }, { name: "asc" }] },
         },
         orderBy: { updatedAt: "desc" },
       }),
@@ -122,6 +127,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           project: {
             include: {
               _count: { select: { projectMembers: true, tasks: true } },
+              phaseDates: { orderBy: [{ date: "asc" }, { name: "asc" }] },
             },
           },
         },
@@ -159,6 +165,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           projectMembers: { select: { teamMemberId: true } },
           tasks: { select: { id: true } },
           _count: { select: { projectMembers: true, tasks: true } },
+          phaseDates: { orderBy: [{ date: "asc" }, { name: "asc" }] },
         },
       });
 
@@ -192,8 +199,17 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           name: body.name,
           description: normalizeOptionalText(body.description),
           aiContext: normalizeOptionalText(body.aiContext),
+          goLiveDate: normalizeOptionalDate(body.goLiveDate),
           status: body.status,
           color: normalizeOptionalText(body.color),
+          phaseDates: {
+            createMany: {
+              data: body.phaseDates.map((phaseDate) => ({
+                name: phaseDate.name,
+                date: new Date(phaseDate.date),
+              })),
+            },
+          },
           projectMembers: {
             createMany: {
               data: body.memberIds.map((memberId: string) => ({ teamMemberId: memberId })),
@@ -202,6 +218,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
         },
         include: {
           _count: { select: { projectMembers: true, tasks: true } },
+          phaseDates: { orderBy: [{ date: "asc" }, { name: "asc" }] },
         },
       });
 
@@ -225,16 +242,26 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
         throw forbidden("Only the master owner can edit project settings.");
       }
 
-      const [, project] = await prisma.$transaction([
+      const [, , project] = await prisma.$transaction([
         prisma.projectMember.deleteMany({ where: { projectId: params.id } }),
+        prisma.projectPhaseDate.deleteMany({ where: { projectId: params.id } }),
         prisma.project.update({
           where: { id: params.id },
           data: {
             name: body.name,
             description: normalizeOptionalText(body.description),
             aiContext: normalizeOptionalText(body.aiContext),
+            goLiveDate: normalizeOptionalDate(body.goLiveDate),
             status: body.status,
             color: normalizeOptionalText(body.color),
+            phaseDates: {
+              createMany: {
+                data: body.phaseDates.map((phaseDate) => ({
+                  name: phaseDate.name,
+                  date: new Date(phaseDate.date),
+                })),
+              },
+            },
             projectMembers: {
               createMany: {
                 data: body.memberIds.map((memberId: string) => ({ teamMemberId: memberId })),
@@ -243,6 +270,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
           },
           include: {
             _count: { select: { projectMembers: true, tasks: true } },
+            phaseDates: { orderBy: [{ date: "asc" }, { name: "asc" }] },
           },
         }),
       ]);
