@@ -5,7 +5,7 @@ export const taskStatusLabels = {
   todo: "To Do",
   in_progress: "In Progress",
   blocked: "Blocked",
-  review_testing: "Review/Testing",
+  review_testing: "Review",
   done: "Done",
 } as const satisfies Record<(typeof taskStatusValues)[number], string>;
 export const projectStatusValues = ["active", "on_hold", "completed"] as const;

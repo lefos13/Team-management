@@ -74,14 +74,14 @@ describe("TasksPage hierarchy visibility", () => {
 });
 
 describe("TaskStatusBadge", () => {
-  it("renders the review/testing label", () => {
+  it("renders the review label", () => {
     render(
       <MantineProvider>
         <TaskStatusBadge status="review_testing" />
       </MantineProvider>,
     );
 
-    expect(screen.getByText("Review/Testing")).toBeInTheDocument();
+    expect(screen.getByText("Review")).toBeInTheDocument();
   });
 });
 

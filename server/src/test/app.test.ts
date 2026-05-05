@@ -1516,7 +1516,7 @@ describe("team management API", () => {
         title: "Imported testing task",
         memberEmail: "review-owner@example.com",
         deadline: new Date(2026, 0, 15),
-        status: "Review/Testing",
+        status: "Review",
       },
     ]);
     const importResponse = await request(app.server)
