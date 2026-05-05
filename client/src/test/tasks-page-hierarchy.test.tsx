@@ -5,7 +5,7 @@ import type { TaskDTO } from "@team-management/shared";
 import { describe, expect, it } from "vitest";
 
 import { TaskStatusBadge } from "../components/StatusBadge";
-import { buildVisibleTaskHierarchy } from "../pages/TasksPage";
+import { buildVisibleTaskHierarchy, getAssigneeAvatarItems, getAssigneeInitials, getTaskRangeLabel } from "../pages/TasksPage";
 
 function task(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "status">): TaskDTO {
   return {
@@ -82,5 +82,31 @@ describe("TaskStatusBadge", () => {
     );
 
     expect(screen.getByText("Review/Testing")).toBeInTheDocument();
+  });
+});
+
+describe("TasksPage presentation helpers", () => {
+  it("builds compact assignee initials and overflow labels", () => {
+    const avatarItems = getAssigneeAvatarItems(
+      task({
+        id: "multi-assignee",
+        title: "Multi assignee",
+        status: "todo",
+        assigneeNames: ["Ada Lovelace", "Grace Hopper", "Linus"],
+      }),
+    );
+
+    expect(getAssigneeInitials("Ada Lovelace")).toBe("AL");
+    expect(getAssigneeInitials("Linus")).toBe("LI");
+    expect(getAssigneeInitials(" ")).toBe("?");
+    expect(avatarItems.visibleNames).toEqual(["Ada Lovelace", "Grace Hopper"]);
+    expect(avatarItems.overflowCount).toBe(1);
+    expect(avatarItems.label).toBe("Ada Lovelace, Grace Hopper, Linus");
+  });
+
+  it("formats task pagination ranges", () => {
+    expect(getTaskRangeLabel(1, 10, 0)).toBe("Showing 0 tasks");
+    expect(getTaskRangeLabel(1, 10, 27)).toBe("Showing 1 to 10 of 27 tasks");
+    expect(getTaskRangeLabel(3, 10, 27)).toBe("Showing 21 to 27 of 27 tasks");
   });
 });

@@ -358,22 +358,6 @@ side by side on desktop and every horizontal pixel belongs to task content.
   overflow: hidden;
 }
 
-.subtask-panel-row td {
-  background: #f8fafc;
-  padding: 10px 12px 14px;
-}
-
-.subtask-panel {
-  border: 1px solid #dbe4ef;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 10px;
-}
-
-.subtask-row td {
-  border-bottom-color: #edf2f7;
-}
-
 .project-phase-date-row {
   align-items: flex-start;
 }
@@ -758,7 +742,333 @@ scan access context and manage permissions without leaving the page.
   font-weight: 800;
 }
 
-.tasks-mobile-list {
+/*
+The refreshed Tasks page uses a denser blue-and-white management surface while
+leaving the broader app shell and the other pages on the existing teal theme.
+*/
+.tasks-page {
+  color: #111827;
+}
+
+.tasks-page .page-header {
+  align-items: flex-start;
+}
+
+.tasks-page .page-header-copy h2 {
+  color: #090f1f;
+  font-size: 2.15rem;
+  line-height: 1.1;
+}
+
+.tasks-page .page-header-copy p {
+  color: #5f6878;
+  font-size: 1.02rem;
+  font-weight: 650;
+}
+
+.tasks-primary-action,
+.tasks-secondary-action {
+  height: 46px;
+  border-radius: 7px;
+  padding-inline: 22px;
+  font-weight: 800;
+}
+
+.tasks-primary-action {
+  background: #0b5cff;
+  box-shadow: 0 10px 20px rgba(11, 92, 255, 0.18);
+}
+
+.tasks-primary-action:hover {
+  background: #004de5;
+}
+
+.tasks-secondary-action {
+  border-color: #d6dde7;
+  color: #111827;
+  background: #ffffff;
+}
+
+.tasks-secondary-action:hover {
+  border-color: #bfc8d6;
+  background: #f8fafc;
+}
+
+.tasks-filter-panel,
+.tasks-table-panel {
+  border-color: #dce3ec;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 35, 56, 0.08);
+}
+
+.tasks-filter-panel .mantine-Input-input,
+.tasks-filter-panel .mantine-SegmentedControl-root {
+  min-height: 48px;
+  border-radius: 6px;
+}
+
+.tasks-filter-panel .mantine-Input-input {
+  border-color: #d6dde7;
+  color: #1f2937;
+  font-weight: 650;
+}
+
+.tasks-filter-panel .mantine-Input-label,
+.tasks-filter-panel .mantine-Text-root {
+  color: #111827;
+  font-weight: 800;
+}
+
+.tasks-defect-control {
+  border: 1px solid #d6dde7;
+  background: #f9fafb;
+}
+
+.tasks-defect-control .mantine-SegmentedControl-label {
+  min-height: 46px;
+  color: #374151;
+  font-weight: 750;
+}
+
+.tasks-defect-control [data-active="true"] .mantine-SegmentedControl-label {
+  color: #0b5cff;
+}
+
+.tasks-table-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tasks-table {
+  table-layout: fixed;
+}
+
+.tasks-table th {
+  height: 62px;
+  padding: 14px 16px;
+  color: #111827;
+  font-size: 0.8rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.tasks-table th:first-child {
+  width: 360px;
+}
+
+.tasks-table th:nth-child(2) {
+  width: 56px;
+}
+
+.tasks-table th:nth-child(3) {
+  width: 150px;
+}
+
+.tasks-table th:nth-child(4) {
+  width: 118px;
+}
+
+.tasks-table th:nth-child(5),
+.tasks-table th:nth-child(7) {
+  width: 110px;
+}
+
+.tasks-table th:nth-child(6) {
+  width: 150px;
+}
+
+.tasks-table th:nth-child(8),
+.tasks-table th:nth-child(9) {
+  width: 130px;
+}
+
+.tasks-table th:nth-child(10) {
+  width: 150px;
+}
+
+.tasks-data-row td {
+  height: 70px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5eaf1;
+  color: #273244;
+  font-size: 0.82rem;
+  vertical-align: middle;
+}
+
+.tasks-data-row:first-child td {
+  border-top-color: #dce3ec;
+}
+
+.tasks-subtask-row td {
+  background: #fbfcfe;
+}
+
+.tasks-task-title-group,
+.tasks-row-actions,
+.tasks-attachment-count {
+  min-width: 0;
+}
+
+.tasks-task-title {
+  min-width: 0;
+  color: #111827;
+  font-size: 0.84rem;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.tasks-task-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.tasks-task-description {
+  max-width: 100%;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.tasks-task-icon {
+  flex: 0 0 auto;
+  color: #667085;
+}
+
+.tasks-expand-button,
+.tasks-expand-spacer,
+.tasks-subtask-marker {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+}
+
+.tasks-subtask-marker {
+  position: relative;
+  display: inline-block;
+}
+
+.tasks-subtask-marker::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #8a97aa;
+}
+
+.tasks-project-cell {
+  overflow-wrap: anywhere;
+}
+
+.tasks-attachment-count {
+  color: #4b5563;
+  font-weight: 750;
+}
+
+.task-assignee-stack {
+  min-width: 0;
+}
+
+.task-assignee-avatar {
+  border: 2px solid #ffffff;
+  background: #e8efff;
+  color: #12213a;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.task-assignee-avatar-more {
+  background: #eef2f7;
+  color: #4b5563;
+}
+
+.tasks-status-select {
+  width: 124px;
+}
+
+.tasks-status-select .mantine-Input-input,
+.tasks-page-size-select .mantine-Input-input {
+  border-color: #d6dde7;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.task-type-badge {
+  height: 28px;
+  border-radius: 6px;
+  text-transform: none;
+}
+
+.task-type-badge .mantine-Badge-label {
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.task-type-badge-standard {
+  background: #e8f7e6;
+  color: #287322;
+}
+
+.task-type-badge-defect {
+  background: #ffe7e5;
+  color: #c92a2a;
+}
+
+.tasks-actions-cell {
+  border-left: 1px solid #edf1f6;
+}
+
+.tasks-actions-heading {
+  text-align: center;
+}
+
+.tasks-action-icon {
+  color: #1f2a3d;
+}
+
+.tasks-action-icon:hover {
+  background: #eef4ff;
+  color: #0b5cff;
+}
+
+.tasks-action-icon-danger {
+  color: #ff5a5f;
+}
+
+.tasks-subtask-pagination-row td {
+  height: 54px;
+  background: #fbfcfe;
+}
+
+.tasks-table-footer,
+.tasks-mobile-pagination-footer {
+  min-height: 78px;
+  padding: 18px 22px;
+  border-top: 1px solid #e5eaf1;
+}
+
+.tasks-table-footer > p,
+.tasks-mobile-pagination-footer > p {
+  flex: 1;
+}
+
+.tasks-table-footer .compact-pagination,
+.tasks-mobile-pagination-footer .compact-pagination {
+  flex: 0 0 auto;
+}
+
+.tasks-table-footer .tasks-page-size-select,
+.tasks-mobile-pagination-footer .tasks-page-size-select {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tasks-mobile-list,
+.tasks-mobile-pagination-footer {
   display: none;
 }
 
@@ -1018,6 +1328,16 @@ scan access context and manage permissions without leaving the page.
     padding: 14px;
   }
 
+  .tasks-filter-panel .mantine-SegmentedControl-root {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .tasks-filter-panel .mantine-SegmentedControl-label {
+    padding-inline: 10px;
+    font-size: 0.82rem;
+  }
+
   .tasks-table-panel {
     display: none;
   }
@@ -1026,9 +1346,31 @@ scan access context and manage permissions without leaving the page.
     display: flex;
   }
 
+  .tasks-mobile-pagination-footer {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid #dce3ec;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(15, 35, 56, 0.06);
+  }
+
+  .tasks-mobile-pagination-footer > p,
+  .tasks-mobile-pagination-footer .tasks-page-size-select {
+    width: 100%;
+    flex: initial;
+  }
+
+  .tasks-mobile-pagination-footer .compact-pagination {
+    align-self: center;
+  }
+
   .task-mobile-card {
-    background: rgba(255, 255, 255, 0.96);
-    border-color: rgba(15, 35, 56, 0.1);
+    border-color: #dce3ec;
+    background: #ffffff;
     box-shadow: 0 12px 28px rgba(15, 35, 56, 0.06);
   }
 
@@ -1037,25 +1379,40 @@ scan access context and manage permissions without leaving the page.
   }
 
   .task-mobile-title {
+    color: #111827;
     line-height: 1.25;
   }
 
-  .task-mobile-actions {
+  .task-mobile-card .tasks-row-actions,
+  .task-mobile-subtask-card .tasks-row-actions {
     flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .task-mobile-card .tasks-action-icon,
+  .task-mobile-subtask-card .tasks-action-icon {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
   }
 
   .task-mobile-status-select {
     width: 100%;
   }
 
+  .task-mobile-card .tasks-status-select,
+  .task-mobile-subtask-card .tasks-status-select {
+    width: 100%;
+  }
+
   .task-mobile-meta-row {
     align-items: flex-start;
     padding-top: 8px;
-    border-top: 1px solid rgba(15, 35, 56, 0.07);
+    border-top: 1px solid #edf1f6;
   }
 
   .task-mobile-meta-row p:first-child {
-    flex: 0 0 78px;
+    flex: 0 0 86px;
     text-transform: uppercase;
   }
 
@@ -1066,7 +1423,7 @@ scan access context and manage permissions without leaving the page.
   .task-mobile-subtasks {
     margin-top: 4px;
     padding: 10px;
-    border: 1px solid rgba(15, 35, 56, 0.08);
+    border: 1px solid #e5eaf1;
     border-radius: 8px;
     background: #f8fafc;
   }
