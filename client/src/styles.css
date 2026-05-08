@@ -412,7 +412,12 @@ plain content panels instead of dashboard chrome or marketing-style sections.
 .task-share-page {
   min-height: 100vh;
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.96) 0%, rgba(236, 247, 244, 0.88) 52%, rgba(247, 250, 246, 0.98) 100%),
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(236, 247, 244, 0.88) 52%,
+      rgba(247, 250, 246, 0.98) 100%
+    ),
     linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
 }
 
@@ -803,7 +808,7 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-filter-panel .mantine-Input-input,
 .tasks-filter-panel .mantine-SegmentedControl-root {
-  min-height: 48px;
+  /* min-height: 48px; */
   border-radius: 6px;
 }
 
@@ -825,7 +830,7 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .tasks-defect-control .mantine-SegmentedControl-label {
-  min-height: 46px;
+  /* min-height: 46px; */
   color: #374151;
   font-weight: 750;
 }
