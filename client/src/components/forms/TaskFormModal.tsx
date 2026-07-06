@@ -11,6 +11,7 @@ import {
   Button,
   Checkbox,
   FileInput,
+  Grid,
   Group,
   Modal,
   MultiSelect,
@@ -188,7 +189,7 @@ export function TaskFormModal({
       onClose={onClose}
       title={task ? "Edit task" : "New task"}
       centered
-      size="lg"
+      size="90%"
       radius="lg"
       classNames={{ content: "task-form-modal", body: "task-form-modal-body" }}
     >
@@ -209,98 +210,122 @@ export function TaskFormModal({
         })}
       >
         <Stack>
-          <TextInput label="Title" {...form.register("title")} error={form.formState.errors.title?.message} />
+          <TextInput label="Title" withAsterisk {...form.register("title")} error={form.formState.errors.title?.message} />
           <Textarea
             label="Description"
             minRows={3}
+            resize="vertical"
+            autosize
+            maxRows={15}
             {...form.register("description")}
             error={form.formState.errors.description?.message}
           />
-          <Controller
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <Select
-                label="Status"
-                data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
-                value={field.value}
-                onChange={(value) => field.onChange(value ?? "todo")}
+          <Grid>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Controller
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <Select
+                    label="Status"
+                    withAsterisk
+                    data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+                    value={field.value}
+                    onChange={(value) => field.onChange(value ?? "todo")}
+                  />
+                )}
               />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="isDefect"
-            render={({ field }) => (
-              <Checkbox
-                label="Mark as defect"
-                checked={field.value}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => field.onChange(event.currentTarget.checked)}
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Controller
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <Select
+                    label="Project"
+                    withAsterisk
+                    data={projects.map((project) => ({ value: project.id, label: project.name }))}
+                    value={field.value}
+                    onChange={(value) => field.onChange(value ?? "")}
+                    error={form.formState.errors.projectId?.message}
+                    disabled={Boolean(task && !task.canManageAssignees)}
+                  />
+                )}
               />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="projectId"
-            render={({ field }) => (
-              <Select
-                label="Project"
-                data={projects.map((project) => ({ value: project.id, label: project.name }))}
-                value={field.value}
-                onChange={(value) => field.onChange(value ?? "")}
-                error={form.formState.errors.projectId?.message}
-                disabled={Boolean(task && !task.canManageAssignees)}
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Controller
+                control={form.control}
+                name="assigneeIds"
+                render={({ field }) => (
+                  <MultiSelect
+                    label="Assignees"
+                    withAsterisk
+                    data={assignableMembers.map((member) => ({ value: member.id, label: member.name }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={form.formState.errors.assigneeIds?.message}
+                    disabled={!selectedProjectId || !canManageAssignees}
+                    searchable
+                  />
+                )}
               />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="assigneeIds"
-            render={({ field }) => (
-              <MultiSelect
-                label="Assignees"
-                data={assignableMembers.map((member) => ({ value: member.id, label: member.name }))}
-                value={field.value}
-                onChange={field.onChange}
-                error={form.formState.errors.assigneeIds?.message}
-                disabled={!selectedProjectId || !canManageAssignees}
-                searchable
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Stack gap="xs" h="100%" justify="flex-end">
+                {taskHasSubtasks ? (
+                  <Alert color="yellow" variant="light" p="xs">
+                    Tasks with subtasks cannot be moved under another parent.
+                  </Alert>
+                ) : null}
+                <Controller
+                  control={form.control}
+                  name="parentTaskId"
+                  render={({ field }) => (
+                    <Select
+                      label="Parent task"
+                      description="Leave empty for a top-level task."
+                      clearable
+                      data={parentOptions}
+                      value={field.value || null}
+                      onChange={(value) => field.onChange(value ?? "")}
+                      disabled={!selectedProjectId || taskHasSubtasks}
+                      searchable
+                    />
+                  )}
+                />
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <TextInput
+                label="Start date"
+                type="datetime-local"
+                {...form.register("startDate")}
+                error={form.formState.errors.startDate?.message}
               />
-            )}
-          />
-          {taskHasSubtasks ? (
-            <Alert color="yellow" variant="light">
-              Tasks with subtasks cannot be moved under another parent.
-            </Alert>
-          ) : null}
-          <Controller
-            control={form.control}
-            name="parentTaskId"
-            render={({ field }) => (
-              <Select
-                label="Parent task"
-                description="Leave empty for a top-level task."
-                clearable
-                data={parentOptions}
-                value={field.value || null}
-                onChange={(value) => field.onChange(value ?? "")}
-                disabled={!selectedProjectId || taskHasSubtasks}
-                searchable
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <TextInput
+                label="Deadline"
+                type="datetime-local"
+                {...form.register("deadline")}
+                error={form.formState.errors.deadline?.message}
               />
-            )}
-          />
-          <TextInput
-            label="Start date"
-            type="datetime-local"
-            {...form.register("startDate")}
-            error={form.formState.errors.startDate?.message}
-          />
-          <TextInput
-            label="Deadline"
-            type="datetime-local"
-            {...form.register("deadline")}
-            error={form.formState.errors.deadline?.message}
-          />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <Controller
+                control={form.control}
+                name="isDefect"
+                render={({ field }) => (
+                  <Checkbox
+                    label="Mark as defect"
+                    checked={field.value}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => field.onChange(event.currentTarget.checked)}
+                  />
+                )}
+              />
+            </Grid.Col>
+          </Grid>
           <Paper withBorder radius="md" p="md">
             {task ? (
               <Stack gap="sm">

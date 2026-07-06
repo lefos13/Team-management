@@ -18,6 +18,7 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -279,47 +280,53 @@ export function ProjectsPage() {
                     ) : null}
                   </Avatar.Group>
                   <Group gap={16} className="projects-card-actions">
-                    <ActionIcon
-                      variant="subtle"
-                      color="dark"
-                      aria-label={`Edit ${project.name}`}
-                      onClick={() => {
-                        setEditingProjectId(project.id);
-                        setOpened(true);
-                      }}
-                    >
-                      <IconEdit size={24} stroke={1.8} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="dark"
-                      aria-label={`Manage invitations for ${project.name}`}
-                      onClick={() => {
-                        setInvitationProjectId(project.id);
-                        setPermissionByMember({});
-                      }}
-                    >
-                      <IconMail size={25} stroke={1.8} />
-                    </ActionIcon>
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      aria-label={`Delete ${project.name}`}
-                      loading={deleteProject.isPending}
-                      onClick={async () => {
-                        try {
-                          await deleteProject.mutateAsync(project.id);
-                        } catch (error) {
-                          notifications.show({
-                            color: "red",
-                            title: "Unable to delete project",
-                            message: getErrorMessage(error),
-                          });
-                        }
-                      }}
-                    >
-                      <IconTrash size={24} stroke={1.8} />
-                    </ActionIcon>
+                    <Tooltip label="Edit project" withArrow openDelay={300}>
+                      <ActionIcon
+                        variant="subtle"
+                        color="dark"
+                        aria-label={`Edit ${project.name}`}
+                        onClick={() => {
+                          setEditingProjectId(project.id);
+                          setOpened(true);
+                        }}
+                      >
+                        <IconEdit size={24} stroke={1.8} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Manage invitations" withArrow openDelay={300}>
+                      <ActionIcon
+                        variant="subtle"
+                        color="dark"
+                        aria-label={`Manage invitations for ${project.name}`}
+                        onClick={() => {
+                          setInvitationProjectId(project.id);
+                          setPermissionByMember({});
+                        }}
+                      >
+                        <IconMail size={25} stroke={1.8} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Delete project" withArrow openDelay={300}>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        aria-label={`Delete ${project.name}`}
+                        loading={deleteProject.isPending}
+                        onClick={async () => {
+                          try {
+                            await deleteProject.mutateAsync(project.id);
+                          } catch (error) {
+                            notifications.show({
+                              color: "red",
+                              title: "Unable to delete project",
+                              message: getErrorMessage(error),
+                            });
+                          }
+                        }}
+                      >
+                        <IconTrash size={24} stroke={1.8} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
                 </Group>
               </Card>

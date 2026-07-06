@@ -205,27 +205,35 @@ function AssigneeAvatarStack({ task }: { task: Pick<TaskDTO, "assigneeName" | "a
 function TaskActionGroup({ task, deletePending, onEdit, onDelete, onPreview, onShare }: Omit<TaskTableColumnsProps, "onStatusChange">) {
   return (
     <Group justify="end" gap={8} wrap="nowrap" className="tasks-row-actions">
-      <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onPreview(task.id)} aria-label={`Preview ${task.title}`}>
-        <IconEye size={17} />
-      </ActionIcon>
+      <Tooltip label="Preview task" withArrow openDelay={300}>
+        <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onPreview(task.id)} aria-label={`Preview ${task.title}`}>
+          <IconEye size={17} />
+        </ActionIcon>
+      </Tooltip>
       {task.canEdit ? (
         <>
-          <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
-            <IconEdit size={17} />
-          </ActionIcon>
-          <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onShare(task.id)} aria-label={`Share ${task.title}`}>
-            <IconShare size={17} />
-          </ActionIcon>
-          <ActionIcon
-            color="red"
-            variant="subtle"
-            className="tasks-action-icon tasks-action-icon-danger"
-            loading={deletePending}
-            onClick={() => onDelete(task.id)}
-            aria-label={`Delete ${task.title}`}
-          >
-            <IconTrash size={17} />
-          </ActionIcon>
+          <Tooltip label="Edit task" withArrow openDelay={300}>
+            <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
+              <IconEdit size={17} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Share task" withArrow openDelay={300}>
+            <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onShare(task.id)} aria-label={`Share ${task.title}`}>
+              <IconShare size={17} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Delete task" withArrow openDelay={300}>
+            <ActionIcon
+              color="red"
+              variant="subtle"
+              className="tasks-action-icon tasks-action-icon-danger"
+              loading={deletePending}
+              onClick={() => onDelete(task.id)}
+              aria-label={`Delete ${task.title}`}
+            >
+              <IconTrash size={17} />
+            </ActionIcon>
+          </Tooltip>
         </>
       ) : null}
     </Group>
