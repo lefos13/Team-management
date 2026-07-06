@@ -1,6 +1,6 @@
 /* Reuse the product landing page for sign-in so auth starts in a modal without hiding the app value. */
 import { notifications } from "@mantine/notifications";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { AuthLandingPage } from "./AuthLandingPage";
 import type { LoginFormValues } from "../components/LoginForm";
@@ -9,12 +9,14 @@ import { getErrorMessage } from "../lib/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const loginMutation = useLogin();
 
   async function handleSubmit(values: LoginFormValues) {
     try {
       await loginMutation.mutateAsync(values);
-      navigate("/");
+      const from = location.state?.from || "/";
+      navigate(from, { replace: true });
     } catch (error) {
       notifications.show({
         color: "red",

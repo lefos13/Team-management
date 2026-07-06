@@ -91,7 +91,9 @@ export function AuthLandingPage({
       return;
     }
 
-    navigate(nextMode === "login" ? "/login" : "/register", { state: { openAuthModal: true } });
+    navigate(nextMode === "login" ? "/login" : "/register", {
+      state: { openAuthModal: true, from: location.state?.from },
+    });
   }
 
   return (

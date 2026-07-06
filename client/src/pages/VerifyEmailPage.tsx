@@ -1,7 +1,7 @@
 /* Keep verification and resend flows in one page so users can complete signup without losing their email context. */
 import { Anchor, Container, Grid, Stack, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { VerifyEmailForm, type VerifyEmailFormValues } from "../components/VerifyEmailForm";
 import { useResendVerification, useVerifyEmail } from "../hooks/use-auth";
@@ -9,6 +9,7 @@ import { getErrorMessage } from "../lib/api";
 
 export function VerifyEmailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const verifyMutation = useVerifyEmail();
   const resendMutation = useResendVerification();
@@ -22,7 +23,9 @@ export function VerifyEmailPage() {
         title: "Email verified",
         message: response.message,
       });
-      navigate("/login");
+      navigate("/login", {
+        state: { from: location.state?.from },
+      });
     } catch (error) {
       notifications.show({
         color: "red",
@@ -83,7 +86,7 @@ export function VerifyEmailPage() {
               />
               <Text ta="center" c="dimmed">
                 Already verified?{" "}
-                <Anchor component={Link} to="/login">
+                <Anchor component={Link} to="/login" state={{ from: location.state?.from }}>
                   Sign in
                 </Anchor>
               </Text>

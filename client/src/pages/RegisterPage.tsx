@@ -1,6 +1,6 @@
 /* Reuse the product landing page for registration so account creation opens from the same public preview. */
 import { notifications } from "@mantine/notifications";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { AuthLandingPage } from "./AuthLandingPage";
 import type { RegisterFormValues } from "../components/RegisterForm";
@@ -9,6 +9,7 @@ import { getErrorMessage } from "../lib/api";
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const registerMutation = useRegister();
 
   async function handleSubmit(values: RegisterFormValues) {
@@ -24,7 +25,9 @@ export function RegisterPage() {
         title: "Verification required",
         message: response.message,
       });
-      navigate(`/verify-email?email=${encodeURIComponent(values.email)}`);
+      navigate(`/verify-email?email=${encodeURIComponent(values.email)}`, {
+        state: { from: location.state?.from },
+      });
     } catch (error) {
       notifications.show({
         color: "red",
