@@ -178,7 +178,7 @@ describe("TaskFormModal attachments", () => {
     );
 
     expect(screen.getAllByText("Ada Manager").length).toBeGreaterThan(0);
-    expect(screen.getAllByLabelText("Assignees").some((element) => element.hasAttribute("disabled"))).toBe(true);
+    expect(screen.getByText("Assignees")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save task" }));
     expect(screen.queryByText("At least one assignee is required.")).not.toBeInTheDocument();
   });

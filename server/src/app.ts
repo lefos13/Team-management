@@ -11,8 +11,10 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { getConfig } from "./config.js";
+import { adminAuthPlugin } from "./plugins/admin-auth.js";
 import { registerErrorHandler } from "./lib/errors.js";
 import { authPlugin } from "./plugins/auth.js";
+import { adminRoutes } from "./routes/admin.js";
 import { authRoutes } from "./routes/auth.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { memberRoutes } from "./routes/members.js";
@@ -60,9 +62,11 @@ export async function createApp() {
       fileSize: 10 * 1024 * 1024,
     },
   });
+  await app.register(adminAuthPlugin);
   await app.register(authPlugin);
 
   app.get(routeWithBase("/api/health"), async () => ({ ok: true }));
+  await app.register(adminRoutes, { prefix: apiPrefix });
   await app.register(authRoutes, { prefix: apiPrefix });
   await app.register(projectRoutes, { prefix: apiPrefix });
   await app.register(memberRoutes, { prefix: apiPrefix });

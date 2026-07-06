@@ -15,6 +15,117 @@ body {
   min-height: 100vh;
 }
 
+.admin-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(11, 114, 133, 0.12), transparent 28%),
+    linear-gradient(180deg, #f4f8fb 0%, #edf4f1 52%, #f8fbf8 100%);
+}
+
+.admin-login-page {
+  display: flex;
+  align-items: center;
+}
+
+/*
+Keep the backoffice visually distinct from the user workspace while preserving
+the same calm palette, dense information layout, and mobile-safe card framing.
+*/
+.admin-shell-card {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 35, 56, 0.08);
+  box-shadow: 0 20px 46px rgba(15, 35, 56, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.admin-login-shell {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.admin-title {
+  max-width: 14ch;
+}
+
+.admin-stat-card {
+  min-height: 136px;
+}
+
+.admin-stat-card-minimal {
+  min-height: 0;
+  box-shadow: 0 12px 28px rgba(15, 35, 56, 0.05);
+}
+
+/*
+The admin shell needs a dedicated navigation rail and dense content area so
+large read-only datasets stay scannable on desktop and collapse cleanly on mobile.
+*/
+.admin-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-sidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.admin-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #1a3552;
+  text-decoration: none;
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.admin-sidebar-link:hover {
+  background: rgba(11, 114, 133, 0.08);
+  color: #0b7285;
+  transform: translateX(2px);
+}
+
+.admin-sidebar-link-active {
+  background: linear-gradient(135deg, #083b5c 0%, #0b7285 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(8, 59, 92, 0.18);
+}
+
+.admin-main-panel {
+  min-width: 0;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 992px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .login-page,
 .landing-page {
   min-height: 100vh;

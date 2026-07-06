@@ -72,6 +72,10 @@ export const resetPasswordInputSchema = z.object({
   password: z.string().min(8),
 });
 
+export const adminLoginInputSchema = z.object({
+  password: z.string().min(1),
+});
+
 export const projectInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
@@ -228,6 +232,15 @@ export const authActionResponseSchema = z.object({
   message: z.string(),
 });
 
+export const adminSessionSchema = z.object({
+  authenticated: z.boolean(),
+});
+
+export const adminPaginationQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -378,6 +391,111 @@ export const dashboardSchema = z.object({
   upcomingTasks: z.array(taskSchema),
 });
 
+export const adminOverviewSchema = z.object({
+  totals: z.object({
+    userCount: z.number().int().nonnegative(),
+    verifiedUserCount: z.number().int().nonnegative(),
+    projectCount: z.number().int().nonnegative(),
+    taskCount: z.number().int().nonnegative(),
+    invitationCount: z.number().int().nonnegative(),
+    activeAccessCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const adminUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  emailVerified: z.boolean(),
+  emailVerifiedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+});
+
+export const adminProjectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.string(),
+  ownerEmail: z.string().email(),
+  memberCount: z.number().int().nonnegative(),
+  taskCount: z.number().int().nonnegative(),
+  updatedAt: z.string().datetime(),
+});
+
+export const adminMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  role: z.string(),
+  active: z.boolean(),
+  ownerEmail: z.string().email(),
+  createdAt: z.string().datetime(),
+});
+
+export const adminTaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.string(),
+  isDefect: z.boolean(),
+  projectName: z.string(),
+  primaryAssigneeName: z.string().nullable(),
+  deadline: z.string().datetime().nullable(),
+  updatedAt: z.string().datetime(),
+});
+
+export const adminAccessSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["invitation", "access"]),
+  projectName: z.string(),
+  ownerEmail: z.string().email(),
+  memberName: z.string().nullable(),
+  inviteEmail: z.string().email(),
+  permission: projectPermissionSchema,
+  status: z.string(),
+  expiresAt: z.string().datetime().nullable(),
+  acceptedAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable(),
+  updatedAt: z.string().datetime(),
+});
+
+export const paginatedAdminUsersSchema = z.object({
+  items: z.array(adminUserSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+
+export const paginatedAdminProjectsSchema = z.object({
+  items: z.array(adminProjectSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+
+export const paginatedAdminMembersSchema = z.object({
+  items: z.array(adminMemberSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+
+export const paginatedAdminTasksSchema = z.object({
+  items: z.array(adminTaskSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+
+export const paginatedAdminAccessSchema = z.object({
+  items: z.array(adminAccessSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export type ProjectStatus = z.infer<typeof projectStatusSchema>;
 export type ProjectPermission = z.infer<typeof projectPermissionSchema>;
@@ -388,6 +506,8 @@ export type VerifyEmailInput = z.infer<typeof verifyEmailInputSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationInputSchema>;
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetInputSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
+export type AdminLoginInput = z.infer<typeof adminLoginInputSchema>;
+export type AdminPaginationQuery = z.infer<typeof adminPaginationQuerySchema>;
 export type ProjectInput = z.infer<typeof projectInputSchema>;
 export type ProjectPhaseDateInput = z.infer<typeof projectPhaseDateInputSchema>;
 export type SendProjectInvitationInput = z.infer<typeof sendProjectInvitationInputSchema>;
@@ -407,6 +527,7 @@ export type DashboardFilters = z.infer<typeof dashboardFiltersSchema>;
 export type CalendarFilters = z.infer<typeof calendarFiltersSchema>;
 export type UserDTO = z.infer<typeof userSchema>;
 export type AuthActionResponseDTO = z.infer<typeof authActionResponseSchema>;
+export type AdminSessionDTO = z.infer<typeof adminSessionSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ProjectSummaryDTO = z.infer<typeof projectSummarySchema>;
 export type SharedProjectSummaryDTO = z.infer<typeof sharedProjectSummarySchema>;
@@ -418,3 +539,14 @@ export type MemberDeleteResultDTO = z.infer<typeof memberDeleteResultSchema>;
 export type TaskDTO = z.infer<typeof taskSchema>;
 export type CalendarEventDTO = z.infer<typeof calendarEventSchema>;
 export type DashboardDTO = z.infer<typeof dashboardSchema>;
+export type AdminOverviewDTO = z.infer<typeof adminOverviewSchema>;
+export type AdminUserDTO = z.infer<typeof adminUserSchema>;
+export type AdminProjectDTO = z.infer<typeof adminProjectSchema>;
+export type AdminMemberDTO = z.infer<typeof adminMemberSchema>;
+export type AdminTaskDTO = z.infer<typeof adminTaskSchema>;
+export type AdminAccessDTO = z.infer<typeof adminAccessSchema>;
+export type PaginatedAdminUsersDTO = z.infer<typeof paginatedAdminUsersSchema>;
+export type PaginatedAdminProjectsDTO = z.infer<typeof paginatedAdminProjectsSchema>;
+export type PaginatedAdminMembersDTO = z.infer<typeof paginatedAdminMembersSchema>;
+export type PaginatedAdminTasksDTO = z.infer<typeof paginatedAdminTasksSchema>;
+export type PaginatedAdminAccessDTO = z.infer<typeof paginatedAdminAccessSchema>;

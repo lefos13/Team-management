@@ -13,6 +13,9 @@ import { getConfig } from "../config.js";
 import { prisma } from "../db.js";
 import { passwordResetPurpose } from "../lib/auth.js";
 
+process.env.ADMIN_ACCESS_PASSWORD ||= "admin-secret";
+const adminPassword = getConfig().ADMIN_ACCESS_PASSWORD;
+
 describe("team management API", () => {
   let app: Awaited<ReturnType<typeof createApp>>;
 
@@ -29,6 +32,8 @@ describe("team management API", () => {
   beforeEach(async () => {
     await prisma.session.deleteMany();
     await prisma.task.deleteMany();
+    await prisma.projectAccess.deleteMany();
+    await prisma.projectInvitation.deleteMany();
     await prisma.projectMember.deleteMany();
     await prisma.project.deleteMany();
     await prisma.teamMember.deleteMany();
@@ -59,6 +64,10 @@ describe("team management API", () => {
 
   async function resetPassword(email: string, otp = "123456", password = "updated-password") {
     return request(app.server).post("/api/auth/reset-password").send({ email, otp, password });
+  }
+
+  async function createAdminSession(password = adminPassword) {
+    return request(app.server).post("/api/admin/session").send({ password });
   }
 
   async function buildTaskImportWorkbook(rows: Array<Record<string, unknown>>) {
@@ -121,6 +130,174 @@ describe("team management API", () => {
     expect(meResponse.body.termsVersion).toBe(legalDocumentVersion);
     expect(meResponse.body.privacyVersion).toBe(legalDocumentVersion);
     expect(meResponse.body.termsAcceptedAt).toBeTruthy();
+  });
+
+  /*
+  Keep the admin gate independent from account login by requiring the configured
+  secret, then use the signed cookie for every read-only backoffice endpoint.
+  */
+  it("creates, reads, and clears an admin session with the configured password", async () => {
+    const denied = await createAdminSession("wrong-secret");
+    expect(denied.status).toBe(401);
+
+    const unauthenticatedSession = await request(app.server).get("/api/admin/session");
+    expect(unauthenticatedSession.status).toBe(200);
+    expect(unauthenticatedSession.body).toEqual({ authenticated: false });
+
+    const accepted = await createAdminSession();
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toEqual({ authenticated: true });
+    expect(accepted.headers["set-cookie"]?.[0]).toContain("team_management_admin_session");
+
+    const cookie = accepted.headers["set-cookie"]?.[0] as string;
+    const session = await request(app.server).get("/api/admin/session").set("Cookie", cookie);
+    expect(session.status).toBe(200);
+    expect(session.body).toEqual({ authenticated: true });
+
+    const cleared = await request(app.server).delete("/api/admin/session").set("Cookie", cookie);
+    expect(cleared.status).toBe(204);
+  });
+
+  it("rejects admin overview requests without an admin session", async () => {
+    const response = await request(app.server).get("/api/admin/overview");
+    expect(response.status).toBe(401);
+  });
+
+  it("returns read-only admin overview and entity lists", async () => {
+    await register("owner-admin@example.com", "password123");
+    await verify("owner-admin@example.com");
+    const ownerLogin = await login("owner-admin@example.com", "password123");
+    const ownerCookie = ownerLogin.headers["set-cookie"]?.[0] as string;
+
+    const member = await request(app.server)
+      .post("/api/members")
+      .set("Cookie", ownerCookie)
+      .send({
+        name: "Admin Visible Member",
+        role: "Coordinator",
+        email: "member-admin@example.com",
+        notes: "",
+        active: true,
+        projectIds: [],
+      });
+
+    const project = await request(app.server)
+      .post("/api/projects")
+      .set("Cookie", ownerCookie)
+      .send({
+        name: "Admin Visible Project",
+        description: "",
+        status: "active",
+        color: "#16A98B",
+        memberIds: [member.body.id],
+      });
+
+    await request(app.server)
+      .post("/api/tasks")
+      .set("Cookie", ownerCookie)
+      .send({
+        title: "Admin Visible Task",
+        description: "",
+        status: "todo",
+        deadline: "",
+        startDate: "",
+        projectId: project.body.id,
+        assigneeId: member.body.id,
+      });
+
+    await request(app.server)
+      .post(`/api/projects/${project.body.id}/invitations`)
+      .set("Cookie", ownerCookie)
+      .send({
+        memberId: member.body.id,
+        permission: "preview_all_tasks",
+      });
+
+    const adminAgent = request.agent(app.server);
+    const adminLogin = await adminAgent.post("/api/admin/session").send({ password: adminPassword });
+    expect(adminLogin.status).toBe(200);
+    expect(adminLogin.headers["set-cookie"]?.[0]).toContain("team_management_admin_session");
+
+    const overview = await adminAgent.get("/api/admin/overview");
+    expect(overview.status).toBe(200);
+    expect(overview.body.totals).toEqual(expect.objectContaining({
+      userCount: 1,
+      verifiedUserCount: 1,
+      projectCount: 1,
+      taskCount: 1,
+      invitationCount: 1,
+    }));
+
+    const users = await adminAgent.get("/api/admin/users");
+    expect(users.status).toBe(200);
+    expect(users.body).toEqual(expect.objectContaining({
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+      items: [
+        expect.objectContaining({
+          email: "owner-admin@example.com",
+          emailVerified: true,
+        }),
+      ],
+    }));
+
+    const projects = await adminAgent.get("/api/admin/projects");
+    expect(projects.status).toBe(200);
+    expect(projects.body).toEqual(expect.objectContaining({
+      page: 1,
+      items: [
+        expect.objectContaining({
+          name: "Admin Visible Project",
+          ownerEmail: "owner-admin@example.com",
+          memberCount: 1,
+          taskCount: 1,
+        }),
+      ],
+    }));
+
+    const members = await adminAgent.get("/api/admin/members");
+    expect(members.status).toBe(200);
+    expect(members.body).toEqual(expect.objectContaining({
+      page: 1,
+      items: [
+        expect.objectContaining({
+          name: "Admin Visible Member",
+          ownerEmail: "owner-admin@example.com",
+        }),
+      ],
+    }));
+
+    const tasks = await adminAgent.get("/api/admin/tasks");
+    expect(tasks.status).toBe(200);
+    expect(tasks.body).toEqual(expect.objectContaining({
+      page: 1,
+      items: [
+        expect.objectContaining({
+          title: "Admin Visible Task",
+          projectName: "Admin Visible Project",
+          primaryAssigneeName: "Admin Visible Member",
+        }),
+      ],
+    }));
+
+    const access = await adminAgent.get("/api/admin/access?page=1&pageSize=10");
+    expect(access.status).toBe(200);
+    expect(access.body).toEqual(expect.objectContaining({
+      page: 1,
+      pageSize: 10,
+      totalItems: 1,
+      totalPages: 1,
+      items: [
+        expect.objectContaining({
+          kind: "invitation",
+          projectName: "Admin Visible Project",
+          inviteEmail: "member-admin@example.com",
+          permission: "preview_all_tasks",
+        }),
+      ],
+    }));
   });
 
   /*

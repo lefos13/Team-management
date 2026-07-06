@@ -14,6 +14,7 @@ const envSchema = z
     CLIENT_ORIGIN: z.string().url().default("http://localhost:5173"),
     APP_BASE_URL: z.string().url().default("http://localhost:5173"),
     SESSION_SECRET: z.string().min(16).default("replace-with-a-long-random-string"),
+    ADMIN_ACCESS_PASSWORD: z.string().min(1),
     EMAIL_PROVIDER: z.enum(["json", "smtp", "gmail"]).default("json"),
     SMTP_HOST: z.string().trim().optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),

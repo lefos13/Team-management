@@ -8,6 +8,7 @@ import { CookieBanner } from "./components/CookieBanner";
 import { AppShellLayout } from "./layouts/AppShellLayout";
 import { CalendarPage } from "./pages/CalendarPage";
 import { AcceptProjectInvitationPage } from "./pages/AcceptProjectInvitationPage";
+import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LegalPage } from "./pages/LegalPage";
@@ -77,6 +78,7 @@ export function App() {
         <Route path="/terms" element={<LegalPage kind="terms" />} />
         <Route path="/privacy" element={<LegalPage kind="privacy" />} />
         <Route path="/cookies" element={<LegalPage kind="cookies" />} />
+        <Route path="/admin/*" element={<AdminPage />} />
         <Route path="/share/tasks/:token" element={<TaskSharePreviewPage />} />
         <Route
           path="/login"

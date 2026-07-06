@@ -19,8 +19,8 @@ echo "Loaded CLIENT_ORIGIN=${CLIENT_ORIGIN:-<unset>}"
 
 ATTACHMENTS_DIR="${ATTACHMENTS_DIR:-$PROJECT_ROOT/server/storage/attachments}"
 
-if [[ -z "${DATABASE_URL:-}" || -z "${APP_BASE_URL:-}" || -z "${CLIENT_ORIGIN:-}" || -z "${SESSION_SECRET:-}" || -z "${EMAIL_PROVIDER:-}" ]]; then
-  echo "DATABASE_URL, APP_BASE_URL, CLIENT_ORIGIN, SESSION_SECRET, and EMAIL_PROVIDER must be set in $ENV_FILE."
+if [[ -z "${DATABASE_URL:-}" || -z "${APP_BASE_URL:-}" || -z "${CLIENT_ORIGIN:-}" || -z "${SESSION_SECRET:-}" || -z "${EMAIL_PROVIDER:-}" || -z "${ADMIN_ACCESS_PASSWORD:-}" ]]; then
+  echo "DATABASE_URL, APP_BASE_URL, CLIENT_ORIGIN, SESSION_SECRET, EMAIL_PROVIDER, and ADMIN_ACCESS_PASSWORD must be set in $ENV_FILE."
   exit 1
 fi
 

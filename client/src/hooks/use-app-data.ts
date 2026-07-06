@@ -1,8 +1,17 @@
 import type {
+  AdminLoginInput,
+  AdminOverviewDTO,
+  AdminPaginationQuery,
+  AdminSessionDTO,
   CalendarEventDTO,
   DashboardDTO,
   DashboardFilters,
   MemberDeleteResultDTO,
+  PaginatedAdminAccessDTO,
+  PaginatedAdminMembersDTO,
+  PaginatedAdminProjectsDTO,
+  PaginatedAdminTasksDTO,
+  PaginatedAdminUsersDTO,
   MemberInput,
   ProjectDetailDTO,
   ProjectInvitationDTO,
@@ -23,6 +32,192 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/api";
+
+/*
+Keep backoffice state separate from the normal workspace cache so unlocking the
+admin area does not disturb the signed-in user queries or route behavior.
+*/
+export function useAdminSession() {
+  return useQuery({
+    queryKey: ["admin-session"],
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<AdminSessionDTO>("/admin/session");
+      return response.data;
+    },
+  });
+}
+
+function invalidateAdminQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["admin-session"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-overview"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-projects"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-members"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-tasks"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-access"] }),
+  ]);
+}
+
+export function useCreateAdminSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: AdminLoginInput) => {
+      const response = await api.post<AdminSessionDTO>("/admin/session", payload);
+      return response.data;
+    },
+    onSuccess: async () => {
+      await invalidateAdminQueries(queryClient);
+    },
+  });
+}
+
+export function useDeleteAdminSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await api.delete("/admin/session");
+    },
+    onSuccess: async () => {
+      await invalidateAdminQueries(queryClient);
+    },
+  });
+}
+
+export function useAdminOverview(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-overview"],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<AdminOverviewDTO>("/admin/overview");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminUsers(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-users", enabled],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminUsersDTO>("/admin/users");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminUsersPage(enabled: boolean, pagination: AdminPaginationQuery) {
+  return useQuery({
+    queryKey: ["admin-users", pagination],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminUsersDTO>("/admin/users", { params: pagination });
+      return response.data;
+    },
+  });
+}
+
+export function useAdminProjects(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-projects", enabled],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminProjectsDTO>("/admin/projects");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminProjectsPage(enabled: boolean, pagination: AdminPaginationQuery) {
+  return useQuery({
+    queryKey: ["admin-projects", pagination],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminProjectsDTO>("/admin/projects", { params: pagination });
+      return response.data;
+    },
+  });
+}
+
+export function useAdminMembers(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-members", enabled],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminMembersDTO>("/admin/members");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminMembersPage(enabled: boolean, pagination: AdminPaginationQuery) {
+  return useQuery({
+    queryKey: ["admin-members", pagination],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminMembersDTO>("/admin/members", { params: pagination });
+      return response.data;
+    },
+  });
+}
+
+export function useAdminTasks(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-tasks", enabled],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminTasksDTO>("/admin/tasks");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminTasksPage(enabled: boolean, pagination: AdminPaginationQuery) {
+  return useQuery({
+    queryKey: ["admin-tasks", pagination],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminTasksDTO>("/admin/tasks", { params: pagination });
+      return response.data;
+    },
+  });
+}
+
+export function useAdminAccess(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-access", enabled],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminAccessDTO>("/admin/access");
+      return response.data;
+    },
+  });
+}
+
+export function useAdminAccessPage(enabled: boolean, pagination: AdminPaginationQuery) {
+  return useQuery({
+    queryKey: ["admin-access", pagination],
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<PaginatedAdminAccessDTO>("/admin/access", { params: pagination });
+      return response.data;
+    },
+  });
+}
 
 export function useDashboard(filters: DashboardFilters = {}) {
   return useQuery({
