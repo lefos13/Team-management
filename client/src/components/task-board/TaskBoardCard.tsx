@@ -7,21 +7,25 @@ import {
   Avatar,
   Badge,
   Group,
+  Loader,
+  Menu,
   Paper,
   Stack,
   Text,
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowsMove,
   IconCalendar,
   IconCheck,
   IconEdit,
   IconEye,
+  IconGripVertical,
   IconPaperclip,
   IconShare,
   IconTrash,
 } from "@tabler/icons-react";
-import type { TaskDTO } from "@team-management/shared";
+import { taskStatusLabels, taskStatusValues, type TaskDTO } from "@team-management/shared";
 
 import { formatDate } from "../../lib/dates";
 import { getAssigneeAvatarItems, getAssigneeInitials } from "../../lib/task-assignees";
@@ -29,19 +33,29 @@ import { getAssigneeAvatarItems, getAssigneeInitials } from "../../lib/task-assi
 export type TaskBoardCardProps = {
   task: TaskDTO;
   deletePending?: boolean;
+  statusPending?: boolean;
+  isDragging?: boolean;
+  dragRef?: (element: Element | null) => void;
+  dragHandleRef?: (element: Element | null) => void;
   onPreview: (taskId: string) => void;
   onEdit: (taskId: string) => void;
   onShare: (taskId: string) => void;
   onDelete: (taskId: string) => void;
+  onStatusChange?: (task: TaskDTO, status: TaskDTO["status"]) => void;
 };
 
 export function TaskBoardCard({
   task,
   deletePending = false,
+  statusPending = false,
+  isDragging = false,
+  dragRef,
+  dragHandleRef,
   onPreview,
   onEdit,
   onShare,
   onDelete,
+  onStatusChange,
 }: TaskBoardCardProps) {
   const { visibleNames, overflowCount, label: assigneeLabel } = getAssigneeAvatarItems(task);
   const isDone = task.status === "done";
@@ -53,8 +67,19 @@ export function TaskBoardCard({
       ? formatDate(task.deadline)
       : "No deadline";
 
+  /*
+    Editable cards keep the existing actions and add a compact status menu and
+    an optional dnd-kit handle; pending mutations make only this card busy.
+  */
   return (
-    <Paper radius="sm" withBorder className="task-board-card" data-task-id={task.id}>
+    <Paper
+      ref={dragRef}
+      radius="sm"
+      withBorder
+      className={`task-board-card${isDragging ? " task-board-card-dragging" : ""}${statusPending ? " task-board-card-status-pending" : ""}`}
+      data-task-id={task.id}
+      aria-busy={statusPending || undefined}
+    >
       <Stack gap={6}>
         <Group justify="space-between" align="center" wrap="nowrap">
           <Group gap={6} wrap="wrap">
@@ -67,6 +92,60 @@ export function TaskBoardCard({
           </Group>
 
           <Group gap={4} wrap="nowrap" className="tasks-row-actions">
+            {task.canEdit && dragHandleRef ? (
+              <Tooltip label="Drag to move task" withArrow openDelay={300}>
+                <ActionIcon
+                  ref={dragHandleRef}
+                  size="sm"
+                  variant="subtle"
+                  className="tasks-action-icon task-board-drag-handle"
+                  disabled={statusPending}
+                  aria-label={`Drag ${task.title}`}
+                >
+                  <IconGripVertical size={15} />
+                </ActionIcon>
+              </Tooltip>
+            ) : null}
+            {task.canEdit ? (
+              <Menu withinPortal position="bottom-end" shadow="md">
+                <Menu.Target>
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    className="tasks-action-icon task-board-status-menu-target"
+                    loading={statusPending}
+                    disabled={statusPending}
+                    aria-label={`Move ${task.title}`}
+                  >
+                    <IconArrowsMove size={15} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown aria-label={`Move ${task.title}`}>
+                  {taskStatusValues.map((status) => {
+                    const isCurrentStatus = status === task.status;
+
+                    return (
+                      <Menu.Item
+                        key={status}
+                        disabled={isCurrentStatus || statusPending}
+                        aria-current={isCurrentStatus ? "true" : undefined}
+                        aria-label={`${taskStatusLabels[status]}${isCurrentStatus ? " (current status)" : ""}`}
+                        onClick={() => {
+                          if (!isCurrentStatus && !statusPending) {
+                            onStatusChange?.(task, status);
+                          }
+                        }}
+                      >
+                        <Group gap="xs" justify="space-between" wrap="nowrap">
+                          <Text size="sm">{taskStatusLabels[status]}</Text>
+                          {isCurrentStatus ? <Text size="xs" c="dimmed">Current</Text> : null}
+                        </Group>
+                      </Menu.Item>
+                    );
+                  })}
+                </Menu.Dropdown>
+              </Menu>
+            ) : null}
             <Tooltip label="Preview task" withArrow openDelay={300}>
               <ActionIcon
                 size="sm"
@@ -119,6 +198,13 @@ export function TaskBoardCard({
             ) : null}
           </Group>
         </Group>
+
+        {statusPending ? (
+          <Group gap={5} wrap="nowrap" className="task-board-card-status-pending-label" role="status">
+            <Loader size={12} color="gray" />
+            <Text size="xs" c="dimmed">Updating status…</Text>
+          </Group>
+        ) : null}
 
         {task.parentTaskTitle ? (
           <Text size="xs" c="dimmed" fw={650} className="task-board-subtask-label" lineClamp={1}>

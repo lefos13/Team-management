@@ -4,6 +4,7 @@ counts, subtask parent labels, empty states, show-more pagination, permissions,
 and callbacks.
 */
 import { MantineProvider } from "@mantine/core";
+import { DragDropProvider } from "@dnd-kit/react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { taskStatusLabels, taskStatusValues, type TaskDTO } from "@team-management/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -48,6 +49,18 @@ function renderWithMantine(ui: React.ReactElement) {
   return render(<MantineProvider>{ui}</MantineProvider>);
 }
 
+/*
+  Column tests supply the provider required by dnd-kit while standalone card
+  tests remain focused on presentation and action callbacks.
+*/
+function renderWithDnd(ui: React.ReactElement) {
+  return render(
+    <MantineProvider>
+      <DragDropProvider>{ui}</DragDropProvider>
+    </MantineProvider>,
+  );
+}
+
 describe("TaskBoard component", () => {
   it("renders exactly five columns in taskStatusValues order with accessible headings and counts", () => {
     const tasks: TaskDTO[] = [
@@ -83,6 +96,26 @@ describe("TaskBoard component", () => {
     expect(screen.getByRole("region", { name: "Done column, 1 task" })).toBeInTheDocument();
   });
 
+  it("keeps every droppable column wrapper directly inside the shared board row", () => {
+    const columns = buildTaskBoardModel([
+      createTask({ id: "long-column-task", title: "Long column task", status: "todo" }),
+    ]);
+    const { container } = renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const columnsRow = container.querySelector(".task-board-columns");
+    expect(columnsRow).not.toBeNull();
+    expect(Array.from(columnsRow?.children ?? []).every((child) => child.classList.contains("task-board-column"))).toBe(true);
+    expect(columnsRow?.children).toHaveLength(taskStatusValues.length);
+  });
+
   it("renders meaningful empty state for columns without tasks", () => {
     const columns = buildTaskBoardModel([
       createTask({ id: "t1", title: "Task 1", status: "todo" }),
@@ -114,7 +147,7 @@ describe("TaskBoardColumn component", () => {
       }),
     );
 
-    renderWithMantine(
+    renderWithDnd(
       <TaskBoardColumn
         column={{ status: "todo", tasks }}
         onPreview={vi.fn()}
@@ -151,7 +184,7 @@ describe("TaskBoardColumn component", () => {
       }),
     );
 
-    renderWithMantine(
+    renderWithDnd(
       <TaskBoardColumn
         column={{ status: "todo", tasks }}
         onPreview={vi.fn()}

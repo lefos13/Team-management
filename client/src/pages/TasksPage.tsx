@@ -41,8 +41,9 @@ import {
   type TaskFilters,
   type TaskImportResultDTO,
 } from "@team-management/shared";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMutationState } from "@tanstack/react-query";
 
 import { PageHeader } from "../components/PageHeader";
 import { CompactPagination } from "../components/CompactPagination";
@@ -76,6 +77,20 @@ import { usePagination } from "../hooks/use-pagination";
 function isActiveTaskStatus(status: TaskDTO["status"]) {
   return status !== "done";
 }
+
+/*
+  Parent completion safety only considers direct, currently active children in
+  the existing task response; subtasks remain independently movable elsewhere.
+*/
+function getActiveDirectSubtasks(tasks: TaskDTO[], parentTaskId: string) {
+  return tasks.filter((task) => task.parentTaskId === parentTaskId && isActiveTaskStatus(task.status));
+}
+
+type StatusConfirmationRequest = {
+  task: TaskDTO;
+  status: TaskDTO["status"];
+  activeSubtaskCount: number;
+};
 export function getTaskRangeLabel(page: number, pageSize: number, total: number) {
   if (total === 0) {
     return "Showing 0 tasks";
@@ -531,6 +546,9 @@ export function TasksPage() {
   const [importResult, setImportResult] = useState<TaskImportResultDTO | null>(null);
   const [opened, setOpened] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [statusConfirmation, setStatusConfirmation] = useState<StatusConfirmationRequest | null>(null);
+  const [localPendingStatusTaskIds, setLocalPendingStatusTaskIds] = useState<Set<string>>(() => new Set());
+  const statusMoveInFlightRef = useRef<Set<string>>(new Set());
   const taskQueryFilters = useMemo<TaskFilters>(
     () => ({
       projectId: filters.projectId,
@@ -553,6 +571,27 @@ export function TasksPage() {
   const uploadTaskAttachments = useUploadTaskAttachments();
   const deleteTaskAttachment = useDeleteTaskAttachment();
   const importTasks = useImportTasks();
+  /*
+    Combine the mutation cache with a local synchronous guard so the board
+    reflects pending status work immediately and per-task concurrency stays
+    isolated even before React Query publishes its mutation state.
+  */
+  const pendingMutationTaskIds = useMutationState<string | undefined>({
+    filters: { mutationKey: ["task-status"], status: "pending" },
+    select: (mutation) => {
+      const variables = mutation.state.variables as { id?: unknown } | undefined;
+      return typeof variables?.id === "string" ? variables.id : undefined;
+    },
+  });
+  const pendingStatusTaskIds = useMemo(() => {
+    const taskIds = new Set(localPendingStatusTaskIds);
+    for (const taskId of pendingMutationTaskIds) {
+      if (taskId) {
+        taskIds.add(taskId);
+      }
+    }
+    return taskIds;
+  }, [localPendingStatusTaskIds, pendingMutationTaskIds]);
 
   const selectedTask = useMemo(
     () => tasksQuery.data?.find((task) => task.id === editingTaskId) ?? null,
@@ -721,7 +760,17 @@ export function TasksPage() {
     }
   }
 
-  async function handleStatusChange(task: TaskDTO, status: TaskDTO["status"]) {
+  /*
+    Keep a per-task guard around the existing optimistic mutation so repeated
+    input cannot enqueue duplicate requests while other cards stay available.
+  */
+  async function commitStatusChange(task: TaskDTO, status: TaskDTO["status"]) {
+    if (statusMoveInFlightRef.current.has(task.id)) {
+      return;
+    }
+
+    statusMoveInFlightRef.current.add(task.id);
+    setLocalPendingStatusTaskIds((current) => new Set(current).add(task.id));
     try {
       await updateTaskStatus.mutateAsync({ id: task.id, status });
     } catch (error) {
@@ -730,7 +779,46 @@ export function TasksPage() {
         title: "Unable to update status",
         message: getErrorMessage(error),
       });
+    } finally {
+      statusMoveInFlightRef.current.delete(task.id);
+      setLocalPendingStatusTaskIds((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
     }
+  }
+
+  function handleStatusChange(task: TaskDTO, status: TaskDTO["status"]) {
+    if (!task.canEdit || task.status === status || pendingStatusTaskIds.has(task.id) || statusMoveInFlightRef.current.has(task.id)) {
+      return;
+    }
+
+    const activeSubtasks = getActiveDirectSubtasks(tasks, task.id);
+    if (status === "done" && activeSubtasks.length > 0) {
+      setStatusConfirmation({ task, status, activeSubtaskCount: activeSubtasks.length });
+      return;
+    }
+
+    void commitStatusChange(task, status);
+  }
+
+  function cancelStatusConfirmation() {
+    setStatusConfirmation(null);
+  }
+
+  function confirmStatusChange() {
+    if (!statusConfirmation) {
+      return;
+    }
+
+    const request = statusConfirmation;
+    if (pendingStatusTaskIds.has(request.task.id) || statusMoveInFlightRef.current.has(request.task.id)) {
+      return;
+    }
+
+    setStatusConfirmation(null);
+    void commitStatusChange(request.task, request.status);
   }
 
   async function saveBlob(blob: Blob, filename: string) {
@@ -907,10 +995,12 @@ export function TasksPage() {
         <TaskBoard
           columns={boardModel}
           deletePending={deleteTask.isPending}
+          pendingStatusTaskIds={pendingStatusTaskIds}
           onPreview={handlePreviewTask}
           onEdit={handleEditTask}
           onShare={handleShareTask}
           onDelete={handleDeleteTask}
+          onStatusChange={(task, status) => handleStatusChange(task, status)}
         />
       ) : (
         <>
@@ -1109,6 +1199,37 @@ export function TasksPage() {
           }
         }}
       />
+
+      {/*
+      Completing a parent with active direct subtasks is the one status move
+      that needs an explicit acknowledgement of the server-side cascade.
+      */}
+      <Modal
+        opened={statusConfirmation !== null}
+        onClose={cancelStatusConfirmation}
+        title="Complete task and active subtasks?"
+        centered
+        radius="lg"
+      >
+        {statusConfirmation ? (
+          <Stack gap="md">
+            <Text size="sm">
+              The server will also complete {statusConfirmation.activeSubtaskCount === 1 ? "the active subtask" : `${statusConfirmation.activeSubtaskCount} active subtasks`} for this parent task.
+            </Text>
+            <Group justify="end" gap="sm">
+              <Button variant="subtle" onClick={cancelStatusConfirmation}>
+                Cancel
+              </Button>
+              <Button
+                loading={pendingStatusTaskIds.has(statusConfirmation.task.id)}
+                onClick={confirmStatusChange}
+              >
+                Complete task and active subtasks
+              </Button>
+            </Group>
+          </Stack>
+        ) : null}
+      </Modal>
 
       <Modal opened={exportOpened} onClose={() => setExportOpened(false)} title="Export tasks" centered size="lg" radius="lg">
         <Stack>

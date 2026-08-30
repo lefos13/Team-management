@@ -1211,10 +1211,14 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
 .task-board-columns {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;
   min-width: min-content;
 }
 
+/*
+  Each outer column is the droppable surface, so stretch it across the row's
+  tallest content height to keep lower empty space available for dropping.
+*/
 .task-board-column {
   flex: 0 0 280px;
   width: 280px;
@@ -1225,6 +1229,7 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
   padding: 12px;
   display: flex;
   flex-direction: column;
+  align-self: stretch;
   gap: 10px;
 }
 
@@ -1257,6 +1262,42 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
   padding: 12px;
   box-shadow: 0 2px 6px rgba(15, 35, 56, 0.04);
   transition: border-color 0.15s ease;
+}
+
+/*
+Board movement states make the active drop target, keyboard focus, and
+task-local status mutation visible without changing the card's compact layout.
+*/
+.task-board-column-drop-target {
+  border-color: #0b5cff;
+  box-shadow: 0 0 0 2px rgba(11, 92, 255, 0.14);
+}
+
+.task-board-card-dragging {
+  opacity: 0.6;
+}
+
+.task-board-card-status-pending {
+  border-color: #aab5c4;
+  opacity: 0.76;
+}
+
+.task-board-card-status-pending-label {
+  min-height: 16px;
+}
+
+.task-board-drag-handle {
+  cursor: grab;
+}
+
+.task-board-drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-board-drag-handle:focus-visible,
+.task-board-status-menu-target:focus-visible {
+  outline: 2px solid #0b5cff;
+  outline-offset: 2px;
 }
 
 .task-board-card:hover {
