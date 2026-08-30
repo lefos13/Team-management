@@ -80,7 +80,7 @@ function isActiveTaskStatus(status: TaskDTO["status"]) {
 
 /*
   Parent completion safety only considers direct, currently active children in
-  the existing task response; subtasks remain independently movable elsewhere.
+  the project-scoped hierarchy response; subtasks remain independently movable.
 */
 function getActiveDirectSubtasks(tasks: TaskDTO[], parentTaskId: string) {
   return tasks.filter((task) => task.parentTaskId === parentTaskId && isActiveTaskStatus(task.status));
@@ -148,6 +148,7 @@ export function buildVisibleTaskHierarchy(tasks: TaskDTO[], statusFilter?: TaskF
 type TaskTableColumnsProps = {
   task: TaskDTO;
   deletePending: boolean;
+  pendingStatusTaskIds: ReadonlySet<string>;
   onEdit: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onPreview: (taskId: string) => void;
@@ -191,7 +192,7 @@ function AssigneeAvatarStack({ task }: { task: Pick<TaskDTO, "assigneeName" | "a
   );
 }
 
-function TaskActionGroup({ task, deletePending, onEdit, onDelete, onPreview, onShare }: Omit<TaskTableColumnsProps, "onStatusChange">) {
+function TaskActionGroup({ task, deletePending, onEdit, onDelete, onPreview, onShare }: Omit<TaskTableColumnsProps, "onStatusChange" | "pendingStatusTaskIds">) {
   return (
     <Group justify="end" gap={8} wrap="nowrap" className="tasks-row-actions">
       <Tooltip label="Preview task" withArrow openDelay={300}>
@@ -229,7 +230,7 @@ function TaskActionGroup({ task, deletePending, onEdit, onDelete, onPreview, onS
   );
 }
 
-function TaskStatusSelect({ task, onStatusChange }: Pick<TaskTableColumnsProps, "task" | "onStatusChange">) {
+function TaskStatusSelect({ task, onStatusChange, pendingStatusTaskIds }: Pick<TaskTableColumnsProps, "task" | "onStatusChange" | "pendingStatusTaskIds">) {
   if (!task.canEdit) {
     return <Text size="sm" c="dimmed">-</Text>;
   }
@@ -239,6 +240,7 @@ function TaskStatusSelect({ task, onStatusChange }: Pick<TaskTableColumnsProps, 
       size="xs"
       className="tasks-status-select"
       value={task.status}
+      disabled={pendingStatusTaskIds.has(task.id)}
       data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
       onChange={(value) => {
         if (!value || value === task.status) {
@@ -258,6 +260,7 @@ attachments, status editing, and per-task permissions on the same row.
 function TaskTableRow({
   task,
   deletePending,
+  pendingStatusTaskIds,
   expanded = false,
   isSubtask = false,
   subtasks = [],
@@ -313,7 +316,7 @@ function TaskTableRow({
         <TaskStatusBadge status={task.status} />
       </Table.Td>
       <Table.Td>
-        <TaskStatusSelect task={task} onStatusChange={onStatusChange} />
+        <TaskStatusSelect task={task} onStatusChange={onStatusChange} pendingStatusTaskIds={pendingStatusTaskIds} />
       </Table.Td>
       <Table.Td>
         <TaskTypeBadge task={task} />
@@ -351,7 +354,7 @@ type SubtaskRowsProps = Omit<TaskRowProps, "task" | "subtasks" | "expanded" | "i
 Expanded subtasks stay inline with the parent table columns and keep their own
 small pager so large hierarchies do not stretch the main task page.
 */
-function SubtaskRows({ parentId, subtasks, deletePending, onEdit, onDelete, onPreview, onShare, onStatusChange }: SubtaskRowsProps) {
+function SubtaskRows({ parentId, subtasks, deletePending, pendingStatusTaskIds, onEdit, onDelete, onPreview, onShare, onStatusChange }: SubtaskRowsProps) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
 
   return (
@@ -362,6 +365,7 @@ function SubtaskRows({ parentId, subtasks, deletePending, onEdit, onDelete, onPr
           task={subtask}
           isSubtask
           deletePending={deletePending}
+          pendingStatusTaskIds={pendingStatusTaskIds}
           onEdit={onEdit}
           onDelete={onDelete}
           onPreview={onPreview}
@@ -396,6 +400,7 @@ horizontal scrolling.
 function TaskMobileCard({
   task,
   deletePending,
+  pendingStatusTaskIds,
   expanded,
   subtasks,
   onEdit,
@@ -444,7 +449,7 @@ function TaskMobileCard({
           <TaskTypeBadge task={task} />
         </Group>
 
-        <TaskStatusSelect task={task} onStatusChange={onStatusChange} />
+        <TaskStatusSelect task={task} onStatusChange={onStatusChange} pendingStatusTaskIds={pendingStatusTaskIds} />
 
         <SimpleTaskMeta label="Context" value={task.parentTaskTitle ?? "-"} />
         <SimpleTaskMeta label="Project" value={task.projectName} />
@@ -460,6 +465,7 @@ function TaskMobileCard({
           <SubtaskMobilePanel
             subtasks={subtasks}
             deletePending={deletePending}
+            pendingStatusTaskIds={pendingStatusTaskIds}
             onEdit={onEdit}
             onDelete={onDelete}
             onPreview={onPreview}
@@ -485,7 +491,7 @@ function SimpleTaskMeta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPreview, onShare, onStatusChange }: Omit<SubtaskRowsProps, "parentId">) {
+function SubtaskMobilePanel({ subtasks, deletePending, pendingStatusTaskIds, onEdit, onDelete, onPreview, onShare, onStatusChange }: Omit<SubtaskRowsProps, "parentId">) {
   const { page, setPage, totalPages, paginatedItems } = usePagination(subtasks, 5);
 
   return (
@@ -515,7 +521,7 @@ function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPrevi
               <TaskStatusBadge status={subtask.status} />
               <TaskTypeBadge task={subtask} />
             </Group>
-            <TaskStatusSelect task={subtask} onStatusChange={onStatusChange} />
+            <TaskStatusSelect task={subtask} onStatusChange={onStatusChange} pendingStatusTaskIds={pendingStatusTaskIds} />
             <SimpleTaskMeta label="Project" value={subtask.projectName} />
             <SimpleTaskMeta label="Assignee" value={formatTaskAssignees(subtask)} />
             <SimpleTaskMeta label="Files" value={`${subtask.attachments.length} attached`} />
@@ -563,6 +569,13 @@ export function TasksPage() {
   const projectsQuery = useProjects();
   const membersQuery = useMembers();
   const tasksQuery = useTasks(taskQueryFilters);
+  /*
+    Keep completion safety independent from display-only filters. A project
+    scoped response contains active children hidden by assignee, defect, or
+    date filters without broadening the visible board/list response.
+  */
+  const hierarchyTaskQueryFilters = useMemo<TaskFilters>(() => ({ projectId: filters.projectId }), [filters.projectId]);
+  const hierarchyTasksQuery = useTasks(hierarchyTaskQueryFilters);
   const createTask = useCreateTask();
   const createTaskShareLink = useCreateTaskShareLink();
   const updateTask = useUpdateTask();
@@ -636,7 +649,7 @@ export function TasksPage() {
   const [taskPageSize, setTaskPageSize] = useState(10);
   const { page, setPage, totalPages, paginatedItems: paginatedTasks } = usePagination(visibleTasks, taskPageSize);
 
-  if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading) {
+  if (projectsQuery.isLoading || membersQuery.isLoading || tasksQuery.isLoading || hierarchyTasksQuery.isLoading) {
     return <Loader />;
   }
 
@@ -794,7 +807,16 @@ export function TasksPage() {
       return;
     }
 
-    const activeSubtasks = getActiveDirectSubtasks(tasks, task.id);
+    if (status === "done" && (hierarchyTasksQuery.isError || !hierarchyTasksQuery.data)) {
+      notifications.show({
+        color: "red",
+        title: "Unable to verify subtasks",
+        message: "Refresh the task board before completing this parent task.",
+      });
+      return;
+    }
+
+    const activeSubtasks = getActiveDirectSubtasks(hierarchyTasksQuery.data ?? [], task.id);
     if (status === "done" && activeSubtasks.length > 0) {
       setStatusConfirmation({ task, status, activeSubtaskCount: activeSubtasks.length });
       return;
@@ -1031,6 +1053,7 @@ export function TasksPage() {
                     <TaskTableRow
                       task={task}
                       deletePending={deleteTask.isPending}
+                      pendingStatusTaskIds={pendingStatusTaskIds}
                       expanded={expanded}
                       subtasks={subtasks}
                       onEdit={handleEditTask}
@@ -1045,6 +1068,7 @@ export function TasksPage() {
                         parentId={task.id}
                         subtasks={subtasks}
                         deletePending={deleteTask.isPending}
+                        pendingStatusTaskIds={pendingStatusTaskIds}
                         onEdit={handleEditTask}
                         onDelete={(taskId) => void handleDeleteTask(taskId)}
                         onPreview={handlePreviewTask}
@@ -1085,6 +1109,7 @@ export function TasksPage() {
               key={task.id}
               task={task}
               deletePending={deleteTask.isPending}
+              pendingStatusTaskIds={pendingStatusTaskIds}
               expanded={expanded}
               subtasks={subtasks}
               onEdit={handleEditTask}

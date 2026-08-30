@@ -622,6 +622,15 @@ export function useUpdateTaskStatus() {
       );
     },
     onSettled: async (_data, _error, variables, _rollback, context) => {
+      /*
+        Defer shared-query refetching until the final concurrent status move
+        settles; an earlier refetch could overwrite another card's optimistic
+        status with stale server data.
+      */
+      if (context.client.isMutating({ mutationKey: ["task-status"] }) > 1) {
+        return;
+      }
+
       await Promise.all([
         invalidateCoreQueries(context.client),
         context.client.invalidateQueries({ queryKey: ["task", variables.id], exact: true }),

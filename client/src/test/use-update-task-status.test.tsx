@@ -78,6 +78,46 @@ describe("useUpdateTaskStatus", () => {
     await pending;
   });
 
+  /*
+    A status mutation for one task must not let its settled core-query refetch
+    overwrite another task's still-pending optimistic status.
+  */
+  it("keeps another task's optimistic status during a concurrent settlement", async () => {
+    const { queryClient, filters, target, unrelated } = setup();
+    const taskQuery = vi.fn().mockResolvedValue([target, unrelated]);
+    queryClient.setQueryDefaults(["tasks", filters], { staleTime: Infinity });
+    renderHook(
+      () => useQuery({ queryKey: ["tasks", filters], queryFn: taskQuery, initialData: [target, unrelated] }),
+      { wrapper: wrapper(queryClient) },
+    );
+
+    let resolveFirst!: (value: { data: TaskDTO }) => void;
+    let resolveSecond!: (value: { data: TaskDTO }) => void;
+    vi.spyOn(api, "patch")
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }) as never)
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve; }) as never);
+
+    const mutation = renderHook(() => useUpdateTaskStatus(), { wrapper: wrapper(queryClient) });
+    const first = mutation.result.current.mutateAsync({ id: target.id, status: "done" });
+    const second = mutation.result.current.mutateAsync({ id: unrelated.id, status: "in_progress" });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData<TaskDTO[]>(["tasks", filters])).toEqual([
+        { ...target, status: "done" },
+        { ...unrelated, status: "in_progress" },
+      ]);
+    });
+
+    resolveFirst({ data: task({ status: "done" }) });
+    await first;
+
+    expect(taskQuery).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData<TaskDTO[]>(["tasks", filters])?.find((item) => item.id === unrelated.id)?.status).toBe("in_progress");
+
+    resolveSecond({ data: task({ id: unrelated.id, status: "in_progress" }) });
+    await second;
+  });
+
   it("rolls back only the affected task and preserves an unrelated cache change after rejection", async () => {
     const { queryClient, filters, target, unrelated } = setup();
     let rejectPatch!: (error: Error) => void;

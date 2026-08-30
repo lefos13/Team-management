@@ -184,6 +184,9 @@ describe("TaskBoard component mobile status tabs", () => {
     expect(tabLabels[3]).toMatch(/Review.*0/i);
     expect(tabLabels[4]).toMatch(/Done.*1/i);
 
+    expect(tabs[0]).toHaveAccessibleName("To Do, 2 tasks");
+    expect(tabs[1]).toHaveAccessibleName("In Progress, 1 task");
+
     // Default selected tab is To Do
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(tabs[1]).toHaveAttribute("aria-selected", "false");
@@ -235,6 +238,38 @@ describe("TaskBoard component mobile status tabs", () => {
     expect(screen.queryByRole("heading", { name: /^To Do$/i })).not.toBeInTheDocument();
     expect(screen.getByText("Task 2")).toBeInTheDocument();
     expect(screen.queryByText("Task 1")).not.toBeInTheDocument();
+  });
+
+  /*
+    Each mobile status tab owns its own visible-card limit so expanding one
+    status does not silently bypass pagination in another status.
+  */
+  it("keeps Show more pagination isolated between mobile status tabs", () => {
+    mockViewport(true);
+    const tasks: TaskDTO[] = [
+      ...Array.from({ length: 30 }, (_, index) =>
+        createTask({ id: `todo-${index + 1}`, title: `To Do task #${index + 1}`, status: "todo" }),
+      ),
+      ...Array.from({ length: 30 }, (_, index) =>
+        createTask({ id: `progress-${index + 1}`, title: `In Progress task #${index + 1}`, status: "in_progress" }),
+      ),
+    ];
+
+    renderWithMantine(
+      <TaskBoard
+        columns={buildTaskBoardModel(tasks)}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Show more \(5 remaining\)/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /In Progress/i }));
+
+    expect(screen.getByRole("button", { name: /Show more \(5 remaining\)/i })).toBeInTheDocument();
+    expect(screen.queryByText("In Progress task #30")).not.toBeInTheDocument();
   });
 
   it("hides drag handles on mobile but keeps Move menu functional", async () => {

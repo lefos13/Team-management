@@ -128,6 +128,7 @@ export function TaskBoard({
                   key={status}
                   value={status}
                   className="task-board-mobile-tab"
+                  aria-label={`${taskStatusLabels[status]}, ${count} ${count === 1 ? "task" : "tasks"}`}
                   rightSection={
                     <Badge size="xs" variant="light" className="task-board-mobile-tab-count" data-count={count}>
                       {count}
@@ -143,6 +144,7 @@ export function TaskBoard({
           {activeColumn ? (
             <Tabs.Panel value={activeColumn.status} className="task-board-mobile-panel" pt="xs">
               <TaskBoardColumn
+                key={activeColumn.status}
                 column={activeColumn}
                 deletePending={deletePending}
                 pendingStatusTaskIds={pendingStatusTaskIds}

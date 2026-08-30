@@ -4,11 +4,11 @@ is verified on the same callback path used by both board menus and drag drops.
 */
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TaskDTO } from "@team-management/shared";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   useCreateTask,
@@ -48,6 +48,9 @@ vi.mock("../hooks/use-app-data", () => ({
   useUpdateTaskStatus: vi.fn(),
 }));
 
+/* Mantine's searchable Select schedules focus scrolling, which jsdom does not implement. */
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+
 function createTask(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "status">): TaskDTO {
   return {
     description: "Task description for testing",
@@ -81,13 +84,13 @@ function mutationStub() {
 
 const statusMutateAsync = vi.fn();
 
-function renderTasksPage() {
+function renderTasksPage(initialEntries = ["/tasks?view=board"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <MemoryRouter initialEntries={["/tasks?view=board"]}>
+        <MemoryRouter initialEntries={initialEntries}>
           <TasksPage />
         </MemoryRouter>
       </MantineProvider>
@@ -96,8 +99,11 @@ function renderTasksPage() {
 }
 
 describe("TasksPage status movement safety", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
     const parent = createTask({ id: "parent", title: "Parent task", status: "todo" });
     const activeChild = createTask({
       id: "active-child",
@@ -142,6 +148,74 @@ describe("TasksPage status movement safety", () => {
 
     await waitFor(() => {
       expect(statusMutateAsync).toHaveBeenCalledWith({ id: "parent", status: "done" });
+    });
+  });
+
+  /*
+    A filter can hide a child from the visible board while the server still
+    cascades that active child when its parent is completed.
+  */
+  it("requires confirmation when a visible parent has an active child hidden by filters", async () => {
+    const parent = createTask({ id: "filtered-parent", title: "Filtered parent", status: "todo", assigneeId: "member-1" });
+    const hiddenActiveChild = createTask({
+      id: "hidden-active-child",
+      title: "Hidden active child",
+      status: "in_progress",
+      assigneeId: "member-2",
+      assigneeIds: ["member-2"],
+      assigneeName: "Lin Manager",
+      assigneeNames: ["Lin Manager"],
+      parentTaskId: parent.id,
+      parentTaskTitle: parent.title,
+    });
+
+    vi.mocked(useMembers).mockReturnValue({
+      data: [
+        { id: "member-1", name: "Ada Manager" },
+        { id: "member-2", name: "Lin Manager" },
+      ],
+      isLoading: false,
+    } as never);
+    vi.mocked(useTasks).mockImplementation((filters) => ({
+      data: filters?.assigneeId === "member-1" ? [parent] : [parent, hiddenActiveChild],
+      isLoading: false,
+    }) as never);
+
+    const user = userEvent.setup();
+    renderTasksPage();
+
+    await user.click(screen.getByRole("textbox", { name: "Assignee" }));
+    await user.click(await screen.findByRole("option", { name: "Ada Manager" }));
+    await user.click(screen.getByRole("button", { name: "Move Filtered parent" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Done" }));
+
+    expect(statusMutateAsync).not.toHaveBeenCalled();
+    expect(await screen.findByRole("dialog")).toHaveTextContent(/server will also complete the active subtask/i);
+  });
+
+  /*
+    List and Board use the same per-task mutation guard; the List control must
+    expose that pending state instead of accepting clicks that are ignored.
+  */
+  it("disables only the pending task status control in List view", async () => {
+    const listTask = createTask({ id: "list-task", title: "List task", status: "todo" });
+    const otherListTask = createTask({ id: "other-list-task", title: "Other list task", status: "in_progress" });
+    vi.mocked(useTasks).mockReturnValue({ data: [listTask, otherListTask], isLoading: false } as never);
+    statusMutateAsync.mockReturnValue(new Promise(() => {}));
+
+    const user = userEvent.setup();
+    const { container } = renderTasksPage(["/tasks?view=list"]);
+    const statusInput = container.querySelector(".tasks-status-select input");
+    expect(statusInput).not.toBeNull();
+
+    await user.click(statusInput as HTMLElement);
+    await user.click(await screen.findByRole("option", { name: "Done" }));
+
+    await waitFor(() => {
+      expect(statusMutateAsync).toHaveBeenCalledWith({ id: "list-task", status: "done" });
+      const statusInputs = container.querySelectorAll(".tasks-status-select input");
+      expect(statusInputs[0]).toBeDisabled();
+      expect(statusInputs[1]).not.toBeDisabled();
     });
   });
 });
