@@ -532,16 +532,100 @@ export function useUpdateTask() {
 }
 
 export function useUpdateTaskStatus() {
-  const queryClient = useQueryClient();
-
+  /*
+  Keep status moves responsive while preserving the full TaskDTO contract: cancel
+  matching reads, change only status in every cached task view, and let the
+  server response and settled refetch provide cascades, timestamps, and
+  attachment state. Pattern source:
+  https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates#via-the-cache
+  */
   return useMutation({
+    mutationKey: ["task-status"],
     mutationFn: async ({ id, status }: { id: string; status: TaskDTO["status"] }) => {
       const response = await api.patch<TaskDTO>(`/tasks/${id}/status`, { status });
       return response.data;
     },
-    onSuccess: async (_, variables) => {
-      await invalidateCoreQueries(queryClient);
-      await queryClient.invalidateQueries({ queryKey: ["task", variables.id] });
+    onMutate: async (variables, context) => {
+      const taskListKey = ["tasks"];
+      const taskDetailKey = ["task", variables.id] as const;
+
+      await Promise.all([
+        context.client.cancelQueries({ queryKey: taskListKey }),
+        context.client.cancelQueries({ queryKey: taskDetailKey, exact: true }),
+      ]);
+
+      const listSnapshots = context.client
+        .getQueriesData<TaskDTO[]>({ queryKey: taskListKey })
+        .flatMap(([queryKey, tasks]) => {
+          const previousTask = tasks?.find((task) => task.id === variables.id);
+          return previousTask ? [{ queryKey, previousStatus: previousTask.status }] : [];
+        });
+      const previousDetail = context.client.getQueryData<TaskDTO>(taskDetailKey);
+
+      context.client.setQueriesData<TaskDTO[]>({ queryKey: taskListKey }, (tasks) => {
+        if (!tasks) {
+          return tasks;
+        }
+
+        return tasks.map((task) => (task.id === variables.id ? { ...task, status: variables.status } : task));
+      });
+
+      if (previousDetail) {
+        context.client.setQueryData<TaskDTO>(taskDetailKey, (task) =>
+          task ? { ...task, status: variables.status } : task,
+        );
+      }
+
+      return {
+        listSnapshots,
+        previousDetailStatus: previousDetail?.status,
+      };
+    },
+    onError: (_error, variables, rollback, context) => {
+      if (!rollback) {
+        return;
+      }
+
+      for (const { queryKey, previousStatus } of rollback.listSnapshots) {
+        context.client.setQueryData<TaskDTO[]>(queryKey, (tasks) => {
+          if (!tasks) {
+            return tasks;
+          }
+
+          return tasks.map((task) =>
+            task.id === variables.id && task.status === variables.status
+              ? { ...task, status: previousStatus }
+              : task,
+          );
+        });
+      }
+
+      const previousDetailStatus = rollback.previousDetailStatus;
+      if (previousDetailStatus !== undefined) {
+        const taskDetailKey = ["task", variables.id] as const;
+        context.client.setQueryData<TaskDTO>(taskDetailKey, (task) =>
+          task && task.status === variables.status ? { ...task, status: previousDetailStatus } : task,
+        );
+      }
+    },
+    onSuccess: (serverTask, _variables, _rollback, context) => {
+      context.client.setQueriesData<TaskDTO[]>({ queryKey: ["tasks"] }, (tasks) => {
+        if (!tasks) {
+          return tasks;
+        }
+
+        return tasks.map((task) => (task.id === serverTask.id ? serverTask : task));
+      });
+      context.client.setQueriesData<TaskDTO>(
+        { queryKey: ["task", serverTask.id], exact: true },
+        (task) => (task ? serverTask : task),
+      );
+    },
+    onSettled: async (_data, _error, variables, _rollback, context) => {
+      await Promise.all([
+        invalidateCoreQueries(context.client),
+        context.client.invalidateQueries({ queryKey: ["task", variables.id], exact: true }),
+      ]);
     },
   });
 }
