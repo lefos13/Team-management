@@ -195,4 +195,32 @@ describe("TaskBoard interaction accessibility", () => {
     const columns = screen.getAllByRole("region").filter((region) => region.className.includes("task-board-column"));
     expect(columns.map((column) => column.getAttribute("data-status"))).toEqual([...taskStatusValues]);
   });
+
+  it("isolates pending state to the active task on mobile without rendering drag handles", () => {
+    const pendingTask = createTask({ id: "pending-m-task", title: "Pending mobile task", status: "todo" });
+    const availableTask = createTask({ id: "available-m-task", title: "Available mobile task", status: "todo" });
+
+    renderWithMantine(
+      <TaskBoard
+        columns={buildTaskBoardModel([pendingTask, availableTask])}
+        pendingStatusTaskIds={new Set([pendingTask.id])}
+        isMobile={true}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+        onStatusChange={vi.fn()}
+      />,
+    );
+
+    const pendingCard = screen.getByText("Pending mobile task").closest("[data-task-id]");
+    expect(pendingCard).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Move Pending mobile task" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Drag Pending mobile task" })).not.toBeInTheDocument();
+
+    const availableCard = screen.getByText("Available mobile task").closest("[data-task-id]");
+    expect(availableCard).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("button", { name: "Move Available mobile task" })).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Drag Available mobile task" })).not.toBeInTheDocument();
+  });
 });

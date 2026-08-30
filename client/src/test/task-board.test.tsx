@@ -6,6 +6,7 @@ and callbacks.
 import { MantineProvider } from "@mantine/core";
 import { DragDropProvider } from "@dnd-kit/react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { taskStatusLabels, taskStatusValues, type TaskDTO } from "@team-management/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -14,8 +15,22 @@ import { TaskBoardColumn } from "../components/task-board/TaskBoardColumn";
 import { TaskBoardCard } from "../components/task-board/TaskBoardCard";
 import { buildTaskBoardModel } from "../lib/task-board-model";
 
+function mockViewport(matches: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
 afterEach(() => {
   cleanup();
+  mockViewport(false);
 });
 
 function createTask(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "status">): TaskDTO {
@@ -134,6 +149,209 @@ describe("TaskBoard component", () => {
     // Columns with 0 tasks should render an empty state message
     const emptyStates = screen.getAllByText(/No tasks in this column/i);
     expect(emptyStates.length).toBe(4);
+  });
+});
+
+describe("TaskBoard component mobile status tabs", () => {
+  it("renders an accessible status-tab interface with five tabs in canonical order and live counts", () => {
+    mockViewport(true);
+    const tasks: TaskDTO[] = [
+      createTask({ id: "t1", title: "Task 1", status: "todo" }),
+      createTask({ id: "t2", title: "Task 2", status: "todo" }),
+      createTask({ id: "t3", title: "Task 3", status: "in_progress" }),
+      createTask({ id: "t4", title: "Task 4", status: "done" }),
+    ];
+
+    const columns = buildTaskBoardModel(tasks);
+
+    renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Five tabs in canonical taskStatusValues order
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(taskStatusValues.length);
+    const tabLabels = tabs.map((tab) => tab.textContent);
+    expect(tabLabels[0]).toMatch(/To Do.*2/i);
+    expect(tabLabels[1]).toMatch(/In Progress.*1/i);
+    expect(tabLabels[2]).toMatch(/Blocked.*0/i);
+    expect(tabLabels[3]).toMatch(/Review.*0/i);
+    expect(tabLabels[4]).toMatch(/Done.*1/i);
+
+    // Default selected tab is To Do
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+
+    // Exactly one column is rendered/visible (To Do)
+    expect(screen.getByRole("heading", { name: /^To Do$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^In Progress$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^Blocked$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^Review$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^Done$/i })).not.toBeInTheDocument();
+
+    // Only To Do tasks are visible
+    expect(screen.getByText("Task 1")).toBeInTheDocument();
+    expect(screen.getByText("Task 2")).toBeInTheDocument();
+    expect(screen.queryByText("Task 3")).not.toBeInTheDocument();
+    expect(screen.queryByText("Task 4")).not.toBeInTheDocument();
+  });
+
+  it("switches visible column and tasks when another status tab is clicked", () => {
+    mockViewport(true);
+    const tasks: TaskDTO[] = [
+      createTask({ id: "t1", title: "Task 1", status: "todo" }),
+      createTask({ id: "t2", title: "Task 2", status: "in_progress" }),
+      createTask({ id: "t3", title: "Task 3", status: "done" }),
+    ];
+
+    const columns = buildTaskBoardModel(tasks);
+
+    renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Initially To Do is visible
+    expect(screen.getByText("Task 1")).toBeInTheDocument();
+    expect(screen.queryByText("Task 2")).not.toBeInTheDocument();
+
+    // Switch to In Progress tab
+    const inProgressTab = screen.getByRole("tab", { name: /In Progress/i });
+    fireEvent.click(inProgressTab);
+
+    expect(inProgressTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: /^In Progress$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^To Do$/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Task 2")).toBeInTheDocument();
+    expect(screen.queryByText("Task 1")).not.toBeInTheDocument();
+  });
+
+  it("hides drag handles on mobile but keeps Move menu functional", async () => {
+    const user = userEvent.setup();
+    mockViewport(true);
+    const onStatusChange = vi.fn();
+    const task = createTask({ id: "t1", title: "Mobile task", status: "todo", canEdit: true });
+    const columns = buildTaskBoardModel([task]);
+
+    renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+        onStatusChange={onStatusChange}
+      />,
+    );
+
+    // No drag handle on mobile
+    expect(screen.queryByRole("button", { name: /Drag Mobile task/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Drag to move task/i)).not.toBeInTheDocument();
+
+    // Move menu is present and functional
+    const moveButton = screen.getByRole("button", { name: "Move Mobile task" });
+    expect(moveButton).toBeInTheDocument();
+    await user.click(moveButton);
+
+    const doneOption = await screen.findByRole("menuitem", { name: taskStatusLabels.done });
+    await user.click(doneOption);
+    expect(onStatusChange).toHaveBeenCalledWith(task, "done");
+  });
+  it("does not render drag or status movement controls for read-only cards on mobile", () => {
+    mockViewport(true);
+    const readOnlyTask = createTask({ id: "ro-1", title: "Read-only mobile task", status: "todo", canEdit: false });
+    const columns = buildTaskBoardModel([readOnlyTask]);
+
+    renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /Drag Read-only mobile task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Move Read-only mobile task/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Preview Read-only mobile task/i })).toBeInTheDocument();
+  });
+
+  it("does not render the desktop five-column horizontal container on mobile", () => {
+    mockViewport(true);
+    const columns = buildTaskBoardModel([
+      createTask({ id: "t1", title: "Mobile task", status: "todo" }),
+    ]);
+
+    const { container } = renderWithMantine(
+      <TaskBoard
+        columns={columns}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector(".task-board-columns")).toBeNull();
+    expect(container.querySelectorAll(".task-board-column")).toHaveLength(1);
+  });
+
+  it("keeps the selected tab stable when tasks or counts update", () => {
+    mockViewport(true);
+    const initialTasks: TaskDTO[] = [
+      createTask({ id: "t1", title: "Task 1", status: "todo" }),
+      createTask({ id: "t2", title: "Task 2", status: "in_progress" }),
+    ];
+
+    const { rerender } = renderWithMantine(
+      <TaskBoard
+        columns={buildTaskBoardModel(initialTasks)}
+        onPreview={vi.fn()}
+        onEdit={vi.fn()}
+        onShare={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    // Switch to In Progress
+    fireEvent.click(screen.getByRole("tab", { name: /In Progress/i }));
+    expect(screen.getByRole("heading", { name: /^In Progress$/i })).toBeInTheDocument();
+
+    // Rerender with updated tasks (e.g. new task added to In Progress)
+    const updatedTasks: TaskDTO[] = [
+      createTask({ id: "t1", title: "Task 1", status: "todo" }),
+      createTask({ id: "t2", title: "Task 2", status: "in_progress" }),
+      createTask({ id: "t3", title: "Task 3", status: "in_progress" }),
+    ];
+
+    rerender(
+      <MantineProvider>
+        <TaskBoard
+          columns={buildTaskBoardModel(updatedTasks)}
+          onPreview={vi.fn()}
+          onEdit={vi.fn()}
+          onShare={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </MantineProvider>,
+    );
+
+    // Selected tab should still be In Progress
+    expect(screen.getByRole("tab", { name: /In Progress.*2/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: /^In Progress$/i })).toBeInTheDocument();
+    expect(screen.getByText("Task 3")).toBeInTheDocument();
   });
 });
 

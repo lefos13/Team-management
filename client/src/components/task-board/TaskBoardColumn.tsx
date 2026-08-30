@@ -14,6 +14,7 @@ export type TaskBoardColumnProps = {
   column: TaskBoardColumnModel;
   deletePending?: boolean;
   pendingStatusTaskIds?: ReadonlySet<string>;
+  disableDrag?: boolean;
   onPreview: (taskId: string) => void;
   onEdit: (taskId: string) => void;
   onShare: (taskId: string) => void;
@@ -54,15 +55,21 @@ export function TaskBoardColumn({
   column,
   deletePending = false,
   pendingStatusTaskIds,
+  disableDrag = false,
   onPreview,
   onEdit,
   onShare,
   onDelete,
   onStatusChange,
 }: TaskBoardColumnProps) {
+  /*
+    Disable droppable registrations on mobile where a single column is visible
+    and drag interactions are not available.
+  */
   const { ref: columnRef, isDropTarget } = useDroppable({
     id: column.status,
     accept: TASK_DRAG_TYPE,
+    disabled: disableDrag,
   });
   const [displayLimit, setDisplayLimit] = useState(INITIAL_TASK_LIMIT);
   const statusLabel = taskStatusLabels[column.status];
@@ -73,8 +80,8 @@ export function TaskBoardColumn({
 
   return (
     <div
-      ref={columnRef}
-      className={`task-board-column${isDropTarget ? " task-board-column-drop-target" : ""}`}
+      ref={disableDrag ? undefined : columnRef}
+      className={`task-board-column${!disableDrag && isDropTarget ? " task-board-column-drop-target" : ""}`}
       role="region"
       aria-label={`${statusLabel} column, ${totalCount} ${totalCount === 1 ? "task" : "tasks"}`}
       data-status={column.status}
@@ -101,20 +108,46 @@ export function TaskBoardColumn({
         </Paper>
       ) : (
         <Stack gap={8} className="task-board-column-cards">
-          {visibleTasks.map((task) => (
-            task.canEdit ? (
-              <DraggableTaskBoardCard
-                key={task.id}
-                task={task}
-                deletePending={deletePending}
-                statusPending={pendingStatusTaskIds?.has(task.id) ?? false}
-                onPreview={onPreview}
-                onEdit={onEdit}
-                onShare={onShare}
-                onDelete={onDelete}
-                onStatusChange={onStatusChange}
-              />
-            ) : (
+          {visibleTasks.map((task) => {
+            const statusPending = pendingStatusTaskIds?.has(task.id) ?? false;
+
+            /*
+              When drag is enabled (desktop), wire dnd-kit draggable wrapper; on mobile,
+              render the card directly with its accessible Move menu and no drag handle.
+            */
+            if (task.canEdit && !disableDrag) {
+              return (
+                <DraggableTaskBoardCard
+                  key={task.id}
+                  task={task}
+                  deletePending={deletePending}
+                  statusPending={statusPending}
+                  onPreview={onPreview}
+                  onEdit={onEdit}
+                  onShare={onShare}
+                  onDelete={onDelete}
+                  onStatusChange={onStatusChange}
+                />
+              );
+            }
+
+            if (task.canEdit && disableDrag) {
+              return (
+                <TaskBoardCard
+                  key={task.id}
+                  task={task}
+                  deletePending={deletePending}
+                  statusPending={statusPending}
+                  onPreview={onPreview}
+                  onEdit={onEdit}
+                  onShare={onShare}
+                  onDelete={onDelete}
+                  onStatusChange={onStatusChange}
+                />
+              );
+            }
+
+            return (
               <TaskBoardCard
                 key={task.id}
                 task={task}
@@ -124,8 +157,8 @@ export function TaskBoardColumn({
                 onShare={onShare}
                 onDelete={onDelete}
               />
-            )
-          ))}
+            );
+          })}
 
           {hasMore ? (
             <Button

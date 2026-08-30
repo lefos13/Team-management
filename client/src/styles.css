@@ -1350,6 +1350,54 @@ task-local status mutation visible without changing the card's compact layout.
   margin-top: 4px;
 }
 
+/*
+Mobile task board styles provide a single-column status-tab surface that fits
+compact viewports (down to 320px) without page-level horizontal overflow.
+*/
+.task-board-mobile {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-board-mobile-tabs {
+  width: 100%;
+}
+
+.task-board-mobile-tab-list {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  scrollbar-width: none;
+}
+
+.task-board-mobile-tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+.task-board-mobile-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-weight: 650;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.task-board-mobile-tab-count {
+  font-weight: 750;
+}
+
+.task-board-mobile-panel {
+  width: 100%;
+  min-width: 0;
+}
+
 .fc .fc-toolbar-title {
   font-size: 1.05rem;
 }
@@ -1705,10 +1753,15 @@ task-local status mutation visible without changing the card's compact layout.
   .task-mobile-subtask-card:last-of-type {
     border-bottom: 0;
   }
-  .task-board-column {
-    flex: 0 0 260px;
-    width: 260px;
-    min-width: 260px;
+  /*
+  Mobile task board renders a single active column that expands to full width
+  instead of fixed horizontal scrolling columns.
+  */
+  .task-board-mobile .task-board-column {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
 
