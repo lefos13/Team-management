@@ -1197,6 +1197,110 @@ leaving the broader app shell and the other pages on the existing teal theme.
   overflow-wrap: anywhere;
 }
 
+/*
+Task board styling provides a clean Jira-like horizontal column layout with
+fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
+*/
+.task-board-container {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.task-board-columns {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: min-content;
+}
+
+.task-board-column {
+  flex: 0 0 280px;
+  width: 280px;
+  min-width: 280px;
+  background: #f8fafc;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-board-column-header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5eaf1;
+}
+
+.task-board-column-title {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: #111827;
+  margin: 0;
+}
+
+.task-board-column-count {
+  font-weight: 750;
+}
+
+.task-board-column-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-board-card {
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(15, 35, 56, 0.04);
+  transition: border-color 0.15s ease;
+}
+
+.task-board-card:hover {
+  border-color: #0b5cff;
+}
+
+.task-board-card-title {
+  font-size: 0.85rem;
+  font-weight: 750;
+  color: #111827;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.task-board-subtask-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.task-board-card-project {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.task-board-card-footer {
+  min-width: 0;
+}
+
+.task-board-empty-state {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 24px 12px;
+}
+
+.task-board-show-more {
+  font-weight: 650;
+  color: #0b5cff;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
 .fc .fc-toolbar-title {
   font-size: 1.05rem;
 }
@@ -1552,6 +1656,12 @@ leaving the broader app shell and the other pages on the existing teal theme.
   .task-mobile-subtask-card:last-of-type {
     border-bottom: 0;
   }
+  .task-board-column {
+    flex: 0 0 260px;
+    width: 260px;
+    min-width: 260px;
+  }
+
 
   .projects-page {
     gap: 22px;

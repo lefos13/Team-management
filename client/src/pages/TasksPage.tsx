@@ -48,6 +48,7 @@ import { PageHeader } from "../components/PageHeader";
 import { CompactPagination } from "../components/CompactPagination";
 import { TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
+import { TaskBoard } from "../components/task-board";
 import {
   downloadTaskAttachment,
   downloadTaskAttachmentArchive,
@@ -872,7 +873,7 @@ export function TasksPage() {
 
       <Paper radius="lg" p="lg" withBorder className="tasks-filter-panel">
         <Grid align="end">
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 12, md: view === "board" ? 4 : 3 }}>
             <Select
               label="Project"
               placeholder="All projects"
@@ -882,7 +883,7 @@ export function TasksPage() {
               onChange={(value) => setFilters((current) => ({ ...current, projectId: value ?? undefined }))}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 12, md: view === "board" ? 4 : 3 }}>
             <Select
               label="Assignee"
               placeholder="All assignees"
@@ -892,17 +893,19 @@ export function TasksPage() {
               onChange={(value) => setFilters((current) => ({ ...current, assigneeId: value ?? undefined }))}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 3 }}>
-            <Select
-              label="Status"
-              placeholder="All statuses"
-              clearable
-              value={filters.status ?? null}
-              data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
-              onChange={(value) => setFilters((current) => ({ ...current, status: (value as TaskFilters["status"]) ?? undefined }))}
-            />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          {view === "list" ? (
+            <Grid.Col span={{ base: 12, md: 3 }}>
+              <Select
+                label="Status"
+                placeholder="All statuses"
+                clearable
+                value={filters.status ?? null}
+                data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+                onChange={(value) => setFilters((current) => ({ ...current, status: (value as TaskFilters["status"]) ?? undefined }))}
+              />
+            </Grid.Col>
+          ) : null}
+          <Grid.Col span={{ base: 12, md: view === "board" ? 4 : 3 }}>
             <Text size="sm" fw={700} mb={8}>Defect</Text>
             <SegmentedControl
               fullWidth
@@ -925,16 +928,18 @@ export function TasksPage() {
       </Paper>
 
       {/*
-      Board is intentionally a model summary for this increment; the existing
-      List experience stays intact.
+      Board view renders five status columns with desktop horizontal scrolling,
+      while List view preserves the nested hierarchy and table pagination.
       */}
       {view === "board" ? (
-        <Paper component="section" radius="lg" p="lg" withBorder aria-label="Task board summary">
-          <Text fw={700}>Board view</Text>
-          <Text size="sm" c="dimmed">
-            {boardModel.map((column) => `${taskStatusLabels[column.status]}: ${column.tasks.length}`).join(" · ")}
-          </Text>
-        </Paper>
+        <TaskBoard
+          columns={boardModel}
+          deletePending={deleteTask.isPending}
+          onPreview={handlePreviewTask}
+          onEdit={handleEditTask}
+          onShare={handleShareTask}
+          onDelete={handleDeleteTask}
+        />
       ) : (
         <>
       <Paper radius="lg" withBorder className="paginated-table-panel tasks-table-panel">
