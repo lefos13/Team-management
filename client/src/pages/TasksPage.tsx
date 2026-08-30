@@ -68,6 +68,7 @@ import {
 } from "../hooks/use-app-data";
 import { getErrorMessage } from "../lib/api";
 import { formatDate } from "../lib/dates";
+import { buildTaskBoardModel, parseTaskView, withTaskViewSearchParams } from "../lib/task-board-model";
 import { usePagination } from "../hooks/use-pagination";
 
 function isActiveTaskStatus(status: TaskDTO["status"]) {
@@ -545,6 +546,7 @@ function SubtaskMobilePanel({ subtasks, deletePending, onEdit, onDelete, onPrevi
 export function TasksPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const view = parseTaskView(searchParams.get("view"));
   const [filters, setFilters] = useState<TaskFilters>({});
   const [exportFilters, setExportFilters] = useState<TaskExportFilters>({});
   const [exportOpened, setExportOpened] = useState(false);
@@ -610,6 +612,11 @@ export function TasksPage() {
   const canCreateTasks = taskWritableProjects.length > 0;
   const members = membersQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
+  /*
+  Board counts use the complete task response, including subtasks, without
+  changing List hierarchy behavior.
+  */
+  const boardModel = useMemo(() => buildTaskBoardModel(tasks), [tasks]);
   const { visibleTasks, subtasksByParent } = useMemo(() => {
     return buildVisibleTaskHierarchy(tasks, filters.status);
   }, [filters.status, tasks]);
@@ -850,6 +857,19 @@ export function TasksPage() {
         }
       />
 
+      {/*
+      Clone the complete query when changing views so task previews and other
+      parameters survive.
+      */}
+      <SegmentedControl
+        aria-label="Task view"
+        value={view}
+        data={[{ value: "board", label: "Board" }, { value: "list", label: "List" }]}
+        onChange={(nextView) => {
+          setSearchParams(withTaskViewSearchParams(searchParams, parseTaskView(nextView)));
+        }}
+      />
+
       <Paper radius="lg" p="lg" withBorder className="tasks-filter-panel">
         <Grid align="end">
           <Grid.Col span={{ base: 12, md: 3 }}>
@@ -904,6 +924,19 @@ export function TasksPage() {
         </Grid>
       </Paper>
 
+      {/*
+      Board is intentionally a model summary for this increment; the existing
+      List experience stays intact.
+      */}
+      {view === "board" ? (
+        <Paper component="section" radius="lg" p="lg" withBorder aria-label="Task board summary">
+          <Text fw={700}>Board view</Text>
+          <Text size="sm" c="dimmed">
+            {boardModel.map((column) => `${taskStatusLabels[column.status]}: ${column.tasks.length}`).join(" · ")}
+          </Text>
+        </Paper>
+      ) : (
+        <>
       <Paper radius="lg" withBorder className="paginated-table-panel tasks-table-panel">
         <Table.ScrollContainer minWidth={1240}>
           <Table verticalSpacing={0} className="tasks-table">
@@ -1012,6 +1045,8 @@ export function TasksPage() {
           onChange={(value) => setTaskPageSize(Number(value ?? "10"))}
         />
       </Group>
+        </>
+      )}
 
       <TaskFormModal
         projects={editingTaskId ? projects : taskWritableProjects}
