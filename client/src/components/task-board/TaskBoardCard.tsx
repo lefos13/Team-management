@@ -24,7 +24,7 @@ import {
 import type { TaskDTO } from "@team-management/shared";
 
 import { formatDate } from "../../lib/dates";
-import { getAssigneeAvatarItems, getAssigneeInitials } from "../../pages/TasksPage";
+import { getAssigneeAvatarItems, getAssigneeInitials } from "../../lib/task-assignees";
 
 export type TaskBoardCardProps = {
   task: TaskDTO;
@@ -142,7 +142,7 @@ export function TaskBoardCard({
 
         <Group justify="space-between" align="center" wrap="nowrap" className="task-board-card-footer">
           <Group gap={4} wrap="nowrap">
-            {isDone ? <IconCheck size={14} color="#0ca678" /> : <IconCalendar size={14} color="#64748b" />}
+            {isDone ? <IconCheck size={14} className="task-board-card-icon-done" /> : <IconCalendar size={14} className="task-board-card-icon-calendar" />}
             <Text size="xs" c={isDone && !task.completedAt ? "dimmed" : !isDone && !task.deadline ? "dimmed" : undefined}>
               {dateDisplay}
             </Text>

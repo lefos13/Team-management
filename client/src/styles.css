@@ -1286,6 +1286,14 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
 .task-board-card-footer {
   min-width: 0;
 }
+.task-board-card-icon-done {
+  color: #0ca678;
+}
+
+.task-board-card-icon-calendar {
+  color: #64748b;
+}
+
 
 .task-board-empty-state {
   background: #ffffff;

@@ -76,11 +76,11 @@ describe("TaskBoard component", () => {
     }
 
     // Accessible column regions should reflect accurate total counts
-    expect(screen.getByRole("region", { name: /To Do column, 2 tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /In Progress column, 1 tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Blocked column, 0 tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Review column, 0 tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Done column, 1 tasks/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "To Do column, 2 tasks" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "In Progress column, 1 task" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Blocked column, 0 tasks" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Review column, 0 tasks" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Done column, 1 task" })).toBeInTheDocument();
   });
 
   it("renders meaningful empty state for columns without tasks", () => {

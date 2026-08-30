@@ -40,7 +40,7 @@ export function TaskBoardColumn({
     <div
       className="task-board-column"
       role="region"
-      aria-label={`${statusLabel} column, ${totalCount} tasks`}
+      aria-label={`${statusLabel} column, ${totalCount} ${totalCount === 1 ? "task" : "tasks"}`}
       data-status={column.status}
     >
       <Group justify="space-between" align="center" wrap="nowrap" className="task-board-column-header">

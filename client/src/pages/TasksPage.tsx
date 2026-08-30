@@ -70,40 +70,12 @@ import {
 import { getErrorMessage } from "../lib/api";
 import { formatDate } from "../lib/dates";
 import { buildTaskBoardModel, parseTaskView, withTaskViewSearchParams } from "../lib/task-board-model";
+import { formatTaskAssignees, getAssigneeAvatarItems, getAssigneeInitials } from "../lib/task-assignees";
 import { usePagination } from "../hooks/use-pagination";
 
 function isActiveTaskStatus(status: TaskDTO["status"]) {
   return status !== "done";
 }
-
-function formatTaskAssignees(task: Pick<TaskDTO, "assigneeName" | "assigneeNames">) {
-  return task.assigneeNames.length > 0 ? task.assigneeNames.join(", ") : task.assigneeName ?? "Unassigned";
-}
-
-export function getAssigneeInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length === 0) {
-    return "?";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-export function getAssigneeAvatarItems(task: Pick<TaskDTO, "assigneeName" | "assigneeNames">, maxVisible = 2) {
-  const names = task.assigneeNames.length > 0 ? task.assigneeNames : task.assigneeName ? [task.assigneeName] : ["Unassigned"];
-
-  return {
-    visibleNames: names.slice(0, maxVisible),
-    overflowCount: Math.max(names.length - maxVisible, 0),
-    label: names.join(", "),
-  };
-}
-
 export function getTaskRangeLabel(page: number, pageSize: number, total: number) {
   if (total === 0) {
     return "Showing 0 tasks";

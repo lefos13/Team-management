@@ -5,7 +5,8 @@ import type { TaskDTO } from "@team-management/shared";
 import { describe, expect, it } from "vitest";
 
 import { TaskStatusBadge } from "../components/StatusBadge";
-import { buildVisibleTaskHierarchy, getAssigneeAvatarItems, getAssigneeInitials, getTaskRangeLabel } from "../pages/TasksPage";
+import { buildVisibleTaskHierarchy, getTaskRangeLabel } from "../pages/TasksPage";
+import { getAssigneeAvatarItems, getAssigneeInitials } from "../lib/task-assignees";
 
 function task(overrides: Partial<TaskDTO> & Pick<TaskDTO, "id" | "title" | "status">): TaskDTO {
   return {
