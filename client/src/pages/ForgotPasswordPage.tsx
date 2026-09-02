@@ -42,7 +42,7 @@ export function ForgotPasswordPage() {
                 Recover access with a reset code sent to your email.
               </Title>
               <Text size="lg" c="dimmed">
-                Enter the email you use for Team Management and we will send a 6-digit code if the account is ready
+                Enter the email you use for MGteam and we will send a 6-digit code if the account is ready
                 for password recovery.
               </Text>
             </Stack>

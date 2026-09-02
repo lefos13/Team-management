@@ -29,6 +29,11 @@ export function LoginForm({ loading, errorMessage, onSubmit, framed = true }: Lo
     },
   });
 
+  function handleFillDemo() {
+    form.setValue("email", "demo@team-management.local", { shouldValidate: true, shouldDirty: true });
+    form.setValue("password", "demo-password", { shouldValidate: true, shouldDirty: true });
+  }
+
   const content = (
     <form onSubmit={form.handleSubmit(onSubmit)}>
       <Stack>
@@ -51,6 +56,16 @@ export function LoginForm({ loading, errorMessage, onSubmit, framed = true }: Lo
         />
         <Button type="submit" loading={loading} radius="md" size="md">
           Sign in
+        </Button>
+        <Button
+          type="button"
+          variant="subtle"
+          color="gray"
+          size="xs"
+          onClick={handleFillDemo}
+          className="demo-credentials-button"
+        >
+          Fill demo credentials
         </Button>
         {framed ? (
           <Anchor component={Link} to="/forgot-password" size="sm" ta="center">

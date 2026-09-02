@@ -80,9 +80,9 @@ export function AppShellLayout() {
           <Stack gap="lg">
             <Stack gap={6} px="sm" className="shell-brand">
               <Group gap="sm" wrap="nowrap">
-                <img className="shell-brand-logo" src="/logo.png" alt="Team Management logo" />
+                <img className="shell-brand-logo" src="/logo.png" alt="MGteam logo" />
                 <Text fw={900} size="lg" c="white">
-                  Team Management
+                  MGteam
                 </Text>
               </Group>
               <Text size="xs" c="blue.1">

@@ -29,7 +29,7 @@ export function CookieBanner() {
       <Stack gap="sm">
         <Text fw={800}>Essential cookies</Text>
         <Text size="sm" c="dimmed">
-          Team Management uses only necessary cookies and local storage for sign-in sessions, security, and remembering
+          MGteam uses only necessary cookies and local storage for sign-in sessions, security, and remembering
           this notice. We do not load analytics, marketing, or third-party tracking cookies.
         </Text>
         <Group justify="space-between" gap="sm" align="center">

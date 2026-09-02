@@ -18,8 +18,8 @@ export function LegalPage({ kind }: { kind: LegalPageKind }) {
         <Stack gap="lg">
           <Group justify="space-between" align="center">
             <Anchor component={Link} to="/" fw={800} c="dark" className="site-brand-link">
-              <img className="site-brand-logo site-brand-logo-small" src="/logo.png" alt="Team Management logo" />
-              Team Management
+              <img className="site-brand-logo site-brand-logo-small" src="/logo.png" alt="MGteam logo" />
+              MGteam
             </Anchor>
             <Button component={Link} to="/register" radius="md" variant="light">
               Create account
@@ -52,7 +52,7 @@ function TermsContent() {
   return (
     <Stack gap="md">
       <Text>
-        These Terms govern use of Team Management, a web app for organizing projects, team members, tasks, deadlines,
+        These Terms govern use of MGteam, a web app for organizing projects, team members, tasks, deadlines,
         attachments, and related workspace activity. By creating an account, you agree to use the service lawfully and
         only with data you are authorized to manage.
       </Text>
@@ -60,10 +60,10 @@ function TermsContent() {
         <List.Item>You are responsible for keeping your login details secure and for activity under your account.</List.Item>
         <List.Item>You may not upload unlawful, harmful, infringing, or unauthorized content.</List.Item>
         <List.Item>Workspace data remains your responsibility, including accuracy of project, task, and member records.</List.Item>
-        <List.Item>Team Management may suspend access to protect the service, users, or legal compliance.</List.Item>
+        <List.Item>MGteam may suspend access to protect the service, users, or legal compliance.</List.Item>
       </List>
       <Text>
-        Contact placeholder: Team Management, service operator/controller contact to be finalized before public launch.
+        Contact placeholder: MGteam, service operator/controller contact to be finalized before public launch.
       </Text>
     </Stack>
   );
@@ -73,7 +73,7 @@ function PrivacyContent() {
   return (
     <Stack gap="md">
       <Text>
-        Team Management collects account and workspace data needed to provide the service, including email address,
+        MGteam collects account and workspace data needed to provide the service, including email address,
         password hash, email verification and password reset records, project data, task data, member data, attachments,
         session records, and legal acceptance metadata.
       </Text>
@@ -84,7 +84,7 @@ function PrivacyContent() {
         <List.Item>Under GDPR, users may request access, correction, deletion, restriction, portability, or objection where applicable.</List.Item>
       </List>
       <Text>
-        Contact placeholder: Team Management, privacy contact and legal address to be finalized before public launch.
+        Contact placeholder: MGteam, privacy contact and legal address to be finalized before public launch.
       </Text>
     </Stack>
   );
@@ -94,7 +94,7 @@ function CookieContent() {
   return (
     <Stack gap="md">
       <Text>
-        Team Management currently uses essential-only cookies and browser storage. These are needed for authentication,
+        MGteam currently uses essential-only cookies and browser storage. These are needed for authentication,
         security, and remembering that the cookie notice was acknowledged. The app does not load analytics, marketing, or
         third-party tracking cookies in v1.
       </Text>

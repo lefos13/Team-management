@@ -5,13 +5,9 @@ queries instead of reusing user-scoped workspace routes and ownership rules.
 import type { FastifyPluginAsync } from "fastify";
 import type {
   AdminAccessDTO,
-  AdminMemberDTO,
   AdminOverviewDTO,
   AdminPaginationQuery,
-  AdminProjectDTO,
   AdminSessionDTO,
-  AdminTaskDTO,
-  AdminUserDTO,
   PaginatedAdminAccessDTO,
   PaginatedAdminMembersDTO,
   PaginatedAdminProjectsDTO,

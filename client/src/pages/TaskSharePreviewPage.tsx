@@ -162,8 +162,8 @@ export function TaskSharePreviewPage() {
         <Stack gap="xl">
           <Group justify="space-between" align="center" className="landing-nav">
             <Group gap="sm" className="site-brand" wrap="nowrap">
-              <img className="site-brand-logo-small" src="/logo.png" alt="Team Management logo" />
-              <Text fw={800}>Team Management</Text>
+              <img className="site-brand-logo-small" src="/logo.png" alt="MGteam logo" />
+              <Text fw={800}>MGteam</Text>
             </Group>
             <Anchor component={Link} to="/login">Sign in</Anchor>
           </Group>
