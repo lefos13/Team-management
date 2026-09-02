@@ -35,8 +35,11 @@ export function LandingFooter() {
               </Text>
             </Group>
 
-            {/* Legal Links */}
+            {/* Legal Links and What's New */}
             <Group gap="lg" className="footer-legal-links">
+              <Anchor component={Link} to="/whats-new" size="sm" c="dimmed">
+                What&apos;s New
+              </Anchor>
               <Anchor component={Link} to="/terms" size="sm" c="dimmed">
                 Terms
               </Anchor>

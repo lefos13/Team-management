@@ -13,6 +13,7 @@ The production deploy script is the source of truth for how the application is a
 - Verify that local development changes can still be deployed through the production script without corrupting the existing database or user data.
 - If task data structure or export fields change, update the Excel export template in the same change set.
 - Every UI change should happen for both mobile and desktop layouts.
+- For every commit that introduces user-facing changes (new features, UX enhancements, visual updates, bug fixes, or export changes), add a high-level entry to `client/src/data/whats-new.ts` in the same change set. Keep descriptions concise, non-technical, and focused on user benefit.
 
 ## Deployment safety
 
