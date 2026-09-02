@@ -9,9 +9,10 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
-import { IconLogin2, IconUserPlus } from "@tabler/icons-react";
+import { IconLogin2, IconSparkles, IconUserPlus } from "@tabler/icons-react";
 import { ThemeToggle } from "../ThemeToggle";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 export type LandingHeaderProps = {
   onOpenLogin: () => void;
@@ -83,6 +84,13 @@ export function LandingHeader({ onOpenLogin, onOpenRegister }: LandingHeaderProp
               }}
             >
               Collaboration
+            </Anchor>
+            <Anchor
+              component={Link}
+              to="/whats-new"
+              className="landing-nav-link"
+            >
+              What&apos;s New
             </Anchor>
           </Group>
 
@@ -175,6 +183,18 @@ export function LandingHeader({ onOpenLogin, onOpenRegister }: LandingHeaderProp
             onClick={() => handleNavClick("#collaboration")}
           >
             Calendar & Client Sharing
+          </Button>
+          <Button
+            component={Link}
+            to="/whats-new"
+            variant="light"
+            color="teal"
+            justify="flex-start"
+            radius="md"
+            leftSection={<IconSparkles size={16} />}
+            onClick={() => setDrawerOpened(false)}
+          >
+            What&apos;s New
           </Button>
 
           <Box mt="md" className="landing-drawer-divider" style={{ borderTop: "1px solid rgba(19, 34, 56, 0.08)", paddingTop: "16px" }}>

@@ -1,8 +1,8 @@
 /* Route public auth and protected manager views through one browser router to keep navigation predictable. */
 import type { ReactElement } from "react";
-import { Center, Loader } from "@mantine/core";
+import { Anchor, Button, Center, Container, Group, Loader, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { CookieBanner } from "./components/CookieBanner";
 import { AppShellLayout } from "./layouts/AppShellLayout";
@@ -22,6 +22,7 @@ import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { TaskSharePreviewPage } from "./pages/TaskSharePreviewPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { getCurrentUser } from "./hooks/use-auth";
+import { WhatsNewPage } from "./pages/WhatsNewPage";
 
 const routerBase = import.meta.env.BASE_URL === "/" ? "/" : import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -46,10 +47,43 @@ function RequireAuth() {
   }
 
   if (!sessionQuery.data) {
+    const isWhatsNew = location.pathname.replace(/\/$/, "") === "/whats-new";
+    if (isWhatsNew) {
+      return <PublicWhatsNewLayout />;
+    }
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
-
   return <AppShellLayout />;
+}
+
+function PublicWhatsNewLayout() {
+  return (
+    <main className="public-whats-new-page">
+      <Container size="lg" py={{ base: "md", sm: "xl" }} px={{ base: "sm", sm: "md" }}>
+        <Stack gap="xl">
+          <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+            <Anchor component={Link} to="/" fw={800} c="dark" className="site-brand-link" underline="never">
+              <Group gap="xs" wrap="nowrap">
+                <img className="site-brand-logo site-brand-logo-small" src="/logo.png" alt="MGteam logo" />
+                <Text fw={900} size="md" c="dark">
+                  MGteam
+                </Text>
+              </Group>
+            </Anchor>
+            <Group gap="xs">
+              <Button component={Link} to="/login" variant="subtle" color="dark" size="sm">
+                Sign in
+              </Button>
+              <Button component={Link} to="/register" color="teal" size="sm">
+                Create account
+              </Button>
+            </Group>
+          </Group>
+          <Outlet />
+        </Stack>
+      </Container>
+    </main>
+  );
 }
 
 function PublicOnlyRoute({ children }: { children: ReactElement }) {
@@ -128,6 +162,7 @@ export function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tasks/:taskId" element={<TaskDetailPage />} />
           <Route path="calendar" element={<CalendarPage />} />
+          <Route path="whats-new" element={<WhatsNewPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

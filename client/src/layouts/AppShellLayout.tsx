@@ -7,6 +7,7 @@ import {
   IconFolder,
   IconLayoutDashboard,
   IconLogout,
+  IconSparkles,
   IconUsers,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ const navigation = [
   { label: "Members", path: "/members", icon: IconUsers },
   { label: "Tasks", path: "/tasks", icon: IconChecklist },
   { label: "Calendar", path: "/calendar", icon: IconCalendarEvent },
+  { label: "What's New", path: "/whats-new", icon: IconSparkles },
 ];
 
 export function AppShellLayout() {
@@ -45,7 +47,7 @@ export function AppShellLayout() {
       <AppShell.Header className="shell-header">
         <Group h="100%" px="lg" justify="space-between" className="shell-header-content">
           <Group gap="md" className="shell-header-title">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" />
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" aria-label="Toggle navigation" />
             <Stack gap={0}>
               <Text className="eyebrow">Team workspace</Text>
               <Title order={3}>{currentNavigation.label}</Title>
