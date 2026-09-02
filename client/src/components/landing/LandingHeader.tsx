@@ -10,6 +10,7 @@ import {
   Text,
 } from "@mantine/core";
 import { IconLogin2, IconUserPlus } from "@tabler/icons-react";
+import { ThemeToggle } from "../ThemeToggle";
 import { useState } from "react";
 
 export type LandingHeaderProps = {
@@ -87,6 +88,7 @@ export function LandingHeader({ onOpenLogin, onOpenRegister }: LandingHeaderProp
 
           {/* Desktop Action CTAs */}
           <Group gap="sm" visibleFrom="sm">
+            <ThemeToggle />
             <Button
               variant="subtle"
               color="dark"
@@ -175,8 +177,12 @@ export function LandingHeader({ onOpenLogin, onOpenRegister }: LandingHeaderProp
             Calendar & Client Sharing
           </Button>
 
-          <Box mt="md" style={{ borderTop: "1px solid rgba(19, 34, 56, 0.08)", paddingTop: "16px" }}>
+          <Box mt="md" className="landing-drawer-divider" style={{ borderTop: "1px solid rgba(19, 34, 56, 0.08)", paddingTop: "16px" }}>
             <Stack gap="sm">
+              <Group justify="space-between" align="center" px="xs" pb="xs">
+                <Text size="sm" fw={600}>Theme</Text>
+                <ThemeToggle />
+              </Group>
               <Button
                 variant="default"
                 radius="md"

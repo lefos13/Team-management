@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { getCurrentUser, useLogout } from "../hooks/use-auth";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const navigation = [
   { label: "Dashboard", path: "/", icon: IconLayoutDashboard },
@@ -60,6 +61,7 @@ export function AppShellLayout() {
                 Account workspace
               </Text>
             </Stack>
+            <ThemeToggle />
             <Button
               variant="light"
               color="dark"

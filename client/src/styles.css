@@ -2521,3 +2521,431 @@ compact viewports (down to 320px) without page-level horizontal overflow.
 .task-detail-notes-editor .mantine-RichTextEditor-root {
   border-radius: var(--mantine-radius-md);
 }
+
+/* ==========================================================================
+   Theme Toggle Button
+   ========================================================================== */
+.theme-toggle-btn {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: var(--mantine-radius-md);
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+}
+
+.theme-toggle-btn:hover {
+  transform: translateY(-1px);
+}
+
+.theme-toggle-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .theme-toggle-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* ==========================================================================
+   Global Dark Theme Styling
+   ========================================================================== */
+:root[data-mantine-color-scheme="dark"],
+[data-mantine-color-scheme="dark"] {
+  --mantine-color-body: #0c1524;
+  --mantine-color-text: #e2e8f0;
+  color: #e2e8f0;
+  background: #0c1524;
+}
+
+[data-mantine-color-scheme="dark"] body {
+  color: #e2e8f0;
+  background: #0c1524;
+}
+
+[data-mantine-color-scheme="dark"] #root {
+  background: #0c1524;
+}
+
+/* Theme Toggle Button in Dark Mode */
+[data-mantine-color-scheme="dark"] .theme-toggle-btn {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .theme-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+/* App Shell Dark Styles */
+[data-mantine-color-scheme="dark"] .app-shell {
+  background: #09101d;
+}
+
+[data-mantine-color-scheme="dark"] .shell-header {
+  background: rgba(12, 21, 36, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+}
+
+[data-mantine-color-scheme="dark"] .shell-navbar {
+  background: linear-gradient(180deg, #060e1a 0%, #0a1424 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .shell-brand {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .shell-navlink {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .shell-navlink:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+[data-mantine-color-scheme="dark"] .shell-navlink[data-active="true"] {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+}
+
+[data-mantine-color-scheme="dark"] .shell-upgrade {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Admin Page & Shell Cards */
+[data-mantine-color-scheme="dark"] .admin-page {
+  background:
+    radial-gradient(circle at top right, rgba(13, 148, 136, 0.1), transparent 32%),
+    linear-gradient(180deg, #080f1a 0%, #0c1524 50%, #09101c 100%);
+}
+
+[data-mantine-color-scheme="dark"] .admin-shell-card {
+  background: rgba(16, 28, 48, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .admin-stat-card {
+  background: rgba(20, 35, 60, 0.82);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .admin-stat-card-minimal {
+  background: rgba(20, 35, 60, 0.65);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
+[data-mantine-color-scheme="dark"] .admin-layout {
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .admin-sidebar-link {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .admin-sidebar-link:hover {
+  background: rgba(13, 148, 136, 0.15);
+  color: #5eead4;
+}
+
+[data-mantine-color-scheme="dark"] .admin-sidebar-link-active {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.3);
+}
+
+/* Landing Sticky Header & Drawer */
+[data-mantine-color-scheme="dark"] .landing-sticky-header {
+  background: rgba(12, 21, 36, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-mantine-color-scheme="dark"] .landing-header-container {
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .landing-nav-link {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .landing-nav-link:hover {
+  color: #5eead4;
+}
+
+[data-mantine-color-scheme="dark"] .landing-brand-text {
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-Drawer-content {
+  background: #0f1a2e;
+  color: #e2e8f0;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .mantine-Drawer-header {
+  background: #0f1a2e;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .landing-drawer-divider {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Kanban and Task Board Elements */
+[data-mantine-color-scheme="dark"] .task-board,
+[data-mantine-color-scheme="dark"] .task-board-container {
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-column {
+  background: rgba(18, 30, 50, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-column-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .task-board-column-title {
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-card,
+[data-mantine-color-scheme="dark"] .task-card {
+  background: #152238;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+[data-mantine-color-scheme="dark"] .task-board-card:hover,
+[data-mantine-color-scheme="dark"] .task-card:hover {
+  border-color: #2bbf9f;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+[data-mantine-color-scheme="dark"] .task-board-card-title {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-card-project,
+[data-mantine-color-scheme="dark"] .task-board-subtask-label,
+[data-mantine-color-scheme="dark"] .task-board-card-icon-calendar {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-empty-state {
+  background: rgba(18, 30, 50, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-show-more {
+  background: rgba(255, 255, 255, 0.05);
+  color: #5eead4;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .task-board-show-more:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+[data-mantine-color-scheme="dark"] .kanban-task-card {
+  background: #152238;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+[data-mantine-color-scheme="dark"] .kanban-showcase-shell {
+  background: rgba(16, 28, 48, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.35);
+}
+
+[data-mantine-color-scheme="dark"] .kanban-card-defect {
+  border-color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .dashboard-task-card {
+  background: #152238;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .dashboard-kanban-column {
+  background: rgba(18, 30, 50, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .task-board-mobile-tab {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .task-board-mobile-tab[data-active="true"] {
+  background: #152238;
+  color: #f8fafc;
+}
+
+/* FullCalendar Dark Contrast Rules */
+[data-mantine-color-scheme="dark"] .fc {
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .fc-theme-standard td,
+[data-mantine-color-scheme="dark"] .fc-theme-standard th {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .fc-theme-standard .fc-scrollgrid {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .fc-col-header-cell {
+  background: rgba(18, 30, 50, 0.9);
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .fc-col-header-cell-cushion {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .fc-daygrid-day {
+  background: transparent;
+}
+
+[data-mantine-color-scheme="dark"] .fc-daygrid-day.fc-day-today {
+  background: rgba(13, 148, 136, 0.14) !important;
+}
+
+[data-mantine-color-scheme="dark"] .fc-daygrid-day-number {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .fc .fc-toolbar-title {
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .fc .fc-button {
+  background: #0f766e;
+  color: #ffffff;
+  border: 0;
+}
+
+[data-mantine-color-scheme="dark"] .fc .fc-button:hover {
+  background: #0d9488;
+}
+
+[data-mantine-color-scheme="dark"] .fc .fc-button-primary:not(:disabled).fc-button-active,
+[data-mantine-color-scheme="dark"] .fc .fc-button-primary:not(:disabled):active {
+  background: #042f2e;
+}
+
+[data-mantine-color-scheme="dark"] .fc-list-day-cdate,
+[data-mantine-color-scheme="dark"] .fc-list-day-text {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .fc-list-event:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* TipTap RichTextEditor Dark Contrast Rules */
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-root {
+  background: #121e32;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-toolbar {
+  background: #0e1726;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-content {
+  background: transparent;
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-control {
+  color: #cbd5e1;
+  background: transparent;
+  border-color: transparent;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-control:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-RichTextEditor-control[data-active="true"] {
+  background: rgba(13, 148, 136, 0.3);
+  color: #5eead4;
+}
+
+[data-mantine-color-scheme="dark"] .tiptap {
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .tiptap p.is-editor-empty:first-child::before {
+  color: #64748b;
+}
+
+/* Additional Dark Surfaces & Cards */
+[data-mantine-color-scheme="dark"] .content-card,
+[data-mantine-color-scheme="dark"] .overdue-card,
+[data-mantine-color-scheme="dark"] .compact-list-row,
+[data-mantine-color-scheme="dark"] .tasks-card-panel {
+  background: rgba(18, 30, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-secondary-action {
+  background: #152238;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .hero-trust-card,
+[data-mantine-color-scheme="dark"] .workflow-value-card,
+[data-mantine-color-scheme="dark"] .capacity-inspector-card,
+[data-mantine-color-scheme="dark"] .collaboration-card,
+[data-mantine-color-scheme="dark"] .legal-content,
+[data-mantine-color-scheme="dark"] .task-share-panel {
+  background: rgba(18, 30, 50, 0.88);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .member-select-card,
+[data-mantine-color-scheme="dark"] .deliverable-item-row,
+[data-mantine-color-scheme="dark"] .calendar-day-btn,
+[data-mantine-color-scheme="dark"] .calendar-deliverable-row,
+[data-mantine-color-scheme="dark"] .client-preview-body,
+[data-mantine-color-scheme="dark"] .manager-preview-body {
+  background: #142034;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .calendar-day-btn:hover {
+  background: #1a2942;
+}

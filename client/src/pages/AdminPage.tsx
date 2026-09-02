@@ -45,6 +45,7 @@ import type {
   PaginatedAdminUsersDTO,
 } from "@team-management/shared";
 import { CompactPagination } from "../components/CompactPagination";
+import { ThemeToggle } from "../components/ThemeToggle";
 import {
   useAdminAccessPage,
   useAdminMembersPage,
@@ -461,9 +462,12 @@ export function AdminPage() {
                     Enter the server-managed secret password to inspect users, projects, members, tasks, and shared access data.
                   </Text>
                 </Stack>
-                <Badge size="lg" color="dark" variant="light" leftSection={<IconLock size={14} />}>
-                  Protected
-                </Badge>
+                <Group gap="sm" align="center">
+                  <ThemeToggle />
+                  <Badge size="lg" color="dark" variant="light" leftSection={<IconLock size={14} />}>
+                    Protected
+                  </Badge>
+                </Group>
               </Group>
 
               <form onSubmit={handleUnlock}>
@@ -559,9 +563,12 @@ export function AdminPage() {
                   Cross-account visibility into the live database state for monitoring people, projects, work, and sharing activity.
                 </Text>
               </Stack>
-              <Button variant="light" color="dark" onClick={handleSignOut} loading={deleteAdminSessionMutation.isPending}>
-                Sign out
-              </Button>
+              <Group gap="sm" align="center">
+                <ThemeToggle />
+                <Button variant="light" color="dark" onClick={handleSignOut} loading={deleteAdminSessionMutation.isPending}>
+                  Sign out
+                </Button>
+              </Group>
             </Group>
           </Paper>
 
