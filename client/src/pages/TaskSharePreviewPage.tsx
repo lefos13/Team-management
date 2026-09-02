@@ -8,6 +8,8 @@ import { notifications } from "@mantine/notifications";
 import { IconEye, IconFileText, IconNotes } from "@tabler/icons-react";
 import { Link, useParams } from "react-router-dom";
 
+import { ThemeToggle } from "../components/ThemeToggle";
+
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
 import { previewSharedTaskAttachment, useTaskSharePreview } from "../hooks/use-app-data";
 import { buildApiUrl, getErrorMessage } from "../lib/api";
@@ -99,7 +101,7 @@ function TaskShareContent({ task, token }: { task: TaskDTO; token: string }) {
             <Stack gap="md">
               <SimpleGrid cols={{ base: 1, md: 2 }}>
                 {task.attachments.filter((attachment) => isImageAttachment(attachment.mimeType)).map((attachment) => (
-                  <Paper key={attachment.id} withBorder radius="md" p="sm">
+                  <Paper key={attachment.id} withBorder radius="md" p="sm" className="task-share-panel">
                     <Stack gap="xs">
                       <Text size="sm" fw={700}>{attachment.filename}</Text>
                       <img
@@ -163,11 +165,13 @@ export function TaskSharePreviewPage() {
           <Group justify="space-between" align="center" className="landing-nav">
             <Group gap="sm" className="site-brand" wrap="nowrap">
               <img className="site-brand-logo-small" src="/logo.png" alt="MGteam logo" />
-              <Text fw={800}>MGteam</Text>
+              <Text fw={800} c="inherit">MGteam</Text>
             </Group>
-            <Anchor component={Link} to="/login">Sign in</Anchor>
+            <Group gap="sm" align="center">
+              <ThemeToggle />
+              <Anchor component={Link} to="/login">Sign in</Anchor>
+            </Group>
           </Group>
-
           {taskQuery.isLoading ? (
             <Loader />
           ) : taskQuery.data && token ? (

@@ -3,7 +3,6 @@ import {
   ActionIcon,
   Alert,
   Avatar,
-  Badge,
   Button,
   FileInput,
   Grid,
@@ -166,9 +165,17 @@ type TaskRowProps = TaskTableColumnsProps & {
 
 function TaskTypeBadge({ task }: { task: TaskDTO }) {
   return (
-    <Badge className={task.isDefect ? "task-type-badge task-type-badge-defect" : "task-type-badge task-type-badge-standard"}>
-      {task.isDefect ? "Defect" : "Standard"}
-    </Badge>
+    <Tooltip label={task.isDefect ? "Defect issue" : "Standard task"} withArrow position="top" openDelay={200}>
+      <span
+        className={`task-type-badge ${task.isDefect ? "task-type-badge-defect" : "task-type-badge-standard"}`}
+        role="status"
+        tabIndex={0}
+        aria-label={task.isDefect ? "Defect" : "Standard"}
+      >
+        <span className="task-type-dot" aria-hidden="true" />
+        <span className="task-type-text">{task.isDefect ? "Defect" : "Standard"}</span>
+      </span>
+    </Tooltip>
   );
 }
 
@@ -197,19 +204,19 @@ function TaskActionGroup({ task, deletePending, onEdit, onDelete, onPreview, onS
   return (
     <Group justify="end" gap={8} wrap="nowrap" className="tasks-row-actions">
       <Tooltip label="Preview task" withArrow openDelay={300}>
-        <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onPreview(task.id)} aria-label={`Preview ${task.title}`}>
+        <ActionIcon variant="subtle" color="gray" className="tasks-action-icon" onClick={() => onPreview(task.id)} aria-label={`Preview ${task.title}`}>
           <IconEye size={17} />
         </ActionIcon>
       </Tooltip>
       {task.canEdit ? (
         <>
           <Tooltip label="Edit task" withArrow openDelay={300}>
-            <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
+            <ActionIcon variant="subtle" color="gray" className="tasks-action-icon" onClick={() => onEdit(task.id)} aria-label={`Edit ${task.title}`}>
               <IconEdit size={17} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Share task" withArrow openDelay={300}>
-            <ActionIcon variant="subtle" className="tasks-action-icon" onClick={() => onShare(task.id)} aria-label={`Share ${task.title}`}>
+            <ActionIcon variant="subtle" color="gray" className="tasks-action-icon" onClick={() => onShare(task.id)} aria-label={`Share ${task.title}`}>
               <IconShare size={17} />
             </ActionIcon>
           </Tooltip>

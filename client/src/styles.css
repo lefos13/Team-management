@@ -1092,16 +1092,11 @@ side by side on desktop and every horizontal pixel belongs to task content.
 Legal pages and the cookie notice share the public auth surface, so they use
 plain content panels instead of dashboard chrome or marketing-style sections.
 */
-.legal-page {
+.legal-page,
+.task-share-page {
   min-height: 100vh;
-  background:
-    linear-gradient(
-      118deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(236, 247, 244, 0.88) 52%,
-      rgba(247, 250, 246, 0.98) 100%
-    ),
-    linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
+  background: var(--app-bg-canvas);
+  color: var(--app-text-body);
 }
 
 .legal-content {
@@ -1122,21 +1117,10 @@ plain content panels instead of dashboard chrome or marketing-style sections.
   color: var(--app-text-body);
 }
 
-.task-share-page {
-  min-height: 100vh;
-  background:
-    linear-gradient(
-      118deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(236, 247, 244, 0.88) 52%,
-      rgba(247, 250, 246, 0.98) 100%
-    ),
-    linear-gradient(180deg, #f5f8fb 0%, #edf5f1 100%);
-}
-
 .task-share-title {
   line-height: 1.08;
   letter-spacing: 0;
+  color: var(--app-text-heading);
 }
 
 .task-share-panel {
@@ -1341,56 +1325,62 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-invitations-modal-title {
-  color: #172538;
+  color: var(--app-text-heading);
   font-size: 1.45rem;
   font-weight: 850;
 }
 
 .projects-invitations-modal-close {
-  color: #687385;
+  color: var(--app-text-dimmed);
 }
 
 .projects-invitations-modal-body {
   padding: 8px 32px 28px;
+  background: var(--app-bg-surface-elevated);
+  color: var(--app-text-body);
 }
 
 .projects-modal-description {
-  color: #5c6675;
+  color: var(--app-text-dimmed);
   font-weight: 600;
 }
 
 .projects-modal-project {
-  color: #172538;
+  color: var(--app-text-heading);
   font-size: 1.05rem;
   font-weight: 800;
 }
 
 .projects-modal-project span {
-  color: #08776f;
+  color: var(--mantine-primary-color-filled);
 }
 
 .projects-invitations-table-shell {
   overflow-x: auto;
-  border: 1px solid rgba(15, 35, 56, 0.1);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--app-bg-surface);
 }
 
 .projects-invitations-table {
   min-width: 1010px;
   table-layout: fixed;
+  color: var(--app-text-body);
 }
 
 .projects-invitations-table th {
   padding: 16px 20px;
-  color: #303b4b;
+  color: var(--app-text-secondary);
   font-size: 0.94rem;
   font-weight: 800;
+  background: var(--app-bg-surface-subtle);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .projects-invitations-table td {
   padding: 12px 16px;
-  border-top: 1px solid rgba(15, 35, 56, 0.08);
+  border-top: 1px solid var(--app-border-subtle);
+  color: var(--app-text-body);
 }
 
 .projects-invitations-table th:first-child {
@@ -1425,17 +1415,16 @@ scan access context and manage permissions without leaving the page.
 }
 
 .projects-member-cell p:first-child {
-  color: #253345;
+  color: var(--app-text-heading);
   line-height: 1.2;
 }
 
 .projects-member-cell p:last-child {
-  color: #697487;
+  color: var(--app-text-dimmed);
   font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.2;
 }
-
 .projects-invitation-status {
   min-width: 94px;
   justify-content: center;
@@ -1616,18 +1605,18 @@ leaving the broader app shell and the other pages on the existing teal theme.
 .tasks-data-row td {
   height: 70px;
   padding: 12px 16px;
-  border-top: 1px solid #e5eaf1;
-  color: #273244;
+  border-top: 1px solid var(--app-border-subtle);
+  color: var(--app-text-body);
   font-size: 0.82rem;
   vertical-align: middle;
 }
 
 .tasks-data-row:first-child td {
-  border-top-color: #dce3ec;
+  border-top-color: var(--app-border);
 }
 
 .tasks-subtask-row td {
-  background: #fbfcfe;
+  background: var(--app-bg-surface-subtle);
 }
 
 .tasks-task-title-group,
@@ -1638,9 +1627,10 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-task-title {
   min-width: 0;
-  color: #111827;
-  font-size: 0.84rem;
-  line-height: 1.22;
+  color: var(--app-text-heading);
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -1651,13 +1641,14 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-task-description {
   max-width: 100%;
+  color: var(--app-text-dimmed);
   font-size: 0.76rem;
   line-height: 1.25;
 }
 
 .tasks-task-icon {
   flex: 0 0 auto;
-  color: #667085;
+  color: var(--app-text-dimmed);
 }
 
 .tasks-expand-button,
@@ -1686,6 +1677,8 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-project-cell {
   overflow-wrap: anywhere;
+  color: var(--app-text-secondary);
+  font-weight: 600;
 }
 
 .tasks-attachment-count {
@@ -1724,8 +1717,9 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-status-select .mantine-Input-input,
 .tasks-page-size-select .mantine-Input-input {
-  border-color: #d6dde7;
-  color: #374151;
+  border-color: var(--app-border);
+  background: var(--app-bg-input);
+  color: var(--app-text-body);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -1775,7 +1769,7 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .tasks-actions-cell {
-  border-left: 1px solid #edf1f6;
+  border-left: 1px solid var(--app-border-subtle);
 }
 
 .tasks-actions-heading {
@@ -1804,19 +1798,23 @@ leaving the broader app shell and the other pages on the existing teal theme.
 
 .tasks-subtask-pagination-row td {
   height: 54px;
-  background: #fbfcfe;
+  background: var(--app-bg-surface-subtle);
 }
 
 .tasks-table-footer,
 .tasks-mobile-pagination-footer {
   min-height: 78px;
   padding: 18px 22px;
-  border-top: 1px solid #e5eaf1;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-bg-surface);
+  color: var(--app-text-body);
 }
 
 .tasks-table-footer > p,
 .tasks-mobile-pagination-footer > p {
   flex: 1;
+  color: var(--app-text-dimmed);
+  font-weight: 600;
 }
 
 .tasks-table-footer .compact-pagination,
@@ -3086,4 +3084,203 @@ compact viewports (down to 320px) without page-level horizontal overflow.
 
 [data-mantine-color-scheme="dark"] .page-header-description {
   color: var(--app-text-dimmed) !important;
+}
+
+/* ==========================================================================
+   Tasks List View, Invitations Modal & Shared Task Dark Mode Contrast
+   ========================================================================== */
+
+/* Task page header & buttons */
+[data-mantine-color-scheme="dark"] .tasks-page .page-header-copy h2 {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-page .page-header-copy p {
+  color: #94a3b8;
+}
+
+/* Tasks Table (List View) */
+[data-mantine-color-scheme="dark"] .tasks-table th {
+  color: #f1f5f9;
+  background: #0d1626;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 850;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-data-row td {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  background: #111e32;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-data-row:hover td {
+  background: #16263e !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-subtask-row td {
+  background: #0c1524 !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-subtask-row:hover td {
+  background: #132136 !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-task-title {
+  color: #f8fafc;
+  font-weight: 750;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-task-description {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-task-icon {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-project-cell,
+[data-mantine-color-scheme="dark"] .tasks-project-cell .mantine-Text-root {
+  color: #cbd5e1 !important;
+  font-weight: 600;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-table td .mantine-Text-root {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-status-select .mantine-Input-input,
+[data-mantine-color-scheme="dark"] .tasks-page-size-select .mantine-Input-input {
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: #0d1727 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-status-select .mantine-Input-input:hover,
+[data-mantine-color-scheme="dark"] .tasks-status-select .mantine-Input-input:focus {
+  border-color: #2dd4bf !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-actions-cell {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-mantine-color-scheme="dark"] .tasks-actions-cell .tasks-action-icon {
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-actions-cell .tasks-action-icon:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .tasks-table-footer,
+[data-mantine-color-scheme="dark"] .tasks-mobile-pagination-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0d1626;
+  color: #cbd5e1;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-table-footer > p,
+[data-mantine-color-scheme="dark"] .tasks-mobile-pagination-footer > p {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+/* Manage Invitations Modal */
+[data-mantine-color-scheme="dark"] .projects-invitations-modal {
+  background: #111e32;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-modal-header,
+[data-mantine-color-scheme="dark"] .projects-invitations-modal-body {
+  background: #111e32;
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-modal-title {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .projects-modal-description {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .projects-modal-project {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .projects-modal-project span {
+  color: #2dd4bf;
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-table-shell {
+  background: #0d1626;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-table {
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-table th {
+  background: #0a111e;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-table td {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-invitations-table tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-mantine-color-scheme="dark"] .projects-member-cell p:first-child {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .projects-member-cell p:last-child {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .projects-permission-select .mantine-Input-input {
+  background: #0d1727;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-permission-action {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .projects-permission-action:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Task Share Preview Page */
+[data-mantine-color-scheme="dark"] .task-share-page {
+  background: #080f1a;
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .task-share-page .site-brand {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .task-share-title {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .task-share-panel {
+  background: #111e32;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
 }
