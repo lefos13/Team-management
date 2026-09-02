@@ -4,6 +4,7 @@ import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "../components/PageHeader";
+import { ConfirmDeleteModal } from "../components/ConfirmDeleteModal";
 import { CompactPagination } from "../components/CompactPagination";
 import { MemberFormModal } from "../components/forms/MemberFormModal";
 import { useCreateMember, useDeleteMember, useMembers, useProjects, useUpdateMember } from "../hooks/use-app-data";
@@ -13,6 +14,7 @@ import { usePagination } from "../hooks/use-pagination";
 export function MembersPage() {
   const [opened, setOpened] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const projectsQuery = useProjects();
   const membersQuery = useMembers();
   const createMember = useCreateMember();
@@ -72,18 +74,7 @@ export function MembersPage() {
                   <ActionIcon
                     variant="light"
                     color="red"
-                    loading={deleteMember.isPending}
-                    onClick={async () => {
-                      try {
-                        await deleteMember.mutateAsync(member.id);
-                      } catch (error) {
-                        notifications.show({
-                          color: "red",
-                          title: "Unable to delete member",
-                          message: getErrorMessage(error),
-                        });
-                      }
-                    }}
+                    onClick={() => setDeleteTarget({ id: member.id, name: member.name })}
                   >
                     <IconTrash size={16} />
                   </ActionIcon>
@@ -132,6 +123,28 @@ export function MembersPage() {
               message: getErrorMessage(error),
             });
           }
+        }}
+      />
+      <ConfirmDeleteModal
+        opened={deleteTarget !== null}
+        itemName={deleteTarget?.name ?? ""}
+        itemType="member"
+        loading={deleteMember.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          void (async () => {
+            try {
+              await deleteMember.mutateAsync(deleteTarget.id);
+              setDeleteTarget(null);
+            } catch (error) {
+              notifications.show({
+                color: "red",
+                title: "Unable to delete member",
+                message: getErrorMessage(error),
+              });
+            }
+          })();
         }}
       />
     </Stack>

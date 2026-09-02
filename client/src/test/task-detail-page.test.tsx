@@ -10,6 +10,43 @@ import type { TaskDTO } from "@team-management/shared";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/* Mock tiptap — useEditor returns null in JSDOM; provide a controllable stub
+   so the test can still verify notes-save behaviour via handleSaveNotes.
+   The mock tracks content in a module-scoped variable; the Content component
+   reads from it but cannot trigger React re-renders. */
+let mockEditorContent = '';
+const mockEditor = {
+  getHTML: () => mockEditorContent,
+  commands: { setContent: (c: string) => { mockEditorContent = c; } },
+  setEditable: () => {},
+};
+vi.mock('@tiptap/react', () => ({
+  useEditor: () => mockEditor,
+}));
+vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
+vi.mock('@tiptap/extension-underline', () => ({ default: {} }));
+vi.mock('@tiptap/extension-link', () => ({ default: {} }));
+vi.mock('@mantine/tiptap', () => {
+  const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const RichTextEditor = Object.assign(Passthrough, {
+    Toolbar: Passthrough,
+    ControlsGroup: Passthrough,
+    Bold: () => null,
+    Italic: () => null,
+    Underline: () => null,
+    Strikethrough: () => null,
+    H3: () => null,
+    H4: () => null,
+    BulletList: () => null,
+    OrderedList: () => null,
+    Link: () => null,
+    Unlink: () => null,
+    Content: () => null,
+  });
+  return { RichTextEditor, Link: {} };
+});
+vi.mock('@mantine/tiptap/styles.css', () => ({}));
+
 import { TaskDetailPage } from "../pages/TaskDetailPage";
 
 const { useProjectDetailMock, useTaskDetailMock, mutateAsync, writeTextMock } = vi.hoisted(() => ({
@@ -126,13 +163,14 @@ describe("TaskDetailPage", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mockEditorContent = '';
   });
-
   it("renders description, notes, and active attachment previews", () => {
     renderPage(buildTask());
-
     expect(screen.getByText("Ship the launch checklist.")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Coordinate with support before rollout.")).toBeInTheDocument();
+    /* Notes content is set via the sync useEffect calling editor.commands.setContent.
+       Verify setContent was called with the right value. */
+    expect(mockEditorContent).toBe("Coordinate with support before rollout.");
     expect(screen.getAllByText("brief.png").length).toBeGreaterThan(0);
     expect(screen.getByAltText("brief.png")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download archive" })).not.toBeInTheDocument();
@@ -151,10 +189,10 @@ describe("TaskDetailPage", () => {
         attachmentsPreviewAvailable: false,
       }),
     );
-
-    const notesInput = screen.getByPlaceholderText("Add internal notes for this task.");
-    await user.clear(notesInput);
-    await user.type(notesInput, "Reopened only after customer sign-off.");
+    /* After render, editor.getHTML() returns "" (default) ≠ task.notes, so Save is enabled.
+       The sync useEffect calls setContent which sets mockEditorContent to task notes —
+       but does NOT trigger re-render, so the button stays enabled from initial render. */
+    mockEditorContent = "Reopened only after customer sign-off.";
     await user.click(screen.getByRole("button", { name: "Save notes" }));
 
     expect(mutateAsync).toHaveBeenCalledWith({

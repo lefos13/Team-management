@@ -41,6 +41,7 @@ import { useMemo, useState } from "react";
 import { CompactPagination } from "../components/CompactPagination";
 import { ProjectStatusBadge } from "../components/StatusBadge";
 import { ProjectFormModal } from "../components/forms/ProjectFormModal";
+import { ConfirmDeleteModal } from "../components/ConfirmDeleteModal";
 import {
   useCreateProject,
   useDeleteProject,
@@ -85,6 +86,7 @@ function getInvitationStatusColor(status: string) {
 export function ProjectsPage() {
   const [opened, setOpened] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [invitationProjectId, setInvitationProjectId] = useState<string | null>(
     null,
   );
@@ -311,18 +313,7 @@ export function ProjectsPage() {
                         color="red"
                         variant="subtle"
                         aria-label={`Delete ${project.name}`}
-                        loading={deleteProject.isPending}
-                        onClick={async () => {
-                          try {
-                            await deleteProject.mutateAsync(project.id);
-                          } catch (error) {
-                            notifications.show({
-                              color: "red",
-                              title: "Unable to delete project",
-                              message: getErrorMessage(error),
-                            });
-                          }
-                        }}
+                        onClick={() => setDeleteTarget({ id: project.id, name: project.name })}
                       >
                         <IconTrash size={24} stroke={1.8} />
                       </ActionIcon>
@@ -720,6 +711,28 @@ export function ProjectsPage() {
           </Group>
         </Stack>
       </Modal>
+      <ConfirmDeleteModal
+        opened={deleteTarget !== null}
+        itemName={deleteTarget?.name ?? ""}
+        itemType="project"
+        loading={deleteProject.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          void (async () => {
+            try {
+              await deleteProject.mutateAsync(deleteTarget.id);
+              setDeleteTarget(null);
+            } catch (error) {
+              notifications.show({
+                color: "red",
+                title: "Unable to delete project",
+                message: getErrorMessage(error),
+              });
+            }
+          })();
+        }}
+      />
     </Stack>
   );
 }

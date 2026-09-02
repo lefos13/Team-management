@@ -3,11 +3,17 @@ live outside the busy /tasks table while preserving the archive-only behavior
 for done work and keeping notes out of list views.
 */
 import type { ProjectDetailDTO, TaskDTO } from "@team-management/shared";
-import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconEye, IconFileText, IconNotes, IconShare } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { RichTextEditor } from '@mantine/tiptap';
+import { useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TiptapLink from '@tiptap/extension-link';
+import '@mantine/tiptap/styles.css';
 
 import { PageHeader } from "../components/PageHeader";
 import { DefectBadge, TaskStatusBadge } from "../components/StatusBadge";
@@ -87,11 +93,34 @@ export function TaskDetailPage() {
   const projectDetailQuery = useProjectDetail(taskQuery.data?.projectId ?? null);
   const updateTask = useUpdateTask();
   const createTaskShareLink = useCreateTaskShareLink();
-  const [notes, setNotes] = useState("");
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      TiptapLink,
+    ],
+    content: taskQuery.data?.notes ?? '',
+    editable: taskQuery.data?.canEdit ?? false,
+  });
+
+  // Sync editor content when task data changes
   useEffect(() => {
-    setNotes(taskQuery.data?.notes ?? "");
-  }, [taskQuery.data?.notes]);
+    if (editor && taskQuery.data?.notes !== undefined) {
+      const currentContent = editor.getHTML();
+      const newContent = taskQuery.data.notes ?? '';
+      if (currentContent !== newContent) {
+        editor.commands.setContent(newContent);
+      }
+    }
+  }, [editor, taskQuery.data?.notes]);
+
+  // Update editable state when task changes
+  useEffect(() => {
+    if (editor && taskQuery.data) {
+      editor.setEditable(taskQuery.data.canEdit ?? false);
+    }
+  }, [editor, taskQuery.data?.canEdit]);
 
   if (taskQuery.isLoading) {
     return <Loader />;
@@ -117,7 +146,7 @@ export function TaskDetailPage() {
         payload: {
           title: currentTask.title,
           description: currentTask.description ?? "",
-          notes,
+          notes: editor?.getHTML() ?? '',
           status: currentTask.status,
           isDefect: currentTask.isDefect,
           deadline: currentTask.deadline ?? "",
@@ -261,7 +290,7 @@ export function TaskDetailPage() {
             <IconFileText size={18} />
             <Text fw={800}>Description</Text>
           </Group>
-          <Text c="dimmed">{task.description || "No description added."}</Text>
+          <Text c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>{task.description || "No description added."}</Text>
         </Stack>
       </Paper>
 
@@ -271,18 +300,34 @@ export function TaskDetailPage() {
             <IconNotes size={18} />
             <Text fw={800}>Notes</Text>
           </Group>
-          <Textarea
-            minRows={6}
-            value={notes}
-            onChange={(event) => setNotes(event.currentTarget.value)}
-            placeholder="Add internal notes for this task."
-            readOnly={!task.canEdit}
-          />
+          <RichTextEditor editor={editor} className="task-detail-notes-editor">
+            <RichTextEditor.Toolbar sticky stickyOffset={0}>
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Bold />
+                <RichTextEditor.Italic />
+                <RichTextEditor.Underline />
+                <RichTextEditor.Strikethrough />
+              </RichTextEditor.ControlsGroup>
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.H3 />
+                <RichTextEditor.H4 />
+              </RichTextEditor.ControlsGroup>
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.BulletList />
+                <RichTextEditor.OrderedList />
+              </RichTextEditor.ControlsGroup>
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Link />
+                <RichTextEditor.Unlink />
+              </RichTextEditor.ControlsGroup>
+            </RichTextEditor.Toolbar>
+            <RichTextEditor.Content />
+          </RichTextEditor>
           {task.canEdit ? (
             <Group justify="end">
               <Button
                 loading={updateTask.isPending}
-                disabled={notes === (task.notes ?? "")}
+                disabled={editor?.getHTML() === (task.notes ?? '')}
                 onClick={() => void handleSaveNotes()}
               >
                 Save notes

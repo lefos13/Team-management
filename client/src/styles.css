@@ -1947,3 +1947,22 @@ compact viewports (down to 320px) without page-level horizontal overflow.
     padding-inline: 16px;
   }
 }
+
+/* Task form section styling */
+.task-form-section {
+  background: var(--mantine-color-default);
+}
+
+.task-form-title-input .mantine-TextInput-input {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+}
+
+/* Task detail notes rich text editor */
+.task-detail-notes-editor .mantine-RichTextEditor-content {
+  min-height: 200px;
+}
+
+.task-detail-notes-editor .mantine-RichTextEditor-root {
+  border-radius: var(--mantine-radius-md);
+}

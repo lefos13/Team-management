@@ -3,6 +3,7 @@ Convert the task form into the API payload shape, including the compatibility
 primary assignee and the complete multi-assignee member set.
 */
 import type { ProjectSummaryDTO, TaskDTO, TaskInput, TeamMemberDTO } from "@team-management/shared";
+import { ConfirmDeleteModal } from "../ConfirmDeleteModal";
 import { taskStatusLabels, taskStatusValues } from "@team-management/shared";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -106,6 +107,7 @@ export function TaskFormModal({
   onUploadAttachments,
 }: TaskFormModalProps) {
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [deleteAttachmentTarget, setDeleteAttachmentTarget] = useState<{ attachmentId: string; filename: string } | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -184,6 +186,7 @@ export function TaskFormModal({
   );
 
   return (
+    <>
     <Modal
       opened={opened}
       onClose={onClose}
@@ -209,110 +212,76 @@ export function TaskFormModal({
           });
         })}
       >
-        <Stack>
-          <TextInput label="Title" withAsterisk {...form.register("title")} error={form.formState.errors.title?.message} />
-          <Textarea
-            label="Description"
-            minRows={3}
-            resize="vertical"
-            autosize
-            maxRows={15}
-            {...form.register("description")}
-            error={form.formState.errors.description?.message}
-          />
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Controller
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <Select
-                    label="Status"
-                    withAsterisk
-                    data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value ?? "todo")}
-                  />
-                )}
+        <Stack gap="md">
+          <TextInput label="Title" withAsterisk className="task-form-title-input" {...form.register("title")} error={form.formState.errors.title?.message} />
+
+          <Paper withBorder radius="md" p="md" className="task-form-section">
+            <Text fw={700} size="sm" c="dimmed" mb="xs">Details</Text>
+            <Stack gap="sm">
+              <Textarea
+                label="Description"
+                minRows={4}
+                resize="vertical"
+                autosize
+                maxRows={20}
+                {...form.register("description")}
+                error={form.formState.errors.description?.message}
               />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Controller
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <Select
+                        label="Status"
+                        withAsterisk
+                        data={taskStatusValues.map((status) => ({ value: status, label: taskStatusLabels[status] }))}
+                        value={field.value}
+                        onChange={(value) => field.onChange(value ?? "todo")}
+                      />
+                    )}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Controller
+                    control={form.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <Select
+                        label="Project"
+                        withAsterisk
+                        data={projects.map((project) => ({ value: project.id, label: project.name }))}
+                        value={field.value}
+                        onChange={(value) => field.onChange(value ?? "")}
+                        error={form.formState.errors.projectId?.message}
+                        disabled={Boolean(task && !task.canManageAssignees)}
+                      />
+                    )}
+                  />
+                </Grid.Col>
+              </Grid>
+              {taskHasSubtasks ? (
+                <Alert color="yellow" variant="light" p="xs">
+                  Tasks with subtasks cannot be moved under another parent.
+                </Alert>
+              ) : null}
               <Controller
                 control={form.control}
-                name="projectId"
+                name="parentTaskId"
                 render={({ field }) => (
                   <Select
-                    label="Project"
-                    withAsterisk
-                    data={projects.map((project) => ({ value: project.id, label: project.name }))}
-                    value={field.value}
+                    label="Parent task"
+                    description="Leave empty for a top-level task."
+                    clearable
+                    data={parentOptions}
+                    value={field.value || null}
                     onChange={(value) => field.onChange(value ?? "")}
-                    error={form.formState.errors.projectId?.message}
-                    disabled={Boolean(task && !task.canManageAssignees)}
-                  />
-                )}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Controller
-                control={form.control}
-                name="assigneeIds"
-                render={({ field }) => (
-                  <MultiSelect
-                    label="Assignees"
-                    withAsterisk
-                    data={assignableMembers.map((member) => ({ value: member.id, label: member.name }))}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={form.formState.errors.assigneeIds?.message}
-                    disabled={!selectedProjectId || !canManageAssignees}
+                    disabled={!selectedProjectId || taskHasSubtasks}
                     searchable
                   />
                 )}
               />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Stack gap="xs" h="100%" justify="flex-end">
-                {taskHasSubtasks ? (
-                  <Alert color="yellow" variant="light" p="xs">
-                    Tasks with subtasks cannot be moved under another parent.
-                  </Alert>
-                ) : null}
-                <Controller
-                  control={form.control}
-                  name="parentTaskId"
-                  render={({ field }) => (
-                    <Select
-                      label="Parent task"
-                      description="Leave empty for a top-level task."
-                      clearable
-                      data={parentOptions}
-                      value={field.value || null}
-                      onChange={(value) => field.onChange(value ?? "")}
-                      disabled={!selectedProjectId || taskHasSubtasks}
-                      searchable
-                    />
-                  )}
-                />
-              </Stack>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <TextInput
-                label="Start date"
-                type="datetime-local"
-                {...form.register("startDate")}
-                error={form.formState.errors.startDate?.message}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <TextInput
-                label="Deadline"
-                type="datetime-local"
-                {...form.register("deadline")}
-                error={form.formState.errors.deadline?.message}
-              />
-            </Grid.Col>
-            <Grid.Col span={12}>
               <Controller
                 control={form.control}
                 name="isDefect"
@@ -324,8 +293,50 @@ export function TaskFormModal({
                   />
                 )}
               />
-            </Grid.Col>
-          </Grid>
+            </Stack>
+          </Paper>
+
+          <Paper withBorder radius="md" p="md" className="task-form-section">
+            <Text fw={700} size="sm" c="dimmed" mb="xs">Scheduling</Text>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Start date"
+                  type="datetime-local"
+                  {...form.register("startDate")}
+                  error={form.formState.errors.startDate?.message}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Deadline"
+                  type="datetime-local"
+                  {...form.register("deadline")}
+                  error={form.formState.errors.deadline?.message}
+                />
+              </Grid.Col>
+            </Grid>
+          </Paper>
+
+          <Paper withBorder radius="md" p="md" className="task-form-section">
+            <Text fw={700} size="sm" c="dimmed" mb="xs">Assignment</Text>
+            <Controller
+              control={form.control}
+              name="assigneeIds"
+              render={({ field }) => (
+                <MultiSelect
+                  label="Assignees"
+                  withAsterisk
+                  data={assignableMembers.map((member) => ({ value: member.id, label: member.name }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={form.formState.errors.assigneeIds?.message}
+                  disabled={!selectedProjectId || !canManageAssignees}
+                  searchable
+                />
+              )}
+            />
+          </Paper>
           <Paper withBorder radius="md" p="md">
             {task ? (
               <Stack gap="sm">
@@ -426,7 +437,7 @@ export function TaskFormModal({
                                 variant="light"
                                 aria-label={`Delete ${attachment.filename}`}
                                 loading={attachmentPending}
-                                onClick={() => void onDeleteAttachment(task.id, attachment.id)}
+                                onClick={() => setDeleteAttachmentTarget({ attachmentId: attachment.id, filename: attachment.filename })}
                               >
                                 <IconTrash size={16} />
                               </ActionIcon>
@@ -453,5 +464,24 @@ export function TaskFormModal({
         </Stack>
       </form>
     </Modal>
+      <ConfirmDeleteModal
+        opened={deleteAttachmentTarget !== null}
+        itemName={deleteAttachmentTarget?.filename ?? ""}
+        itemType="attachment"
+        loading={attachmentPending}
+        onClose={() => setDeleteAttachmentTarget(null)}
+        onConfirm={() => {
+          if (!deleteAttachmentTarget || !task) return;
+          void (async () => {
+            try {
+              await onDeleteAttachment(task.id, deleteAttachmentTarget.attachmentId);
+              setDeleteAttachmentTarget(null);
+            } catch {
+              // Error handling is done by the parent callback
+            }
+          })();
+        }}
+      />
+    </>
   );
 }

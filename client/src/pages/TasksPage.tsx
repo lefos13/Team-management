@@ -49,6 +49,7 @@ import { PageHeader } from "../components/PageHeader";
 import { CompactPagination } from "../components/CompactPagination";
 import { TaskStatusBadge } from "../components/StatusBadge";
 import { TaskFormModal } from "../components/forms/TaskFormModal";
+import { ConfirmDeleteModal } from "../components/ConfirmDeleteModal";
 import { TaskBoard } from "../components/task-board";
 import {
   downloadTaskAttachment,
@@ -552,6 +553,7 @@ export function TasksPage() {
   const [importResult, setImportResult] = useState<TaskImportResultDTO | null>(null);
   const [opened, setOpened] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [statusConfirmation, setStatusConfirmation] = useState<StatusConfirmationRequest | null>(null);
   const [localPendingStatusTaskIds, setLocalPendingStatusTaskIds] = useState<Set<string>>(() => new Set());
   const statusMoveInFlightRef = useRef<Set<string>>(new Set());
@@ -761,9 +763,16 @@ export function TasksPage() {
     }
   }
 
-  async function handleDeleteTask(taskId: string) {
+  function handleDeleteTask(taskId: string) {
+    const task = tasks.find((t) => t.id === taskId);
+    setDeleteTarget({ id: taskId, title: task?.title ?? "this task" });
+  }
+
+  async function confirmDeleteTask() {
+    if (!deleteTarget) return;
     try {
-      await deleteTask.mutateAsync(taskId);
+      await deleteTask.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
     } catch (error) {
       notifications.show({
         color: "red",
@@ -1369,6 +1378,14 @@ export function TasksPage() {
           </Group>
         </Stack>
       </Modal>
+      <ConfirmDeleteModal
+        opened={deleteTarget !== null}
+        itemName={deleteTarget?.title ?? ""}
+        itemType="task"
+        loading={deleteTask.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteTask()}
+      />
     </Stack>
   );
 }
