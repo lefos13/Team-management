@@ -29,7 +29,20 @@ const theme = createTheme({
       "#009579",
       "#007f67",
     ],
+    dark: [
+      "#f1f5f9",
+      "#cbd5e1",
+      "#94a3b8",
+      "#64748b",
+      "#334155",
+      "#1e293b",
+      "#172337",
+      "#121e32",
+      "#0d1625",
+      "#080f1a",
+    ],
   },
+  defaultRadius: "md",
 });
 
 const colorSchemeManager = localStorageColorSchemeManager({

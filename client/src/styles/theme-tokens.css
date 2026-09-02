@@ -1,0 +1,125 @@
+/* ==========================================================================
+   Centralized Theme Design Tokens
+   Single source of truth for color schemes, surfaces, typography, and borders.
+   ========================================================================== */
+
+:root,
+[data-mantine-color-scheme="light"] {
+  /* Canvas & Base Backgrounds */
+  --app-bg-canvas: linear-gradient(180deg, #f5f8fb 0%, #eef5f1 48%, #f9fbf7 100%);
+  --app-bg-canvas-solid: #f5f8fb;
+  --app-bg-admin: radial-gradient(circle at top right, rgba(11, 114, 133, 0.12), transparent 28%),
+    linear-gradient(180deg, #f4f8fb 0%, #edf4f1 52%, #f8fbf8 100%);
+  --app-bg-landing: radial-gradient(circle at 18% 12%, rgba(22, 169, 139, 0.09) 0%, transparent 42%),
+    radial-gradient(circle at 82% 16%, rgba(11, 114, 133, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(20, 90, 160, 0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #f7fafc 0%, #edf3f7 42%, #f5f9f8 100%);
+  --app-bg-landing-alt: linear-gradient(180deg, rgba(236, 244, 248, 0.5) 0%, rgba(243, 248, 246, 0.8) 100%);
+
+  /* Surfaces: Cards, Panels, Modals, Drawers */
+  --app-bg-surface: rgba(255, 255, 255, 0.95);
+  --app-bg-surface-solid: #ffffff;
+  --app-bg-surface-elevated: #ffffff;
+  --app-bg-surface-subtle: rgba(244, 248, 251, 0.85);
+  --app-bg-surface-hover: #f8fafc;
+  --app-bg-surface-active: #edf2f7;
+  --app-bg-surface-card: #ffffff;
+  --app-bg-input: #ffffff;
+
+  /* Header & Navigation Shell */
+  --app-bg-header: rgba(255, 255, 255, 0.96);
+  --app-bg-navbar: linear-gradient(180deg, #061c36 0%, #082444 100%);
+  --app-bg-footer: rgba(255, 255, 255, 0.85);
+  --app-bg-drawer: #ffffff;
+
+  /* Borders & Dividers */
+  --app-border: rgba(15, 35, 56, 0.08);
+  --app-border-subtle: rgba(15, 35, 56, 0.05);
+  --app-border-hover: rgba(15, 128, 134, 0.36);
+  --app-border-strong: rgba(15, 35, 56, 0.14);
+
+  /* Typography */
+  --app-text-title: #0b192c;
+  --app-text-heading: #111827;
+  --app-text-body: #132238;
+  --app-text-secondary: #4a5d73;
+  --app-text-dimmed: #64748b;
+  --app-text-subtle: #8da2b5;
+
+  /* Shadows */
+  --app-shadow-card: 0 12px 28px rgba(15, 35, 56, 0.05);
+  --app-shadow-panel: 0 18px 45px rgba(15, 35, 56, 0.06);
+  --app-shadow-modal: 0 28px 72px rgba(19, 34, 56, 0.15);
+
+  /* Kanban Elements */
+  --app-kanban-col-bg: #f4f7f9;
+  --app-kanban-card-bg: #ffffff;
+  --app-kanban-card-border: #dce3ec;
+
+  /* Calendar */
+  --app-calendar-bg: #ffffff;
+  --app-calendar-border: rgba(15, 35, 56, 0.08);
+  --app-calendar-head: #f8fafc;
+  --app-calendar-today: rgba(22, 169, 139, 0.12);
+  --app-calendar-text: #132238;
+}
+
+[data-mantine-color-scheme="dark"] {
+  /* Canvas & Base Backgrounds */
+  --app-bg-canvas: #080f1a;
+  --app-bg-canvas-solid: #080f1a;
+  --app-bg-admin: radial-gradient(circle at top right, rgba(11, 114, 133, 0.15), transparent 28%),
+    linear-gradient(180deg, #09101b 0%, #060c16 52%, #080f1a 100%);
+  --app-bg-landing: radial-gradient(circle at 18% 12%, rgba(22, 169, 139, 0.12) 0%, transparent 42%),
+    radial-gradient(circle at 82% 16%, rgba(11, 114, 133, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(20, 90, 160, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #080f1a 0%, #050a12 42%, #070d17 100%);
+  --app-bg-landing-alt: linear-gradient(180deg, rgba(13, 22, 36, 0.75) 0%, rgba(9, 16, 28, 0.95) 100%);
+
+  /* Surfaces: Cards, Panels, Modals, Drawers */
+  --app-bg-surface: #111e32;
+  --app-bg-surface-solid: #111e32;
+  --app-bg-surface-elevated: #16263e;
+  --app-bg-surface-subtle: #0d1727;
+  --app-bg-surface-hover: #172740;
+  --app-bg-surface-active: #1c2f4d;
+  --app-bg-surface-card: #142238;
+  --app-bg-input: #0b1422;
+
+  /* Header & Navigation Shell */
+  --app-bg-header: rgba(10, 18, 30, 0.95);
+  --app-bg-navbar: linear-gradient(180deg, #050a13 0%, #03070d 100%);
+  --app-bg-footer: rgba(9, 16, 27, 0.94);
+  --app-bg-drawer: #0e1828;
+
+  /* Borders & Dividers */
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-border-subtle: rgba(255, 255, 255, 0.06);
+  --app-border-hover: rgba(45, 212, 191, 0.4);
+  --app-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Typography */
+  --app-text-title: #f8fafc;
+  --app-text-heading: #f1f5f9;
+  --app-text-body: #e2e8f0;
+  --app-text-secondary: #cbd5e1;
+  --app-text-dimmed: #94a3b8;
+  --app-text-subtle: #64748b;
+
+  /* Shadows */
+  --app-shadow-card: 0 12px 28px rgba(0, 0, 0, 0.45);
+  --app-shadow-panel: 0 18px 45px rgba(0, 0, 0, 0.55);
+  --app-shadow-modal: 0 28px 72px rgba(0, 0, 0, 0.7);
+
+  /* Kanban Elements */
+  --app-kanban-col-bg: #0c1626;
+  --app-kanban-card-bg: #142238;
+  --app-kanban-card-border: rgba(255, 255, 255, 0.1);
+
+  /* Calendar */
+  --app-calendar-bg: #111e32;
+  --app-calendar-border: rgba(255, 255, 255, 0.1);
+  --app-calendar-head: #0d1727;
+  --app-calendar-today: rgba(22, 169, 139, 0.22);
+  --app-calendar-text: #f1f5f9;
+}
