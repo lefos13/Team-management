@@ -14,6 +14,21 @@ export interface WhatsNewEntry {
 
 export const whatsNewEntries: WhatsNewEntry[] = [
   {
+    id: "release-dark-mode-refactor-and-kanban-polish",
+    date: "2026-09-02",
+    version: "v1.4.1",
+    title: "Dark Theme Polish & Full-Width Kanban Board",
+    summary:
+      "Enhanced dark theme visibility for card action icons, avatars, and attachments alongside full-width Kanban columns for wide displays.",
+    category: "improvement",
+    highlights: [
+      "Kanban columns now stretch to utilize 100% of the screen width on wide displays",
+      "High-contrast action icons, avatars, and attachment indicators in dark mode",
+      "Minimal standard and defect badges with informative hover tooltips",
+      "Centralized design token architecture ensuring consistent dark and light palettes across all pages",
+    ],
+  },
+  {
     id: "release-whats-new-feed",
     date: "2026-09-02",
     version: "v1.4.0",

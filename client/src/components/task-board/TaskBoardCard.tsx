@@ -5,7 +5,6 @@ accessible preview/edit/share/delete actions and scan-friendly metadata.
 import {
   ActionIcon,
   Avatar,
-  Badge,
   Group,
   Loader,
   Menu,
@@ -82,15 +81,17 @@ export function TaskBoardCard({
     >
       <Stack gap={6}>
         <Group justify="space-between" align="center" wrap="nowrap">
-          <Group gap={6} wrap="wrap">
-            <Badge
-              size="xs"
-              className={task.isDefect ? "task-type-badge task-type-badge-defect" : "task-type-badge task-type-badge-standard"}
+          <Tooltip label={task.isDefect ? "Defect issue" : "Standard task"} withArrow position="top" openDelay={200}>
+            <span
+              className={`task-type-badge ${task.isDefect ? "task-type-badge-defect" : "task-type-badge-standard"}`}
+              role="status"
+              tabIndex={0}
+              aria-label={task.isDefect ? "Defect" : "Standard"}
             >
-              {task.isDefect ? "Defect" : "Standard"}
-            </Badge>
-          </Group>
-
+              <span className="task-type-dot" aria-hidden="true" />
+              <span className="task-type-text">{task.isDefect ? "Defect" : "Standard"}</span>
+            </span>
+          </Tooltip>
           <Group gap={4} wrap="nowrap" className="tasks-row-actions">
             {task.canEdit && dragHandleRef ? (
               <Tooltip label="Drag to move task" withArrow openDelay={300}>
@@ -98,6 +99,7 @@ export function TaskBoardCard({
                   ref={dragHandleRef}
                   size="sm"
                   variant="subtle"
+                  color="gray"
                   className="tasks-action-icon task-board-drag-handle"
                   disabled={statusPending}
                   aria-label={`Drag ${task.title}`}
@@ -112,6 +114,7 @@ export function TaskBoardCard({
                   <ActionIcon
                     size="sm"
                     variant="subtle"
+                    color="gray"
                     className="tasks-action-icon task-board-status-menu-target"
                     loading={statusPending}
                     disabled={statusPending}
@@ -150,6 +153,7 @@ export function TaskBoardCard({
               <ActionIcon
                 size="sm"
                 variant="subtle"
+                color="gray"
                 className="tasks-action-icon"
                 onClick={() => onPreview(task.id)}
                 aria-label={`Preview ${task.title}`}
@@ -163,6 +167,7 @@ export function TaskBoardCard({
                   <ActionIcon
                     size="sm"
                     variant="subtle"
+                    color="gray"
                     className="tasks-action-icon"
                     onClick={() => onEdit(task.id)}
                     aria-label={`Edit ${task.title}`}
@@ -174,6 +179,7 @@ export function TaskBoardCard({
                   <ActionIcon
                     size="sm"
                     variant="subtle"
+                    color="gray"
                     className="tasks-action-icon"
                     onClick={() => onShare(task.id)}
                     aria-label={`Share ${task.title}`}

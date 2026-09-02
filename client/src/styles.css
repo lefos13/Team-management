@@ -1689,8 +1689,15 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .tasks-attachment-count {
-  color: #4b5563;
+  color: var(--app-text-dimmed);
   font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tasks-attachment-count svg {
+  color: var(--app-text-dimmed);
 }
 
 .task-assignee-stack {
@@ -1698,16 +1705,17 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .task-assignee-avatar {
-  border: 2px solid #ffffff;
-  background: #e8efff;
-  color: #12213a;
-  font-size: 0.74rem;
+  border: 2px solid var(--app-kanban-card-bg);
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.72rem;
   font-weight: 850;
 }
 
 .task-assignee-avatar-more {
-  background: #eef2f7;
-  color: #4b5563;
+  border: 2px solid var(--app-kanban-card-bg);
+  background: var(--app-bg-surface-subtle);
+  color: var(--app-text-secondary);
 }
 
 .tasks-status-select {
@@ -1723,25 +1731,47 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .task-type-badge {
-  height: 28px;
-  border-radius: 6px;
-  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1;
+  cursor: default;
+  transition: all 150ms ease;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.task-type-badge .mantine-Badge-label {
-  font-size: 0.72rem;
-  font-weight: 850;
-  letter-spacing: 0;
+.task-type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .task-type-badge-standard {
-  background: #e8f7e6;
-  color: #287322;
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+}
+
+.task-type-badge-standard .task-type-dot {
+  background: #0f766e;
 }
 
 .task-type-badge-defect {
-  background: #ffe7e5;
-  color: #c92a2a;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.task-type-badge-defect .task-type-dot {
+  background: #dc2626;
 }
 
 .tasks-actions-cell {
@@ -1753,16 +1783,23 @@ leaving the broader app shell and the other pages on the existing teal theme.
 }
 
 .tasks-action-icon {
-  color: #1f2a3d;
+  color: var(--app-text-dimmed);
+  border-radius: 4px;
+  transition: all 120ms ease;
 }
 
 .tasks-action-icon:hover {
-  background: #eef4ff;
-  color: #0b5cff;
+  background: var(--app-bg-surface-hover);
+  color: var(--app-text-heading);
 }
 
 .tasks-action-icon-danger {
-  color: #ff5a5f;
+  color: #f87171;
+}
+
+.tasks-action-icon-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 .tasks-subtask-pagination-row td {
@@ -1823,6 +1860,7 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
   display: flex;
   gap: 16px;
   align-items: stretch;
+  width: 100%;
   min-width: min-content;
 }
 
@@ -1831,9 +1869,8 @@ fixed-width columns, scan-friendly cards, and responsive horizontal scrolling.
   tallest content height to keep lower empty space available for dropping.
 */
 .task-board-column {
-  flex: 0 0 280px;
-  width: 280px;
-  min-width: 280px;
+  flex: 1 1 0px;
+  min-width: 240px;
   background: var(--app-kanban-col-bg);
   border: 1px solid var(--app-border);
   border-radius: 8px;
@@ -2860,6 +2897,49 @@ compact viewports (down to 320px) without page-level horizontal overflow.
 [data-mantine-color-scheme="dark"] .task-board-mobile-tab[data-active="true"] {
   background: #152238;
   color: #f8fafc;
+}
+
+/* Action icons in Dark Mode */
+[data-mantine-color-scheme="dark"] .tasks-action-icon {
+  color: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-action-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-action-icon-danger {
+  color: #f87171;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-action-icon-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+/* Member avatars on cards */
+[data-mantine-color-scheme="dark"] .task-assignee-avatar {
+  border: 2px solid var(--app-kanban-card-bg) !important;
+  background: #1e3a5f !important;
+  color: #e0f2fe !important;
+}
+
+[data-mantine-color-scheme="dark"] .task-assignee-avatar-more {
+  border: 2px solid var(--app-kanban-card-bg) !important;
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+/* Attachment icon and text */
+[data-mantine-color-scheme="dark"] .tasks-attachment-count,
+[data-mantine-color-scheme="dark"] .tasks-attachment-count svg {
+  color: #94a3b8 !important;
+}
+
+[data-mantine-color-scheme="dark"] .tasks-attachment-count .mantine-Text-root {
+  color: #cbd5e1 !important;
+  font-weight: 600;
 }
 
 /* FullCalendar Dark Contrast Rules */

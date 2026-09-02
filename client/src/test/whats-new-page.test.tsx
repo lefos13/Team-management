@@ -58,7 +58,7 @@ describe("What's New Feature", () => {
       for (const entry of whatsNewEntries) {
         expect(screen.getByText(entry.title)).toBeInTheDocument();
         expect(screen.getByText(entry.summary)).toBeInTheDocument();
-        expect(screen.getByText(formatDate(entry.date))).toBeInTheDocument();
+        expect(screen.getAllByText(formatDate(entry.date)).length).toBeGreaterThan(0);
 
         // Verify highlights
         for (const highlight of entry.highlights) {
