@@ -14,7 +14,11 @@ dotenv.config({
 /*
 Run the built Fastify server under PM2 with one environment source so deploys,
 reloads, and PM2 restarts do not keep stale localhost defaults.
+The root PM2 daemon starts it as the unprivileged PM2_RUN_AS user (default `apps`;
+set it empty to keep the daemon's user). deploy.sh hands ATTACHMENTS_DIR to that user.
 */
+const runAs = process.env.PM2_RUN_AS ?? "apps";
+
 module.exports = {
   apps: [
     {
@@ -24,8 +28,10 @@ module.exports = {
       instances: 1,
       exec_mode: "fork",
       env_file: envFile,
+      ...(runAs ? { uid: runAs, gid: runAs } : {}),
       env: {
         ...process.env,
+        ...(runAs ? { HOME: `/home/${runAs}` } : {}),
         NODE_ENV: "production",
         ENV_FILE: envFile,
       },

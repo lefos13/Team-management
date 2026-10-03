@@ -197,11 +197,22 @@ else
 fi
 
 mkdir -p "$ATTACHMENTS_DIR"
+# The app runs as PM2_RUN_AS (see ecosystem.config.cjs), so it must own the attachments it writes.
+PM2_RUN_AS="${PM2_RUN_AS-apps}"
+if [[ -n "$PM2_RUN_AS" ]] && ! id "$PM2_RUN_AS" >/dev/null 2>&1; then
+  echo "PM2_RUN_AS user '$PM2_RUN_AS' does not exist; running under the PM2 daemon's user."
+  PM2_RUN_AS=""
+fi
+if [[ -n "$PM2_RUN_AS" ]]; then
+  chown -R "$PM2_RUN_AS:$PM2_RUN_AS" "$ATTACHMENTS_DIR"
+  chmod 750 "$ATTACHMENTS_DIR"
+fi
 npx prisma migrate deploy --schema server/prisma/schema.prisma
 
 export APP_DIR
 export ENV_FILE
 export PM2_APP_NAME
+export PM2_RUN_AS
 : <<'COMMENT'
 /*
 Force PM2 to refresh environment variables on every deploy so changes in
