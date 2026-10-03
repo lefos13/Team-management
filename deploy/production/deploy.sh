@@ -78,68 +78,125 @@ ensure_build_swap() {
   fi
 }
 
+APP_DIR="$PROJECT_ROOT"
+
 : <<'COMMENT'
 /*
-First-time provisioning installs OS packages. Repeat deploys (CI) set
-DEPLOY_SKIP_APT=1 so they do not contend with unattended-upgrades for the dpkg
-lock or spend minutes re-checking packages that are already installed.
+CI deploys pass DEPLOY_PREBUILT_ARTIFACT: a zstd tarball holding production
+node_modules (Prisma client generated) and the built server/client bundles,
+produced on the GitHub runner. The droplet then only unpacks, migrates, and
+reloads, so it never runs npm install or Vite next to the live apps. Manual
+runs without the variable keep the full provision + build-on-host path.
 */
 COMMENT
-if [[ "${DEPLOY_SKIP_APT:-0}" != "1" ]]; then
+PREBUILT_ARTIFACT="${DEPLOY_PREBUILT_ARTIFACT:-}"
+
+# Paths the artifact owns. Nested workspace node_modules are listed so a stale
+# copy from an earlier on-host install can never shadow the shipped packages.
+ARTIFACT_PATHS=(node_modules server/node_modules client/node_modules packages/shared/node_modules server/dist client/dist)
+STAGING_DIR="$(dirname "$APP_DIR")/.team-management-deploy-staging"
+
+provision_host() {
   sudo apt-get update
   sudo apt-get install -y curl ca-certificates gnupg postgresql postgresql-contrib build-essential
-fi
 
-if ! command -v node >/dev/null 2>&1; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-  sudo apt-get install -y nodejs
-fi
+  if ! command -v node >/dev/null 2>&1; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+  fi
 
-APP_DIR="$PROJECT_ROOT"
-DB_HOST="$(node -e "console.log(new URL(process.argv[1]).hostname)" "$DATABASE_URL")"
-DB_PORT="$(node -e "console.log(new URL(process.argv[1]).port || '5432')" "$DATABASE_URL")"
-DB_NAME="$(node -e "console.log(new URL(process.argv[1]).pathname.replace(/^\//, ''))" "$DATABASE_URL")"
-DB_USER="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).username || 'postgres'))" "$DATABASE_URL")"
-DB_PASSWORD="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).password || ''))" "$DATABASE_URL")"
+  local db_host db_name db_user db_password
+  db_host="$(node -e "console.log(new URL(process.argv[1]).hostname)" "$DATABASE_URL")"
+  db_name="$(node -e "console.log(new URL(process.argv[1]).pathname.replace(/^\//, ''))" "$DATABASE_URL")"
+  db_user="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).username || 'postgres'))" "$DATABASE_URL")"
+  db_password="$(node -e "console.log(decodeURIComponent(new URL(process.argv[1]).password || ''))" "$DATABASE_URL")"
 
-if ! command -v pm2 >/dev/null 2>&1; then
-  sudo npm install -g pm2
-fi
+  if ! command -v pm2 >/dev/null 2>&1; then
+    sudo npm install -g pm2
+  fi
 
-sudo systemctl enable postgresql
-sudo systemctl start postgresql
-ensure_build_swap
+  sudo systemctl enable postgresql
+  sudo systemctl start postgresql
+  ensure_build_swap
 
-if [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]]; then
-  sudo -u postgres psql postgres <<SQL
+  if [[ "$db_host" == "127.0.0.1" || "$db_host" == "localhost" ]]; then
+    sudo -u postgres psql postgres <<SQL
 DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
-    CREATE ROLE "$DB_USER" LOGIN PASSWORD '$DB_PASSWORD';
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$db_user') THEN
+    CREATE ROLE "$db_user" LOGIN PASSWORD '$db_password';
   ELSE
-    ALTER ROLE "$DB_USER" WITH LOGIN PASSWORD '$DB_PASSWORD';
+    ALTER ROLE "$db_user" WITH LOGIN PASSWORD '$db_password';
   END IF;
 END
 \$\$;
 SQL
-  sudo -u postgres psql postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
-fi
+    sudo -u postgres psql postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$db_name'" | grep -q 1 || sudo -u postgres createdb -O "$db_user" "$db_name"
+  fi
+}
+
+build_on_host() {
+  cd "$APP_DIR"
+  npm install
+  npx prisma generate --schema server/prisma/schema.prisma
+
+  : <<'COMMENT'
+  /*
+  The client build is the only part that spikes memory on constrained servers, so
+  the deploy keeps the server and shared builds unchanged and limits the Node heap
+  only for the frontend bundle step.
+  */
+COMMENT
+  npm run build --workspace @team-management/shared
+  npm run build --workspace server
+  NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}" npm run build --workspace client
+}
+
+install_prebuilt() {
+  if [[ ! -f "$PREBUILT_ARTIFACT" ]]; then
+    echo "DEPLOY_PREBUILT_ARTIFACT does not exist: $PREBUILT_ARTIFACT"
+    exit 1
+  fi
+
+  rm -rf "$STAGING_DIR"
+  mkdir -p "$STAGING_DIR/new" "$STAGING_DIR/old"
+  # Lowest CPU and IO priority so unpacking never competes with the live apps.
+  nice -n 19 ionice -c 3 tar --zstd -xf "$PREBUILT_ARTIFACT" -C "$STAGING_DIR/new"
+
+  # Vite bakes the base path into the bundle; refuse a build made for another URL.
+  local built_base_url
+  built_base_url="$(cat "$STAGING_DIR/new/BUILD_APP_BASE_URL")"
+  if [[ "$built_base_url" != "$APP_BASE_URL" ]]; then
+    echo "Artifact was built for APP_BASE_URL=$built_base_url but $ENV_FILE has APP_BASE_URL=$APP_BASE_URL."
+    echo "Update the APP_BASE_URL repository variable in GitHub to match."
+    exit 1
+  fi
+  test -d "$STAGING_DIR/new/node_modules/.prisma/client"
+  test -f "$STAGING_DIR/new/server/dist/index.js"
+  test -f "$STAGING_DIR/new/client/dist/index.html"
+
+  local path
+  for path in "${ARTIFACT_PATHS[@]}"; do
+    if [[ -e "$APP_DIR/$path" ]]; then
+      mkdir -p "$(dirname "$STAGING_DIR/old/$path")"
+      mv "$APP_DIR/$path" "$STAGING_DIR/old/$path"
+    fi
+    if [[ -e "$STAGING_DIR/new/$path" ]]; then
+      mv "$STAGING_DIR/new/$path" "$APP_DIR/$path"
+    fi
+  done
+  echo "Installed prebuilt artifact $PREBUILT_ARTIFACT"
+}
 
 cd "$APP_DIR"
-npm install
-npx prisma generate --schema server/prisma/schema.prisma
-mkdir -p "$ATTACHMENTS_DIR"
+if [[ -n "$PREBUILT_ARTIFACT" ]]; then
+  install_prebuilt
+else
+  provision_host
+  build_on_host
+fi
 
-: <<'COMMENT'
-/*
-The client build is the only part that spikes memory on constrained servers, so
-the deploy keeps the server and shared builds unchanged and limits the Node heap
-only for the frontend bundle step.
-*/
-COMMENT
-npm run build --workspace @team-management/shared
-npm run build --workspace server
-NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}" npm run build --workspace client
+mkdir -p "$ATTACHMENTS_DIR"
 npx prisma migrate deploy --schema server/prisma/schema.prisma
 
 export APP_DIR
@@ -153,5 +210,10 @@ server/.env.production are applied immediately instead of keeping stale values.
 COMMENT
 pm2 startOrReload "$APP_DIR/deploy/production/ecosystem.config.cjs" --update-env
 pm2 save
-sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null || true
+if [[ -n "$PREBUILT_ARTIFACT" ]]; then
+  # Previous release is only needed until the reload succeeds; delete it at idle priority.
+  nice -n 19 ionice -c 3 rm -rf "$STAGING_DIR"
+else
+  sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null || true
+fi
 echo "Deployment completed. PM2 is running the API and built frontend on the same port; configure your reverse proxy separately."

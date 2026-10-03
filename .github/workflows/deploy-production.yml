@@ -15,18 +15,20 @@ on:
 permissions:
   contents: read
 
-# Never cancel a deploy halfway through a build or migration; queue the next one instead.
+# Never cancel a deploy halfway through a migration or reload; queue the next one instead.
 concurrency:
   group: deploy-production-team-management
   cancel-in-progress: false
 
 env:
   NODE_VERSION: '25.8.1'
+  ARTIFACT: team-management-release.tar.zst
 
 jobs:
-  checks:
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_checks }}
-    runs-on: ubuntu-latest
+  deploy:
+    # Pinned to the droplet's Ubuntu release so Prisma engines (debian-openssl-3.0.x) match the host.
+    runs-on: ubuntu-24.04
+    environment: production
     steps:
       - uses: actions/checkout@v6
 
@@ -42,9 +44,11 @@ jobs:
         run: npx prisma generate --schema server/prisma/schema.prisma
 
       - name: Typecheck
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_checks }}
         run: npm run typecheck
 
       - name: Test
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_checks }}
         # server tests start a throwaway PostgreSQL via initdb/pg_ctl. The runner ships the binaries
         # off PATH, and Debian's build puts the unix socket in /var/run/postgresql, which runner can't write.
         run: |
@@ -52,13 +56,40 @@ jobs:
           sudo install -d -o "$USER" /var/run/postgresql
           npm test
 
-  deploy:
-    needs: checks
-    # Run when checks passed, or when they were explicitly skipped via workflow_dispatch.
-    if: ${{ always() && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
+      - name: Build
+        env:
+          # Vite bakes the base path into the bundle; must equal APP_BASE_URL in the droplet's
+          # server/.env.production (deploy.sh refuses a mismatched artifact).
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_BASE_URL" || { echo "Set the APP_BASE_URL repository variable" >&2; exit 1; }
+          npm run build --workspace @team-management/shared
+          npm run build --workspace server
+          npm run build --workspace client
+
+      - name: Package release
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+        run: |
+          set -euo pipefail
+          # Replace the dev install with server-only production dependencies, then regenerate the
+          # Prisma client into it. The prisma CLI is a server dependency so migrations can run on the host.
+          rm -rf node_modules server/node_modules client/node_modules packages/shared/node_modules
+          npm ci --omit=dev --workspace server
+          npx prisma generate --schema server/prisma/schema.prisma
+          test -d node_modules/.prisma/client
+          test -d node_modules/dotenv
+          test -x node_modules/.bin/prisma
+
+          printf '%s' "$APP_BASE_URL" > BUILD_APP_BASE_URL
+          paths=(BUILD_APP_BASE_URL node_modules server/dist client/dist)
+          for p in server/node_modules client/node_modules packages/shared/node_modules; do
+            if [ -d "$p" ]; then paths+=("$p"); fi
+          done
+          tar -I 'zstd -T0 -10' -cf "$RUNNER_TEMP/$ARTIFACT" "${paths[@]}"
+          du -sh node_modules "$RUNNER_TEMP/$ARTIFACT"
+
       - name: Configure SSH
         env:
           DROPLET_SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
@@ -80,12 +111,16 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          ssh -p "$DROPLET_PORT" -i ~/.ssh/id_ed25519 \
-            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+          SSH_OPTS=(-i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes)
+          REMOTE_ARTIFACT="/tmp/team-management-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.zst"
+          scp -P "$DROPLET_PORT" "${SSH_OPTS[@]}" "$RUNNER_TEMP/$ARTIFACT" "$DROPLET_USER@$DROPLET_HOST:$REMOTE_ARTIFACT"
+
+          ssh -p "$DROPLET_PORT" "${SSH_OPTS[@]}" \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
             "$DROPLET_USER@$DROPLET_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_SHA='$DEPLOY_SHA' NODE_VERSION='$NODE_VERSION' bash -se" <<'REMOTE'
+            "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_SHA='$DEPLOY_SHA' NODE_VERSION='$NODE_VERSION' REMOTE_ARTIFACT='$REMOTE_ARTIFACT' bash -se" <<'REMOTE'
           set -euo pipefail
+          trap 'rm -f "$REMOTE_ARTIFACT"' EXIT
           trap 'rc=$?; echo "Remote deploy failed at line $LINENO: $BASH_COMMAND (exit $rc)" >&2; exit $rc' ERR
 
           # Non-interactive SSH shells do not load nvm; node/npm/pm2 live there.
@@ -109,7 +144,7 @@ jobs:
           git fetch --prune origin
           git reset --hard "$DEPLOY_SHA"
 
-          DEPLOY_SKIP_APT=1 bash deploy/production/deploy.sh
+          DEPLOY_PREBUILT_ARTIFACT="$REMOTE_ARTIFACT" bash deploy/production/deploy.sh
 
           set -a
           . server/.env.production
