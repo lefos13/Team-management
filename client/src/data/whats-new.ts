@@ -14,6 +14,14 @@ export interface WhatsNewEntry {
 
 export const whatsNewEntries: WhatsNewEntry[] = [
   {
+    id: "fix-auth-pages-dark-theme",
+    date: "2026-10-03",
+    title: "Dark Theme on Password Recovery",
+    summary: "The forgot password and reset password pages now follow your dark theme choice.",
+    category: "fix",
+    highlights: ["Readable headings and a matching dark background on password recovery pages"],
+  },
+  {
     id: "release-support-development",
     date: "2026-10-03",
     version: "v1.4.2",

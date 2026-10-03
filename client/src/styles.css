@@ -2780,6 +2780,22 @@ compact viewports (down to 320px) without page-level horizontal overflow.
   background: #0c1524;
 }
 
+/* Auth pages (login, forgot/reset password) keep a dark surface and readable text in dark mode */
+[data-mantine-color-scheme="dark"] .login-page {
+  background:
+    linear-gradient(118deg, rgba(12, 21, 36, 0.98) 0%, rgba(15, 30, 38, 0.94) 48%, rgba(12, 21, 36, 1) 100%),
+    linear-gradient(180deg, #0c1524 0%, #0f1e26 100%);
+  color: #e2e8f0;
+}
+
+[data-mantine-color-scheme="dark"] .login-page .hero-title {
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .login-page .eyebrow {
+  color: #4fd1c5;
+}
+
 /* Theme Toggle Button in Dark Mode */
 [data-mantine-color-scheme="dark"] .theme-toggle-btn {
   background-color: rgba(255, 255, 255, 0.08);
