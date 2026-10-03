@@ -78,8 +78,17 @@ ensure_build_swap() {
   fi
 }
 
-sudo apt-get update
-sudo apt-get install -y curl ca-certificates gnupg postgresql postgresql-contrib build-essential
+: <<'COMMENT'
+/*
+First-time provisioning installs OS packages. Repeat deploys (CI) set
+DEPLOY_SKIP_APT=1 so they do not contend with unattended-upgrades for the dpkg
+lock or spend minutes re-checking packages that are already installed.
+*/
+COMMENT
+if [[ "${DEPLOY_SKIP_APT:-0}" != "1" ]]; then
+  sudo apt-get update
+  sudo apt-get install -y curl ca-certificates gnupg postgresql postgresql-contrib build-essential
+fi
 
 if ! command -v node >/dev/null 2>&1; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -

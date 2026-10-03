@@ -1,0 +1,130 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      skip_checks:
+        description: Skip typecheck/tests and deploy immediately
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never cancel a deploy halfway through a build or migration; queue the next one instead.
+concurrency:
+  group: deploy-production-team-management
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '25.8.1'
+
+jobs:
+  checks:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_checks }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema server/prisma/schema.prisma
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        # server tests start a throwaway PostgreSQL via initdb/pg_ctl; the runner ships the binaries off PATH.
+        run: |
+          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n1):$PATH"
+          npm test
+
+  deploy:
+    needs: checks
+    # Run when checks passed, or when they were explicitly skipped via workflow_dispatch.
+    if: ${{ always() && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH
+        env:
+          DROPLET_SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
+          DROPLET_HOST_KEY: ${{ secrets.DROPLET_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DROPLET_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DROPLET_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy on Droplet
+        env:
+          DROPLET_HOST: ${{ secrets.DROPLET_HOST }}
+          DROPLET_USER: ${{ secrets.DROPLET_USER }}
+          DROPLET_PORT: ${{ secrets.DROPLET_PORT || '22' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ssh -p "$DROPLET_PORT" -i ~/.ssh/id_ed25519 \
+            -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "$DROPLET_USER@$DROPLET_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_SHA='$DEPLOY_SHA' NODE_VERSION='$NODE_VERSION' bash -se" <<'REMOTE'
+          set -euo pipefail
+          trap 'rc=$?; echo "Remote deploy failed at line $LINENO: $BASH_COMMAND (exit $rc)" >&2; exit $rc' ERR
+
+          # Non-interactive SSH shells do not load nvm; node/npm/pm2 live there.
+          export NVM_DIR="$HOME/.nvm"
+          . "$NVM_DIR/nvm.sh"
+          nvm use "$NODE_VERSION" >/dev/null
+          echo "node $(node -v), npm $(npm -v), pm2 $(pm2 -v)"
+
+          cd "$DEPLOY_PATH"
+          echo "Deploying $DEPLOY_SHA (was $(git rev-parse --short HEAD))"
+
+          # Keep a copy of any hand edits to tracked files before resetting to the pushed commit.
+          if ! git diff --quiet; then
+            BACKUP_DIR="$(dirname "$DEPLOY_PATH")/deploy-backups"
+            mkdir -p "$BACKUP_DIR"
+            BACKUP_FILE="$BACKUP_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD).diff"
+            git diff > "$BACKUP_FILE"
+            echo "Saved local changes to tracked files: $BACKUP_FILE"
+          fi
+
+          git fetch --prune origin
+          git reset --hard "$DEPLOY_SHA"
+
+          DEPLOY_SKIP_APT=1 bash deploy/production/deploy.sh
+
+          set -a
+          . server/.env.production
+          set +a
+          BASE_PATH="$(node -e 'process.stdout.write(new URL(process.argv[1]).pathname.replace(/\/$/, ""))' "$APP_BASE_URL")"
+          HEALTH_URL="http://127.0.0.1:${PORT:-3001}${BASE_PATH}/api/health"
+          for attempt in $(seq 1 20); do
+            if curl -fsS "$HEALTH_URL"; then
+              echo
+              echo "Health check passed: $HEALTH_URL"
+              exit 0
+            fi
+            echo "Health check ${attempt}/20 failed on $HEALTH_URL; waiting..."
+            sleep 3
+          done
+
+          echo "Health check failed: $HEALTH_URL" >&2
+          pm2 logs "${PM2_APP_NAME:-team-management}" --lines 100 --nostream || true
+          exit 1
+          REMOTE
