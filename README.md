@@ -130,6 +130,17 @@ After the script finishes, point your reverse proxy to the PM2-managed app separ
 
 If you use Gmail, create a Google App Password for `softaware.studios@gmail.com` and place it in `GMAIL_APP_PASSWORD`. The app uses Nodemailer with Gmail transport when `EMAIL_PROVIDER=gmail`.
 
+### Automated deploys (GitHub Actions)
+
+Pushing to `main` runs [.github/workflows/deploy-production.yml](.github/workflows/deploy-production.yml). On the GitHub runner it typechecks, runs the tests, builds shared/server/client, and packages server-only production `node_modules` (with the Prisma client generated) plus `server/dist` and `client/dist` into a zstd tarball. The droplet just resets the checkout to the pushed commit and runs `deploy.sh` with `DEPLOY_PREBUILT_ARTIFACT`: it unpacks the tarball at idle CPU/IO priority, swaps it in, runs `prisma migrate deploy`, and reloads PM2. It never runs `npm install` or Vite on the server.
+
+Repository settings it needs:
+
+- Secrets: `DROPLET_HOST`, `DROPLET_USER`, `DROPLET_SSH_KEY`, `DROPLET_HOST_KEY` (known_hosts lines), `DEPLOY_PATH`, and optionally `DROPLET_PORT`.
+- Variable: `APP_BASE_URL`, which must match `APP_BASE_URL` in the droplet's `server/.env.production`. Vite builds the base path into the bundle, and `deploy.sh` rejects an artifact built for a different URL.
+
+Running `deploy.sh` by hand without `DEPLOY_PREBUILT_ARTIFACT` still does the full provision and build on the server.
+
 ## Testing Notes
 
 - Server tests start an isolated PostgreSQL instance under `/tmp/team-management-pg-test` and run Prisma migrations against it.
