@@ -45,9 +45,11 @@ jobs:
         run: npm run typecheck
 
       - name: Test
-        # server tests start a throwaway PostgreSQL via initdb/pg_ctl; the runner ships the binaries off PATH.
+        # server tests start a throwaway PostgreSQL via initdb/pg_ctl. The runner ships the binaries
+        # off PATH, and Debian's build puts the unix socket in /var/run/postgresql, which runner can't write.
         run: |
           export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n1):$PATH"
+          sudo install -d -o "$USER" /var/run/postgresql
           npm test
 
   deploy:
