@@ -139,4 +139,30 @@ describe("AuthLandingPage Showcase", () => {
     expect(screen.getByText(/VERIFIED CLIENT ACCESS • READ-ONLY TOKEN/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /edit scope/i })).not.toBeInTheDocument();
   });
+
+  it("renders the support section with working links and footer support anchor", () => {
+    renderLandingPage();
+
+    // Support section heading
+    expect(
+      screen.getByRole("heading", { level: 2, name: /support mgteam development/i }),
+    ).toBeInTheDocument();
+
+    // GitHub Sponsors link
+    const githubLink = screen.getByRole("link", { name: /sponsor on github/i });
+    expect(githubLink).toHaveAttribute("href", "https://github.com/sponsors/lefos13");
+    expect(githubLink).toHaveAttribute("target", "_blank");
+    expect(githubLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    // Buy Me a Coffee link
+    const coffeeLink = screen.getByRole("link", { name: /buy me a coffee/i });
+    expect(coffeeLink).toHaveAttribute("href", "https://buymeacoffee.com/lefterisev2");
+    expect(coffeeLink).toHaveAttribute("target", "_blank");
+    expect(coffeeLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    // Footer link pointing to #support
+    const footerLink = screen.getByRole("link", { name: /^support$/i });
+    expect(footerLink).toHaveAttribute("href", "#support");
+  });
 });
+

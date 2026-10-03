@@ -15,6 +15,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { getCurrentUser, useLogout } from "../hooks/use-auth";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { SupportLinks } from "../components/SupportLinks";
 
 const navigation = [
   { label: "Dashboard", path: "/", icon: IconLayoutDashboard },
@@ -108,12 +109,7 @@ export function AppShellLayout() {
             </Stack>
           </Stack>
           <Stack className="shell-upgrade" gap="xs">
-            <Text fw={800} c="teal.3">
-              Project focus
-            </Text>
-            <Text size="sm" c="blue.1">
-              Review progress, deadlines, and team ownership before work becomes urgent.
-            </Text>
+            <SupportLinks />
           </Stack>
         </Stack>
       </AppShell.Navbar>

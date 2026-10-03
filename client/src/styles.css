@@ -775,6 +775,99 @@ recognizable without shifting header, sidebar, or mobile navigation layouts.
   transform: translateY(-2px);
 }
 
+/* Support Section */
+.landing-support-section {
+  padding: 80px 0 96px;
+  position: relative;
+  background: var(--app-bg-landing-alt);
+  border-top: 1px solid var(--app-border-subtle);
+}
+
+.support-cards-wrapper {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.support-card {
+  background: var(--app-bg-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-card);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.support-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(15, 35, 56, 0.08);
+  border-color: var(--app-border-hover);
+}
+
+.support-card-title {
+  color: var(--app-text-title);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.support-card-description {
+  line-height: 1.6;
+}
+
+.support-icon-github {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.support-icon-coffee {
+  background: rgba(245, 159, 0, 0.12);
+  color: #d97706;
+}
+
+.support-cta-github {
+  background: #1f2937;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.25);
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.support-cta-github:hover {
+  background: #111827;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(31, 41, 55, 0.35);
+}
+
+.support-cta-coffee {
+  background: #f59f00;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(245, 159, 0, 0.3);
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.support-cta-coffee:hover {
+  background: #f08c00;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 159, 0, 0.4);
+}
+
+.support-pledge-container {
+  display: flex;
+  justify-content: center;
+}
+
+.support-pledge {
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--app-bg-surface-subtle);
+  border: 1px solid var(--app-border-subtle);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.support-pledge-icon {
+  color: #fa5252;
+  fill: #fa5252;
+  flex-shrink: 0;
+}
+
 /* Landing Footer */
 .landing-footer-container {
   border-top: 1px solid var(--app-border);
@@ -845,6 +938,10 @@ recognizable without shifting header, sidebar, or mobile navigation layouts.
     padding: 32px 18px;
   }
 
+  .landing-support-section {
+    padding: 48px 0 60px;
+  }
+
   .capacity-inspector-card,
   .kanban-showcase-shell,
   .collaboration-card {
@@ -892,6 +989,28 @@ recognizable without shifting header, sidebar, or mobile navigation layouts.
   padding: 16px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.shell-support-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5eead4;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  transition: all 150ms ease;
+}
+
+.shell-support-link:hover {
+  background: rgba(45, 212, 191, 0.2);
+  color: #a7f3d0;
+  border-color: rgba(45, 212, 191, 0.4);
+  text-decoration: none;
 }
 
 .content-card,
@@ -3283,4 +3402,63 @@ compact viewports (down to 320px) without page-level horizontal overflow.
   background: #111e32;
   border-color: rgba(255, 255, 255, 0.1);
   color: #f1f5f9;
+}
+
+/* Support Section Dark Styles */
+[data-mantine-color-scheme="dark"] .landing-support-section {
+  background: var(--app-bg-landing-alt);
+  border-top-color: var(--app-border-subtle);
+}
+
+[data-mantine-color-scheme="dark"] .support-card {
+  background: var(--app-bg-surface);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
+}
+
+[data-mantine-color-scheme="dark"] .support-card:hover {
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.4);
+  border-color: var(--app-border-hover);
+}
+
+[data-mantine-color-scheme="dark"] .support-card-title {
+  color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .support-icon-github {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+[data-mantine-color-scheme="dark"] .support-icon-coffee {
+  background: rgba(245, 159, 0, 0.16);
+  color: #fbbf24;
+}
+
+[data-mantine-color-scheme="dark"] .support-cta-github {
+  background: #334155;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+[data-mantine-color-scheme="dark"] .support-cta-github:hover {
+  background: #475569;
+}
+
+[data-mantine-color-scheme="dark"] .support-pledge {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Shell Support Link Dark Styles */
+[data-mantine-color-scheme="dark"] .shell-support-link {
+  color: #5eead4;
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.25);
+}
+
+[data-mantine-color-scheme="dark"] .shell-support-link:hover {
+  background: rgba(45, 212, 191, 0.22);
+  color: #a7f3d0;
+  border-color: rgba(45, 212, 191, 0.45);
 }

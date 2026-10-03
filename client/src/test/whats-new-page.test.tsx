@@ -193,5 +193,19 @@ describe("What's New Feature", () => {
       expect(headerTitle).toBeInTheDocument();
       expect(screen.getByText(whatsNewEntries[0].title)).toBeInTheDocument();
     });
+
+    it("renders support links with correct href and rel in the app shell", () => {
+      renderAppShell("/");
+
+      const sponsorLink = screen.getByRole("link", { name: /sponsor/i });
+      expect(sponsorLink).toHaveAttribute("href", "https://github.com/sponsors/lefos13");
+      expect(sponsorLink).toHaveAttribute("target", "_blank");
+      expect(sponsorLink).toHaveAttribute("rel", "noopener noreferrer");
+
+      const coffeeLink = screen.getByRole("link", { name: /buy a coffee/i });
+      expect(coffeeLink).toHaveAttribute("href", "https://buymeacoffee.com/lefterisev2");
+      expect(coffeeLink).toHaveAttribute("target", "_blank");
+      expect(coffeeLink).toHaveAttribute("rel", "noopener noreferrer");
+    });
   });
 });

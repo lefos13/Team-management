@@ -11,6 +11,7 @@ import {
   LandingFooter,
   LandingHeader,
   LandingHero,
+  SupportSection,
   VisibilityShowcase,
   WorkflowShowcase,
 } from "../components/landing";
@@ -82,6 +83,8 @@ export function AuthLandingPage({
           onOpenLogin={() => switchMode("login")}
           onOpenRegister={() => switchMode("register")}
         />
+
+        <SupportSection />
       </main>
 
       {/* Global Footer */}

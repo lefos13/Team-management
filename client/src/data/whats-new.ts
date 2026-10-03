@@ -14,6 +14,20 @@ export interface WhatsNewEntry {
 
 export const whatsNewEntries: WhatsNewEntry[] = [
   {
+    id: "release-support-development",
+    date: "2026-10-03",
+    version: "v1.4.2",
+    title: "Support MGteam Development",
+    summary:
+      "You can now back ongoing MGteam development and infrastructure through GitHub Sponsors and Buy Me a Coffee.",
+    category: "feature",
+    highlights: [
+      "New community support section on the landing page",
+      "Quick support links in the sidebar and mobile navigation menu",
+      "Flexible contribution options via GitHub Sponsors and Buy Me a Coffee",
+    ],
+  },
+  {
     id: "release-dark-mode-refactor-and-kanban-polish",
     date: "2026-09-02",
     version: "v1.4.1",
