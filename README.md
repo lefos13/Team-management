@@ -126,7 +126,7 @@ Typical production flow:
    bash deploy/production/deploy.sh
    ```
 
-After the script finishes, point your reverse proxy to the PM2-managed app separately. The Fastify server runs from `server/dist/index.js` using the `PORT` defined in `server/.env.production`, serves `/api/*` itself, and also serves the built frontend from `client/dist` for all non-API routes.
+After the script finishes, point your reverse proxy to the PM2-managed app separately. The Fastify server runs from `server/dist/index.js` using the `PORT` defined in `server/.env.production` and listens on `127.0.0.1` unless `HOST` is set, serves `/api/*` itself, and also serves the built frontend from `client/dist` for all non-API routes.
 
 If you use Gmail, create a Google App Password for `softaware.studios@gmail.com` and place it in `GMAIL_APP_PASSWORD`. The app uses Nodemailer with Gmail transport when `EMAIL_PROVIDER=gmail`.
 

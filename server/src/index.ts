@@ -17,7 +17,7 @@ async function main() {
   process.on("SIGTERM", shutdown);
 
   await app.listen({
-    host: "0.0.0.0",
+    host: config.HOST,
     port: config.PORT,
   });
 }
